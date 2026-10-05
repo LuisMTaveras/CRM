@@ -1,0 +1,10 @@
+export * from './types/comunicacion.types';
+export * from './types/smtp.types';
+export * from './services/email.service';
+export * from './services/pdf-generator.service';
+export * from './services/smtp.service';
+export * from './services/document-parser.service';
+export { default as ComunicacionesView } from './views/ComunicacionesView.vue';
+export { default as EnvioMasivoModal } from './components/EnvioMasivoModal.vue';
+export { default as ConfiguracionSmtpModal } from './components/ConfiguracionSmtpModal.vue';
+export { default as CargarDocumentoModal } from './components/CargarDocumentoModal.vue';
