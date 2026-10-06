@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@flickerless/core": "file:../flickerless/packages/core",
+    "@flickerless/vue": "file:../flickerless/packages/vue",
     "@vueuse/core": "^12.5.0",
     "clsx": "^2.1.1",
     "jspdf": "^4.2.1",
