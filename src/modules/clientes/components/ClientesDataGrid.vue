@@ -285,7 +285,13 @@ const clasesBadgePrioridad = (prioridad: string) => {
 
     <!-- Tabla Data-Grid de Alta Densidad (38px row height) -->
     <div class="overflow-x-auto min-h-[360px]">
-      <FlickerlessSurface :loading="cargando" :delay-ms="180">
+      <FlickerlessSurface 
+        :loading="cargando" 
+        :delay-ms="180" 
+        :preserve-height="true"
+        stream-color="#10b981"
+        announce-text="Actualizando directorio de clientes..."
+      >
         <table class="w-full text-left border-collapse text-xs">
         <thead>
           <tr class="border-b border-zinc-800 bg-zinc-950/70 text-zinc-400 font-medium select-none">

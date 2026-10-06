@@ -481,7 +481,13 @@ const cambiarEstado = (evento: Event) => {
 
             <!-- Listado de Contactos Existentes -->
             <template v-if="cliente?.contactos && cliente?.contactos?.length > 0">
-              <FlickerlessSurface :loading="guardandoContacto" :delay-ms="180">
+              <FlickerlessSurface 
+                :loading="guardandoContacto" 
+                :delay-ms="180" 
+                :preserve-height="true"
+                stream-color="#10b981"
+                announce-text="Guardando contacto..."
+              >
                 <div class="space-y-3">
                   <div
                     v-for="contacto in cliente.contactos"

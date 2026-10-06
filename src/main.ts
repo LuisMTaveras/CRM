@@ -4,6 +4,7 @@ import router from '@/app/router';
 import App from '@/app/App.vue';
 import { registerPermissions } from '@/shared/directives/v-can';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
+import { vFlickerlessSaving } from '@flickerless/vue';
 import '@/core/styles/main.css';
 import '@flickerless/core/styles.css';
 
@@ -12,6 +13,7 @@ const pinia = createPinia();
 
 app.use(pinia);
 registerPermissions(app);
+app.directive('flickerless-saving', vFlickerlessSaving);
 
 // Inicializar sesión y permisos antes de montar el router
 const authStore = useAuthStore();
