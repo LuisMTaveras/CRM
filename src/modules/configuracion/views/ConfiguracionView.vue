@@ -16,6 +16,7 @@ import {
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
+import { FlickerlessSurface } from '@flickerless/vue';
 
 const pestanaActiva = ref<'empresa' | 'sistema'>('empresa');
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
@@ -77,7 +78,7 @@ const restablecer = () => {
       </div>
 
       <!-- Selector de Pestañas -->
-      <div class="flex items-center bg-zinc-900 p-1 rounded-lg border border-zinc-800 self-start sm:self-auto">
+      <div class="flex items-center bg-zinc-900/80 p-1 rounded-lg border border-white/[0.08] self-start sm:self-auto">
         <button
           type="button"
           @click="pestanaActiva = 'empresa'"
@@ -107,8 +108,17 @@ const restablecer = () => {
       </div>
     </div>
 
-    <!-- PESTAÑA 1: PERFIL DE LA EMPRESA (PROPIETARIA DEL CRM) -->
-    <div v-if="pestanaActiva === 'empresa'" class="space-y-6">
+    <!-- Contenedor Protegido con Flickerless Surface -->
+    <FlickerlessSurface
+      :loading="guardando"
+      :delay-ms="180"
+      :preserve-height="true"
+      stream-color="#10b981"
+      announce-text="Guardando y sincronizando perfil corporativo..."
+      class="rounded-xl overflow-hidden"
+    >
+      <!-- PESTAÑA 1: PERFIL DE LA EMPRESA (PROPIETARIA DEL CRM) -->
+      <div v-if="pestanaActiva === 'empresa'" class="space-y-6">
       <!-- Tarjeta de Vista Previa del Membrete Institucional en Tiempo Real -->
       <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3 relative overflow-hidden">
         <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
@@ -371,10 +381,11 @@ const restablecer = () => {
             <button
               type="submit"
               :disabled="guardando"
-              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold shadow-md transition disabled:opacity-50"
+              v-flickerless-saving="guardando"
+              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm shadow-emerald-950/40 border border-emerald-500/30 transition disabled:opacity-50 active:scale-[0.98]"
             >
               <Save class="w-4 h-4" />
-              <span>Guardar Información de la Empresa</span>
+              <span>{{ guardando ? 'Guardando en Base de Datos...' : 'Guardar Información de la Empresa' }}</span>
             </button>
 
             <button
@@ -479,6 +490,7 @@ const restablecer = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </FlickerlessSurface>
   </div>
 </template>

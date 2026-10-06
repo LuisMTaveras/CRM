@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Kanban, Building2, Calendar } from 'lucide-vue-next';
+import { Kanban, Building2, Calendar, RefreshCw } from 'lucide-vue-next';
 import { formatearMoneda } from '@/core/lib/utils';
+import { FlickerlessSurface } from '@flickerless/vue';
 
 interface TarjetaTrato {
   id: string;
@@ -12,6 +13,14 @@ interface TarjetaTrato {
   fecha: string;
   etapa: 'calificacion' | 'propuesta' | 'negociacion' | 'ganada';
 }
+
+const cargando = ref(false);
+
+const recargarPipeline = async () => {
+  cargando.value = true;
+  await new Promise((r) => setTimeout(r, 450));
+  cargando.value = false;
+};
 
 const tratos = ref<TarjetaTrato[]>([
   {
@@ -106,10 +115,27 @@ const totalPorColumna = (clave: string) => {
           Vista dinámica de deals clasificados por etapas de maduración comercial
         </p>
       </div>
+
+      <button
+        @click="recargarPipeline"
+        :disabled="cargando"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
+      >
+        <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
+        <span>Actualizar Pipeline</span>
+      </button>
     </div>
 
-    <!-- Tablero Kanban de 4 Columnas -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+    <!-- Tablero Kanban de 4 Columnas protegido con Flickerless -->
+    <FlickerlessSurface
+      :loading="cargando"
+      :delay-ms="180"
+      :preserve-height="true"
+      stream-color="#10b981"
+      announce-text="Actualizando estado de oportunidades en el pipeline..."
+      class="rounded-xl overflow-hidden"
+    >
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
       <div
         v-for="col in columnas"
         :key="col.clave"
@@ -163,6 +189,7 @@ const totalPorColumna = (clave: string) => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </FlickerlessSurface>
   </div>
 </template>
