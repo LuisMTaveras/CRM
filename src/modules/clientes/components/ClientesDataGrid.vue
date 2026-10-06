@@ -14,7 +14,9 @@ import {
   RotateCcw, 
   Sparkles,
   Mail,
-  CheckCircle2
+  CheckCircle2,
+  Download,
+  Loader2
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { FlickerlessSurface } from '@flickerless/vue';
@@ -22,6 +24,9 @@ import Can from '@/shared/components/Can.vue';
 import { formatearMoneda, formatearFecha, obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import type { ParametrosTabla } from '@/core/url-sync/url-state';
+import { exportarACSV } from '@/core/export/csv-export';
+import { clienteService } from '../services/cliente.service';
+import { toastService } from '@/core/notifications/toast.service';
 
 const props = defineProps<{
   clientes: Cliente[];
@@ -196,6 +201,46 @@ const clasesBadgePrioridad = (prioridad: string) => {
       return 'bg-zinc-800/80 text-zinc-400 border-zinc-700/50';
   }
 };
+
+const exportando = ref(false);
+
+const exportarClientes = async () => {
+  exportando.value = true;
+  try {
+    let listaParaExportar: Cliente[] = [];
+    if (seleccionadosIds.value.size > 0) {
+      listaParaExportar = props.clientes.filter((c) => seleccionadosIds.value.has(c.id));
+    } else {
+      listaParaExportar = await clienteService.obtenerTodosParaExportar(props.parametros);
+    }
+
+    exportarACSV<Cliente>(
+      listaParaExportar,
+      [
+        { clave: 'codigo', titulo: 'Código' },
+        { clave: 'razon_social', titulo: 'Razón Social' },
+        { clave: 'nombre_comercial', titulo: 'Nombre Comercial', formateador: (v) => v || '—' },
+        { clave: 'identificacion_fiscal', titulo: 'RNC / Identificación', formateador: (v) => v || '—' },
+        { clave: 'sector', titulo: 'Sector Económico' },
+        { clave: 'estado', titulo: 'Estado', formateador: (v) => etiquetaEstado(v) },
+        { clave: 'prioridad', titulo: 'Prioridad', formateador: (v) => (v ? String(v).toUpperCase() : '—') },
+        { clave: 'email', titulo: 'Correo Corporativo', formateador: (v) => v || '—' },
+        { clave: 'telefono', titulo: 'Teléfono', formateador: (v) => v || '—' },
+        { clave: 'ciudad', titulo: 'Ciudad', formateador: (v) => v || '—' },
+        { clave: 'responsable', titulo: 'Responsable Comercial' },
+        { clave: 'valor_estimado', titulo: 'Valor Estimado (RD$)', formateador: (v) => String(v || 0) },
+        { clave: 'creado_en', titulo: 'Fecha de Registro', formateador: (v) => formatearFecha(v) },
+      ],
+      'cartera_clientes_crm'
+    );
+    toastService.exito(`Se exportaron ${listaParaExportar.length} clientes a formato CSV exitosamente.`);
+  } catch (err) {
+    console.error('Error exportando clientes a CSV:', err);
+    toastService.error('Ocurrió un error al exportar clientes.');
+  } finally {
+    exportando.value = false;
+  }
+};
 </script>
 
 <template>
@@ -269,6 +314,18 @@ const clasesBadgePrioridad = (prioridad: string) => {
 
       <!-- Acciones Principales -->
       <div class="flex items-center gap-2">
+        <button
+          type="button"
+          @click="exportarClientes"
+          :disabled="exportando || cargando"
+          title="Exportar clientes filtrados a archivo CSV / Excel"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 font-medium text-xs rounded-lg transition border border-white/[0.08] shadow-sm disabled:opacity-50"
+        >
+          <Loader2 v-if="exportando" class="w-3.5 h-3.5 animate-spin text-emerald-400" />
+          <Download v-else class="w-3.5 h-3.5 text-zinc-400" />
+          <span class="hidden sm:inline">Exportar CSV</span>
+        </button>
+
         <Can I="create" an="Cliente">
           <button
             @click="emit('nuevoCliente')"
@@ -298,6 +355,15 @@ const clasesBadgePrioridad = (prioridad: string) => {
           class="px-2.5 py-1 text-zinc-400 hover:text-zinc-200 text-xs transition"
         >
           Deseleccionar
+        </button>
+
+        <button
+          type="button"
+          @click="exportarClientes"
+          class="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium text-xs rounded-lg transition border border-zinc-700 shadow-sm"
+        >
+          <Download class="w-3.5 h-3.5 text-zinc-400" />
+          <span>Exportar ({{ seleccionadosIds.size }})</span>
         </button>
 
         <button

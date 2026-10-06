@@ -5,6 +5,8 @@ import type {
   EstadoCliente, 
   NuevoClienteInput, 
   NuevoContactoInput, 
+  Oportunidad,
+  Actividad,
   RespuestaClientesPaginada 
 } from '../types/cliente.types';
 import { CLIENTES_SEMILLA } from './cliente.mock-data';
@@ -297,6 +299,216 @@ class ClienteService {
     this.memoriaClientes[idx] = actualizado;
     this.guardarEnStorage();
     return actualizado;
+  }
+
+  async actualizarCliente(id: string, datos: Partial<Cliente>): Promise<Cliente> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const idx = this.memoriaClientes.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('Cliente no encontrado');
+
+    const actualizado: Cliente = {
+      ...this.memoriaClientes[idx],
+      ...datos,
+      actualizado_en: new Date().toISOString(),
+    };
+    this.memoriaClientes[idx] = actualizado;
+    this.guardarEnStorage();
+    return actualizado;
+  }
+
+  async agregarOportunidad(
+    clienteId: string,
+    input: Omit<Oportunidad, 'id' | 'cliente_id' | 'creado_en'>
+  ): Promise<Oportunidad> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
+    if (!cliente) throw new Error('Cliente no encontrado');
+
+    if (!cliente.oportunidades) {
+      cliente.oportunidades = [];
+    }
+
+    const nuevaOportunidad: Oportunidad = {
+      id: `op-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      cliente_id: clienteId,
+      titulo: input.titulo.trim(),
+      monto: Number(input.monto) || 0,
+      etapa: input.etapa,
+      probabilidad: Number(input.probabilidad) || 50,
+      fecha_cierre_estimada: input.fecha_cierre_estimada || new Date().toISOString().slice(0, 10),
+      creado_en: new Date().toISOString(),
+    };
+
+    cliente.oportunidades.unshift(nuevaOportunidad);
+    // Recalcular valor estimado del cliente si aplica
+    cliente.valor_estimado = cliente.oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
+    cliente.actualizado_en = new Date().toISOString();
+    this.guardarEnStorage();
+    return nuevaOportunidad;
+  }
+
+  async actualizarOportunidad(
+    clienteId: string,
+    oportunidadId: string,
+    datos: Partial<Oportunidad>
+  ): Promise<Oportunidad> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
+    if (!cliente || !cliente.oportunidades) throw new Error('Oportunidad o cliente no encontrado');
+
+    const idx = cliente.oportunidades.findIndex((o) => o.id === oportunidadId);
+    if (idx === -1) throw new Error('Oportunidad no encontrada');
+
+    const actualizada: Oportunidad = {
+      ...cliente.oportunidades[idx],
+      ...datos,
+    };
+    cliente.oportunidades[idx] = actualizada;
+    cliente.valor_estimado = cliente.oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
+    cliente.actualizado_en = new Date().toISOString();
+    this.guardarEnStorage();
+    return actualizada;
+  }
+
+  async eliminarOportunidad(clienteId: string, oportunidadId: string): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
+    if (!cliente || !cliente.oportunidades) return false;
+
+    const idx = cliente.oportunidades.findIndex((o) => o.id === oportunidadId);
+    if (idx === -1) return false;
+
+    cliente.oportunidades.splice(idx, 1);
+    cliente.valor_estimado = cliente.oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
+    cliente.actualizado_en = new Date().toISOString();
+    this.guardarEnStorage();
+    return true;
+  }
+
+  async agregarActividad(
+    clienteId: string,
+    input: Omit<Actividad, 'id' | 'cliente_id' | 'fecha'>
+  ): Promise<Actividad> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
+    if (!cliente) throw new Error('Cliente no encontrado');
+
+    if (!cliente.actividades) {
+      cliente.actividades = [];
+    }
+
+    const nuevaActividad: Actividad = {
+      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      cliente_id: clienteId,
+      tipo: input.tipo,
+      descripcion: input.descripcion.trim(),
+      realizado_por: input.realizado_por || cliente.responsable || 'Equipo Comercial',
+      fecha: new Date().toISOString(),
+    };
+
+    cliente.actividades.unshift(nuevaActividad);
+    cliente.ultimo_contacto = nuevaActividad.fecha;
+    cliente.actualizado_en = new Date().toISOString();
+    this.guardarEnStorage();
+    return nuevaActividad;
+  }
+
+  async eliminarActividad(clienteId: string, actividadId: string): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
+    if (!cliente || !cliente.actividades) return false;
+
+    const idx = cliente.actividades.findIndex((a) => a.id === actividadId);
+    if (idx === -1) return false;
+
+    cliente.actividades.splice(idx, 1);
+    cliente.actualizado_en = new Date().toISOString();
+    this.guardarEnStorage();
+    return true;
+  }
+
+  async obtenerTodosParaExportar(filtros?: Partial<ParametrosTabla>): Promise<Cliente[]> {
+    let resultado = [...this.memoriaClientes];
+    if (filtros?.estado) {
+      resultado = resultado.filter((c) => c.estado === filtros.estado);
+    }
+    if (filtros?.sector) {
+      resultado = resultado.filter((c) => c.sector === filtros.sector);
+    }
+    if (filtros?.busqueda) {
+      const q = filtros.busqueda.toLowerCase().trim();
+      resultado = resultado.filter(
+        (c) =>
+          c.razon_social.toLowerCase().includes(q) ||
+          c.codigo.toLowerCase().includes(q) ||
+          (c.identificacion_fiscal && c.identificacion_fiscal.toLowerCase().includes(q))
+      );
+    }
+    return resultado;
+  }
+
+  async obtenerTodasLasOportunidades(): Promise<
+    Array<
+      Oportunidad & {
+        cliente_nombre: string;
+        cliente_sector: string;
+        responsable: string;
+      }
+    >
+  > {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const oportunidadesPlanificadas: Array<
+      Oportunidad & {
+        cliente_nombre: string;
+        cliente_sector: string;
+        responsable: string;
+      }
+    > = [];
+
+    for (const c of this.memoriaClientes) {
+      if (c.oportunidades && c.oportunidades.length > 0) {
+        for (const op of c.oportunidades) {
+          oportunidadesPlanificadas.push({
+            ...op,
+            cliente_nombre: c.nombre_comercial || c.razon_social,
+            cliente_sector: c.sector,
+            responsable: c.responsable,
+          });
+        }
+      }
+    }
+
+    return oportunidadesPlanificadas;
+  }
+
+  async moverEtapaOportunidad(oportunidadId: string, nuevaEtapa: Oportunidad['etapa']): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    for (const cliente of this.memoriaClientes) {
+      if (cliente.oportunidades) {
+        const deal = cliente.oportunidades.find((o) => o.id === oportunidadId);
+        if (deal) {
+          deal.etapa = nuevaEtapa;
+          // Actualizar probabilidad según etapa
+          if (nuevaEtapa === 'calificacion') deal.probabilidad = 40;
+          else if (nuevaEtapa === 'propuesta') deal.probabilidad = 65;
+          else if (nuevaEtapa === 'negociacion') deal.probabilidad = 80;
+          else if (nuevaEtapa === 'ganada') deal.probabilidad = 100;
+          else if (nuevaEtapa === 'perdida') deal.probabilidad = 0;
+
+          // Si se gana o se negocia, sincronizar estado del cliente
+          if (nuevaEtapa === 'ganada') {
+            cliente.estado = 'activo';
+          } else if (nuevaEtapa === 'negociacion' && cliente.estado !== 'activo') {
+            cliente.estado = 'en_negociacion';
+          }
+
+          cliente.actualizado_en = new Date().toISOString();
+          this.guardarEnStorage();
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   async eliminarCliente(id: string): Promise<boolean> {
