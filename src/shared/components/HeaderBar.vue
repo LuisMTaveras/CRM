@@ -49,6 +49,7 @@ const cerrarSesion = () => {
           class="bg-transparent text-emerald-400 font-mono text-[11px] font-semibold focus:outline-none cursor-pointer"
         >
           <option value="admin" class="bg-zinc-900 text-zinc-200">Admin / Directora</option>
+          <option value="gerente" class="bg-zinc-900 text-zinc-200">Gerente de Cuentas</option>
           <option value="ejecutivo" class="bg-zinc-900 text-zinc-200">Ejecutivo Comercial</option>
           <option value="auditor" class="bg-zinc-900 text-zinc-200">Auditor (Solo Lectura)</option>
         </select>

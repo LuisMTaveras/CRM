@@ -6,7 +6,7 @@ import ClientesDataGrid from '../components/ClientesDataGrid.vue';
 import ClienteDrawer from '../components/ClienteDrawer.vue';
 import NuevoClienteModal from '../components/NuevoClienteModal.vue';
 import EnvioMasivoModal from '@/modules/comunicaciones/components/EnvioMasivoModal.vue';
-import { RefreshCw, AlertCircle, Database } from 'lucide-vue-next';
+import { RefreshCw, AlertCircle, Database, RotateCcw } from 'lucide-vue-next';
 import type { Cliente } from '../types/cliente.types';
 
 const {
@@ -22,6 +22,7 @@ const {
   drawerAbierto,
   modalNuevoClienteAbierto,
   consultarClientes,
+  restablecerDatosIniciales,
   seleccionarCliente,
   cerrarDrawer,
   cambiarEstadoCliente,
@@ -64,6 +65,16 @@ const onEnvioCompletado = () => {
       </div>
 
       <div class="flex items-center gap-2">
+        <button
+          @click="restablecerDatosIniciales"
+          :disabled="cargando"
+          title="Recargar catálogo inicial de 100+ clientes y contactos semilla"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition disabled:opacity-50"
+        >
+          <RotateCcw class="w-3.5 h-3.5 text-emerald-400" />
+          <span class="hidden sm:inline">Recargar 100+ Clientes</span>
+        </button>
+
         <button
           @click="consultarClientes"
           :disabled="cargando"

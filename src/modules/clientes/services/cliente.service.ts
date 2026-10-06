@@ -19,31 +19,20 @@ class ClienteService {
       const guardado = localStorage.getItem(CLAVE_STORAGE_CLIENTES);
       if (guardado) {
         const parsed: Cliente[] = JSON.parse(guardado);
-        if (Array.isArray(parsed)) {
-          // Filtrar cualquier cliente semilla residual
-          const idsSemilla = [
-            'c1b827e0-94d7-4df3-a128-09cb115e4781',
-            'c2b827e0-94d7-4df3-a128-09cb115e4782',
-            'c3b827e0-94d7-4df3-a128-09cb115e4783',
-            'c4b827e0-94d7-4df3-a128-09cb115e4784',
-            'c5b827e0-94d7-4df3-a128-09cb115e4785',
-            'c6b827e0-94d7-4df3-a128-09cb115e4786',
-          ];
-          const filtrados = parsed.filter(
-            (c) =>
-              !idsSemilla.includes(c.id) &&
-              !['Grupo Ramos S.A.', 'Banco BHD León S.A.', 'Central Romana Corporation Ltd.', 'Seguros Universal S.A.', 'Cervecería Nacional Dominicana', 'Pasteurizadora Rica S.A.'].includes(c.razon_social)
-          );
-          if (filtrados.length !== parsed.length) {
-            localStorage.setItem(CLAVE_STORAGE_CLIENTES, JSON.stringify(filtrados));
-          }
-          return filtrados;
+        if (Array.isArray(parsed) && parsed.length >= 100) {
+          return parsed;
         }
       }
     } catch {
       // fallback
     }
-    return [...CLIENTES_SEMILLA];
+    const iniciales = [...CLIENTES_SEMILLA];
+    try {
+      localStorage.setItem(CLAVE_STORAGE_CLIENTES, JSON.stringify(iniciales));
+    } catch {
+      // fallback
+    }
+    return iniciales;
   }
 
   private guardarEnStorage(): void {
@@ -52,6 +41,15 @@ class ClienteService {
     } catch {
       // fallback
     }
+  }
+
+  /**
+   * Restablece la memoria y localStorage con el catálogo semilla de 100+ clientes y contactos
+   */
+  restablecerSemilla(): Cliente[] {
+    this.memoriaClientes = [...CLIENTES_SEMILLA];
+    this.guardarEnStorage();
+    return this.memoriaClientes;
   }
 
   vaciarClientes(): void {

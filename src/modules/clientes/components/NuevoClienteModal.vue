@@ -246,6 +246,11 @@ const guardar = async () => {
               <option value="Camila Morales">Camila Morales</option>
               <option value="Ignacio Silva">Ignacio Silva</option>
               <option value="Felipe Guzmán">Felipe Guzmán</option>
+              <option value="Roberto Méndez">Roberto Méndez</option>
+              <option value="Valentina Castillo">Valentina Castillo</option>
+              <option value="Marcos Almonte">Marcos Almonte</option>
+              <option value="Daniela Rosario">Daniela Rosario</option>
+              <option value="Laura Peña">Laura Peña</option>
             </select>
           </div>
         </div>

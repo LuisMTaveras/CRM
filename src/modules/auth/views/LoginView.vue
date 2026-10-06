@@ -32,6 +32,14 @@ const cuentasDemo = [
     badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
   },
   {
+    nombre: 'Felipe Guzmán',
+    rol: 'Gerente Comercial',
+    desc: 'Gestión total de cuentas y métricas',
+    email: 'felipe@crm.do',
+    pass: 'gerente123',
+    badge: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+  },
+  {
     nombre: 'Laura Peña',
     rol: 'Auditora / Solo Lectura',
     desc: 'Solo lectura (sin crear ni editar)',
