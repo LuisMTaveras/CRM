@@ -21,6 +21,7 @@ import {
   Loader2
 } from 'lucide-vue-next';
 import { formatearMoneda, formatearFecha, formatearFechaHora, formatearTelefonoRD } from '@/core/lib/utils';
+import { FlickerlessSurface } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
@@ -480,11 +481,13 @@ const cambiarEstado = (evento: Event) => {
 
             <!-- Listado de Contactos Existentes -->
             <template v-if="cliente?.contactos && cliente?.contactos?.length > 0">
-              <div
-                v-for="contacto in cliente.contactos"
-                :key="contacto.id"
-                class="bg-zinc-950 p-3.5 rounded-lg border border-zinc-800 hover:border-zinc-700 transition flex flex-col gap-2 relative group"
-              >
+              <FlickerlessSurface :loading="guardandoContacto" :delay-ms="180">
+                <div class="space-y-3">
+                  <div
+                    v-for="contacto in cliente.contactos"
+                    :key="contacto.id"
+                    class="bg-zinc-950 p-3.5 rounded-lg border border-zinc-800 hover:border-zinc-700 transition flex flex-col gap-2 relative group"
+                  >
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2 min-w-0">
                     <div class="font-semibold text-zinc-200 text-sm truncate">{{ contacto.nombre }}</div>
@@ -534,7 +537,9 @@ const cambiarEstado = (evento: Event) => {
                   </span>
                 </div>
               </div>
-            </template>
+            </div>
+          </FlickerlessSurface>
+        </template>
 
             <!-- Estado Vacío cuando no hay contactos -->
             <div

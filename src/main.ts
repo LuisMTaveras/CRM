@@ -5,6 +5,7 @@ import App from '@/app/App.vue';
 import { registerPermissions } from '@/shared/directives/v-can';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import '@/core/styles/main.css';
+import '@flickerless/core/styles.css';
 
 const app = createApp(App);
 const pinia = createPinia();

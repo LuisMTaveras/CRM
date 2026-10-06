@@ -16,6 +16,7 @@ import {
   CheckCircle2
 } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { FlickerlessSurface, FlickerlessTableSkeleton } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
 import { formatearMoneda, formatearFecha } from '@/core/lib/utils';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
@@ -271,7 +272,8 @@ const clasesBadgePrioridad = (prioridad: string) => {
 
     <!-- Tabla Data-Grid de Alta Densidad (38px row height) -->
     <div class="overflow-x-auto min-h-[360px]">
-      <table class="w-full text-left border-collapse text-xs">
+      <FlickerlessSurface :loading="cargando" :delay-ms="180">
+        <table class="w-full text-left border-collapse text-xs">
         <thead>
           <tr class="border-b border-zinc-800 bg-zinc-950/70 text-zinc-400 font-medium select-none">
             <!-- Checkbox Seleccionar Todos -->
@@ -315,28 +317,16 @@ const clasesBadgePrioridad = (prioridad: string) => {
             <th class="py-2.5 px-3.5 text-right w-16">Acciones</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-zinc-800/60">
-          <!-- Skeleton Loading -->
-          <template v-if="cargando">
-            <tr v-for="n in 6" :key="n" class="animate-pulse">
-              <td class="py-2.5 px-3 text-center"><div class="h-3.5 w-3.5 bg-zinc-800 rounded mx-auto"></div></td>
-              <td class="py-2.5 px-3.5"><div class="h-3.5 bg-zinc-800 rounded w-16"></div></td>
-              <td class="py-2.5 px-3.5">
-                <div class="h-3.5 bg-zinc-800 rounded w-48 mb-1"></div>
-                <div class="h-2.5 bg-zinc-800/60 rounded w-24"></div>
-              </td>
-              <td class="py-2.5 px-3.5"><div class="h-3.5 bg-zinc-800 rounded w-20"></div></td>
-              <td class="py-2.5 px-3.5"><div class="h-4 bg-zinc-800 rounded-full w-24"></div></td>
-              <td class="py-2.5 px-3.5"><div class="h-3.5 bg-zinc-800 rounded w-12"></div></td>
-              <td class="py-2.5 px-3.5 text-right"><div class="h-3.5 bg-zinc-800 rounded w-24 ml-auto"></div></td>
-              <td class="py-2.5 px-3.5"><div class="h-3.5 bg-zinc-800 rounded w-28"></div></td>
-              <td class="py-2.5 px-3.5"><div class="h-3.5 bg-zinc-800 rounded w-20"></div></td>
-              <td class="py-2.5 px-3.5 text-right"><div class="h-4 bg-zinc-800 rounded w-6 ml-auto"></div></td>
-            </tr>
-          </template>
+        <!-- 1. Carga inicial en frío: Shimmer Wave -->
+        <FlickerlessTableSkeleton 
+          v-if="cargando && clientes.length === 0" 
+          :rows="6" 
+          :columns="10" 
+        />
 
+        <tbody v-else class="divide-y divide-zinc-800/60">
           <!-- Empty State -->
-          <template v-else-if="clientes.length === 0">
+          <template v-if="clientes.length === 0">
             <tr>
               <td colspan="10" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
@@ -460,7 +450,8 @@ const clasesBadgePrioridad = (prioridad: string) => {
             </tr>
           </template>
         </tbody>
-      </table>
+        </table>
+      </FlickerlessSurface>
     </div>
 
     <!-- Barra de Paginación Inferior Sincronizada -->
