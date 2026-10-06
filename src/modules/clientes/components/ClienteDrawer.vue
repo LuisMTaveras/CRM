@@ -151,19 +151,19 @@ const cambiarEstado = (evento: Event) => {
     <!-- Panel Lateral Deslizante (Drawer) -->
     <aside
       :class="[
-        'fixed top-0 right-0 h-full w-full max-w-xl bg-zinc-900 border-l border-zinc-800 shadow-2xl z-50 transform transition-transform duration-200 ease-in-out flex flex-col',
+        'fixed top-0 right-0 h-full w-full max-w-xl bg-[#0e0e11] border-l border-white/[0.08] shadow-2xl z-50 transform transition-transform duration-200 ease-in-out flex flex-col',
         abierto ? 'translate-x-0' : 'translate-x-full'
       ]"
     >
       <template v-if="cliente">
         <!-- Cabecera del Drawer -->
-        <div class="p-5 border-b border-zinc-800 bg-zinc-950/80">
+        <div class="p-5 border-b border-white/[0.07] bg-[#0a0a0c]">
           <div class="flex items-center justify-between gap-3 mb-3">
             <div class="flex items-center gap-2">
-              <span class="font-mono text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+              <span class="font-mono text-xs px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-300 border border-white/[0.06]">
                 {{ cliente?.codigo }}
               </span>
-              <span v-if="cliente?.prioridad === 'alta'" class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+              <span v-if="cliente?.prioridad === 'alta'" class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
                 <Sparkles class="w-3 h-3" />
                 Cuenta Estratégica
               </span>
@@ -175,17 +175,17 @@ const cambiarEstado = (evento: Event) => {
                 type="button"
                 @click="cliente && emit('enviarDocumento', cliente)"
                 title="Generar y Enviar Documento PDF Oficial por Correo"
-                class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold text-xs rounded transition shadow-sm active:scale-95"
+                class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition shadow-sm shadow-emerald-950/40 border border-emerald-500/30 active:scale-95"
               >
                 <Mail class="w-3.5 h-3.5" />
-                <span>Enviar Documento PDF</span>
+                <span>Enviar PDF</span>
               </button>
 
               <Can I="delete" an="Cliente">
                 <button
                   @click="emit('eliminar', cliente?.id || '')"
                   title="Eliminar cliente (Solo Administrador)"
-                  class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded transition"
+                  class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800/80 rounded-lg transition"
                 >
                   <Trash2 class="w-4 h-4" />
                 </button>
@@ -193,7 +193,7 @@ const cambiarEstado = (evento: Event) => {
               <button
                 @click="emit('cerrar')"
                 title="Cerrar panel"
-                class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded transition"
+                class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 rounded-lg transition"
               >
                 <X class="w-4 h-4" />
               </button>
@@ -201,7 +201,7 @@ const cambiarEstado = (evento: Event) => {
           </div>
 
           <!-- Razón Social y Nombre Comercial -->
-          <h2 class="text-lg font-bold text-zinc-100 leading-tight">
+          <h2 class="text-lg font-semibold text-white tracking-tight leading-snug">
             {{ cliente?.razon_social }}
           </h2>
           <p v-if="cliente?.nombre_comercial" class="text-xs text-zinc-400 mt-0.5">
@@ -209,13 +209,13 @@ const cambiarEstado = (evento: Event) => {
           </p>
 
           <!-- Selector de Estado Rápido -->
-          <div class="mt-4 flex items-center gap-3 pt-3 border-t border-zinc-800/80">
+          <div class="mt-4 flex items-center gap-3 pt-3 border-t border-white/[0.06]">
             <span class="text-xs text-zinc-400 font-medium">Estado Comercial:</span>
             <Can I="update" an="Cliente">
               <select
                 :value="cliente?.estado"
                 @change="cambiarEstado"
-                class="bg-zinc-900 border border-zinc-700 text-xs font-medium rounded-md px-2.5 py-1 text-zinc-200 focus:outline-none focus:border-zinc-500"
+                class="bg-zinc-950 border border-white/[0.08] text-xs font-medium rounded-lg px-2.5 py-1 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
               >
                 <option value="prospecto">Prospecto</option>
                 <option value="en_negociacion">En Negociación</option>
@@ -224,7 +224,7 @@ const cambiarEstado = (evento: Event) => {
                 <option value="cerrado_perdido">Cerrado Perdido</option>
               </select>
               <template #fallback>
-                <span class="capitalize px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-medium text-xs">
+                <span class="capitalize px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-medium text-xs">
                   {{ cliente?.estado }}
                 </span>
               </template>
@@ -233,7 +233,7 @@ const cambiarEstado = (evento: Event) => {
         </div>
 
         <!-- Pestañas de Navegación del Drawer -->
-        <div class="flex border-b border-zinc-800 bg-zinc-950/40 text-xs">
+        <div class="flex border-b border-white/[0.07] bg-[#0c0c0e]/80 text-xs">
           <button
             @click="pestanaActiva = 'general'"
             :class="[

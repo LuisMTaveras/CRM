@@ -6,7 +6,7 @@ import ClientesDataGrid from '../components/ClientesDataGrid.vue';
 import ClienteDrawer from '../components/ClienteDrawer.vue';
 import NuevoClienteModal from '../components/NuevoClienteModal.vue';
 import EnvioMasivoModal from '@/modules/comunicaciones/components/EnvioMasivoModal.vue';
-import { RefreshCw, AlertCircle, Database, RotateCcw } from 'lucide-vue-next';
+import { RefreshCw, AlertCircle, RotateCcw } from 'lucide-vue-next';
 import type { Cliente } from '../types/cliente.types';
 
 const {
@@ -50,37 +50,37 @@ const onEnvioCompletado = () => {
 <template>
   <div class="space-y-4">
     <!-- Barra de Título y Metadatos de la Sección -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.07]">
       <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-xl font-bold text-zinc-100 tracking-tight">Directorio Comercial & Clientes B2B</h1>
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-zinc-900 border border-zinc-700 text-zinc-300">
-            <Database class="w-3 h-3 text-emerald-400" />
-            PostgreSQL DB
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h1 class="text-xl font-semibold text-white tracking-tight">Directorio Comercial & Clientes B2B</h1>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            PostgreSQL Conectado
           </span>
         </div>
-        <p class="text-xs text-zinc-400 mt-0.5">
-          Gestión de prospectos, clientes consolidados, oportunidades y trazabilidad de cartera
+        <p class="text-xs text-zinc-400 mt-1">
+          Gestión centralizada de prospectos, cuentas estratégicas, contratos y trazabilidad de cartera
         </p>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
         <button
           @click="restablecerDatosIniciales"
           :disabled="cargando"
           title="Recargar catálogo inicial de 100+ clientes y contactos semilla"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
         >
-          <RotateCcw class="w-3.5 h-3.5 text-emerald-400" />
-          <span class="hidden sm:inline">Recargar 100+ Clientes</span>
+          <RotateCcw class="w-3.5 h-3.5 text-zinc-400" />
+          <span class="hidden sm:inline">Restablecer 100+ Clientes</span>
         </button>
 
         <button
           @click="consultarClientes"
           :disabled="cargando"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
         >
-          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-emerald-400' : '']" />
+          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
           <span>Actualizar</span>
         </button>
       </div>

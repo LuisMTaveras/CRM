@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
-import { Database, LogOut, ChevronDown, Sparkles, User } from 'lucide-vue-next';
+import { LogOut, ChevronDown, Sparkles, User } from 'lucide-vue-next';
 import type { RolUsuario } from '@/modules/auth/types/auth.types';
 
 const router = useRouter();
@@ -21,49 +21,46 @@ const cerrarSesion = () => {
 </script>
 
 <template>
-  <header class="h-14 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm px-6 flex items-center justify-between shrink-0 select-none z-30 relative">
+  <header class="h-14 border-b border-white/[0.06] bg-[#09090b]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none z-30 relative">
     <!-- Migas de Pan / Estado Activo -->
-    <div class="flex items-center gap-3 text-xs text-zinc-400">
-      <span class="text-zinc-500">Espacio de Trabajo</span>
-      <span class="text-zinc-600">/</span>
+    <div class="flex items-center gap-2.5 text-xs text-zinc-400">
+      <span class="text-zinc-500 font-medium">CRM</span>
+      <span class="text-zinc-700">/</span>
       <span class="font-medium text-zinc-200">Operaciones B2B</span>
-      <span class="text-zinc-600">/</span>
-      <span class="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-        <Database class="w-3 h-3" />
-        PostgreSQL Activo
+      <span class="text-zinc-700">/</span>
+      <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-zinc-400 bg-zinc-900/80 px-2 py-0.5 rounded-md border border-white/[0.06]">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <span>Producción</span>
       </span>
     </div>
 
     <!-- Menú Derecho: Estado de Sesión y Perfil -->
     <div class="flex items-center gap-3">
-
-      <!-- Selector Rápido de Rol Activo (DevTools Blueprint 05) -->
-      <div class="hidden sm:flex items-center gap-1.5 bg-zinc-900/90 border border-zinc-800 rounded-lg px-2 py-1 text-xs">
-        <span class="text-[10px] text-zinc-400 flex items-center gap-1">
-          <Sparkles class="w-3 h-3 text-emerald-400" />
-          Rol:
-        </span>
+      <!-- Selector Rápido de Rol Activo -->
+      <div class="hidden sm:flex items-center gap-2 bg-zinc-900/80 border border-white/[0.08] rounded-lg px-2.5 py-1 text-xs shadow-sm">
+        <Sparkles class="w-3.5 h-3.5 text-emerald-400" />
+        <span class="text-[11px] text-zinc-400">Rol:</span>
         <select
           :value="authStore.rol"
           @change="(e) => cambiarRol((e.target as HTMLSelectElement).value as RolUsuario)"
-          class="bg-transparent text-emerald-400 font-mono text-[11px] font-semibold focus:outline-none cursor-pointer"
+          class="bg-transparent text-zinc-200 font-medium text-xs focus:outline-none cursor-pointer pr-1"
         >
-          <option value="admin" class="bg-zinc-900 text-zinc-200">Admin / Directora</option>
+          <option value="admin" class="bg-zinc-900 text-zinc-200">Administrador</option>
           <option value="gerente" class="bg-zinc-900 text-zinc-200">Gerente de Cuentas</option>
           <option value="ejecutivo" class="bg-zinc-900 text-zinc-200">Ejecutivo Comercial</option>
           <option value="auditor" class="bg-zinc-900 text-zinc-200">Auditor (Solo Lectura)</option>
         </select>
       </div>
 
-      <div class="h-4 w-px bg-zinc-800"></div>
+      <div class="h-4 w-px bg-white/[0.08]"></div>
 
       <!-- Menú Desplegable de Usuario y Cierre de Sesión -->
       <div class="relative">
         <button
           @click="menuUsuarioAbierto = !menuUsuarioAbierto"
-          class="flex items-center gap-2 p-1 rounded-lg hover:bg-zinc-900 transition border border-transparent hover:border-zinc-800"
+          class="flex items-center gap-2.5 p-1 rounded-lg hover:bg-zinc-900/80 transition-all border border-transparent hover:border-white/[0.08]"
         >
-          <div class="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-emerald-400">
+          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500/20 to-zinc-800 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-400 shadow-sm">
             {{ authStore.usuario?.avatar || 'US' }}
           </div>
           <div class="hidden sm:block text-left">

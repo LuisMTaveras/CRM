@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Users, TrendingUp, Briefcase, CheckCircle2, DollarSign } from 'lucide-vue-next';
 import { formatearMoneda } from '@/core/lib/utils';
+import { FlickerlessSurface } from '@flickerless/vue';
 
 defineProps<{
   estadisticas: {
@@ -15,75 +16,114 @@ defineProps<{
 </script>
 
 <template>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mb-5">
-    <!-- Total Clientes -->
-    <div class="bg-zinc-900/90 border border-zinc-800/80 rounded-lg p-3.5 shadow-sm hover:border-zinc-700 transition-colors">
-      <div class="flex items-center justify-between text-zinc-400 mb-1.5">
-        <span class="text-xs font-medium uppercase tracking-wider">Cartera Total</span>
-        <Users class="w-4 h-4 text-zinc-400" />
-      </div>
-      <div class="flex items-baseline justify-between">
-        <div class="text-2xl font-bold font-mono text-zinc-100 tabular-nums">
-          {{ cargando ? '—' : estadisticas.totalClientes }}
+  <FlickerlessSurface 
+    :loading="cargando" 
+    :delay-ms="180" 
+    :preserve-height="true"
+    stream-color="#10b981"
+    announce-text="Actualizando métricas de cartera..."
+    class="mb-5 rounded-xl overflow-hidden"
+  >
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <!-- 1. Total Clientes -->
+      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
+        <div class="flex items-center justify-between text-zinc-400 mb-2">
+          <span class="text-xs font-medium text-zinc-400">Cartera Total</span>
+          <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-400 group-hover:text-zinc-200 transition-colors">
+            <Users class="w-3.5 h-3.5" />
+          </div>
         </div>
-        <span class="text-[11px] text-zinc-500 font-medium">Empresas B2B</span>
+        <div>
+          <div class="text-2xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5">
+            {{ estadisticas.totalClientes }}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/50 text-zinc-400">
+              Empresas B2B
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Prospectos -->
-    <div class="bg-zinc-900/90 border border-zinc-800/80 rounded-lg p-3.5 shadow-sm hover:border-zinc-700 transition-colors">
-      <div class="flex items-center justify-between text-zinc-400 mb-1.5">
-        <span class="text-xs font-medium uppercase tracking-wider">Prospectos</span>
-        <TrendingUp class="w-4 h-4 text-sky-400" />
-      </div>
-      <div class="flex items-baseline justify-between">
-        <div class="text-2xl font-bold font-mono text-sky-400 tabular-nums">
-          {{ cargando ? '—' : estadisticas.prospectos }}
+      <!-- 2. Prospectos -->
+      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
+        <div class="flex items-center justify-between text-zinc-400 mb-2">
+          <span class="text-xs font-medium text-zinc-400">Prospectos</span>
+          <div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 group-hover:bg-sky-500/15 transition-colors">
+            <TrendingUp class="w-3.5 h-3.5" />
+          </div>
         </div>
-        <span class="text-[11px] text-sky-500/80 font-medium">En calificación</span>
+        <div>
+          <div class="text-2xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5">
+            {{ estadisticas.prospectos }}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 border border-sky-500/20 text-sky-400">
+              En calificación
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- En Negociación -->
-    <div class="bg-zinc-900/90 border border-zinc-800/80 rounded-lg p-3.5 shadow-sm hover:border-zinc-700 transition-colors">
-      <div class="flex items-center justify-between text-zinc-400 mb-1.5">
-        <span class="text-xs font-medium uppercase tracking-wider">En Negociación</span>
-        <Briefcase class="w-4 h-4 text-amber-400" />
-      </div>
-      <div class="flex items-baseline justify-between">
-        <div class="text-2xl font-bold font-mono text-amber-400 tabular-nums">
-          {{ cargando ? '—' : estadisticas.enNegociacion }}
+      <!-- 3. En Negociación -->
+      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
+        <div class="flex items-center justify-between text-zinc-400 mb-2">
+          <span class="text-xs font-medium text-zinc-400">En Negociación</span>
+          <div class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/15 transition-colors">
+            <Briefcase class="w-3.5 h-3.5" />
+          </div>
         </div>
-        <span class="text-[11px] text-amber-500/80 font-medium">Propuestas activas</span>
+        <div>
+          <div class="text-2xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5">
+            {{ estadisticas.enNegociacion }}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              Propuestas activas
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Clientes Activos -->
-    <div class="bg-zinc-900/90 border border-zinc-800/80 rounded-lg p-3.5 shadow-sm hover:border-zinc-700 transition-colors">
-      <div class="flex items-center justify-between text-zinc-400 mb-1.5">
-        <span class="text-xs font-medium uppercase tracking-wider">Clientes Activos</span>
-        <CheckCircle2 class="w-4 h-4 text-emerald-400" />
-      </div>
-      <div class="flex items-baseline justify-between">
-        <div class="text-2xl font-bold font-mono text-emerald-400 tabular-nums">
-          {{ cargando ? '—' : estadisticas.activos }}
+      <!-- 4. Clientes Activos -->
+      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
+        <div class="flex items-center justify-between text-zinc-400 mb-2">
+          <span class="text-xs font-medium text-zinc-400">Clientes Activos</span>
+          <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/15 transition-colors">
+            <CheckCircle2 class="w-3.5 h-3.5" />
+          </div>
         </div>
-        <span class="text-[11px] text-emerald-500/80 font-medium">Con contrato vigente</span>
+        <div>
+          <div class="text-2xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5">
+            {{ estadisticas.activos }}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              Contratos vigentes
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Valor Pipeline -->
-    <div class="bg-zinc-900/90 border border-zinc-800/80 rounded-lg p-3.5 shadow-sm hover:border-zinc-700 transition-colors">
-      <div class="flex items-center justify-between text-zinc-400 mb-1.5">
-        <span class="text-xs font-medium uppercase tracking-wider">Pipeline Ponderado</span>
-        <DollarSign class="w-4 h-4 text-zinc-300" />
-      </div>
-      <div class="flex items-baseline justify-between">
-        <div class="text-lg font-bold font-mono text-zinc-100 tabular-nums truncate">
-          {{ cargando ? '—' : formatearMoneda(estadisticas.valorTotalPipeline) }}
+      <!-- 5. Pipeline Ponderado -->
+      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
+        <div class="flex items-center justify-between text-zinc-400 mb-2">
+          <span class="text-xs font-medium text-zinc-400">Pipeline Estimado</span>
+          <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-300 group-hover:text-emerald-400 transition-colors">
+            <DollarSign class="w-3.5 h-3.5" />
+          </div>
         </div>
-        <span class="text-[11px] text-zinc-500 font-medium">Volumen estimado</span>
+        <div>
+          <div class="text-xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5 truncate">
+            {{ formatearMoneda(estadisticas.valorTotalPipeline) }}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              Volumen ponderado
+            </span>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+  </FlickerlessSurface>
 </template>

@@ -7,6 +7,7 @@ import {
   ArrowDown, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
   Building2, 
   Plus, 
   Eye, 
@@ -18,7 +19,7 @@ import {
 import { computed } from 'vue';
 import { FlickerlessSurface } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
-import { formatearMoneda, formatearFecha } from '@/core/lib/utils';
+import { formatearMoneda, formatearFecha, obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import type { ParametrosTabla } from '@/core/url-sync/url-state';
 
@@ -134,17 +135,35 @@ const limpiarFiltros = () => {
 const clasesBadgeEstado = (estado: EstadoCliente) => {
   switch (estado) {
     case 'activo':
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      return {
+        badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        dot: 'bg-emerald-400',
+      };
     case 'en_negociacion':
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      return {
+        badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        dot: 'bg-amber-400',
+      };
     case 'prospecto':
-      return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+      return {
+        badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+        dot: 'bg-sky-400',
+      };
     case 'inactivo':
-      return 'bg-zinc-800 text-zinc-400 border-zinc-700';
+      return {
+        badge: 'bg-zinc-800/80 text-zinc-400 border-zinc-700/60',
+        dot: 'bg-zinc-500',
+      };
     case 'cerrado_perdido':
-      return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+      return {
+        badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        dot: 'bg-rose-400',
+      };
     default:
-      return 'bg-zinc-800 text-zinc-300 border-zinc-700';
+      return {
+        badge: 'bg-zinc-800/80 text-zinc-300 border-zinc-700/60',
+        dot: 'bg-zinc-400',
+      };
   }
 };
 
@@ -168,72 +187,81 @@ const etiquetaEstado = (estado: EstadoCliente) => {
 const clasesBadgePrioridad = (prioridad: string) => {
   switch (prioridad) {
     case 'alta':
-      return 'text-rose-400 font-semibold';
+      return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
     case 'media':
-      return 'text-amber-400';
+      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
     case 'baja':
-      return 'text-zinc-400';
+      return 'bg-zinc-800/80 text-zinc-400 border-zinc-700/50';
     default:
-      return 'text-zinc-400';
+      return 'bg-zinc-800/80 text-zinc-400 border-zinc-700/50';
   }
 };
 </script>
 
 <template>
-  <div class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm overflow-hidden flex flex-col">
+  <div class="saas-card rounded-xl overflow-hidden flex flex-col shadow-lg border border-white/[0.08]">
     <!-- Barra de Filtros y Búsqueda Superior -->
-    <div class="p-3.5 border-b border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/60">
-      <div class="flex items-center gap-2.5 flex-1 max-w-xl">
+    <div class="p-3.5 border-b border-white/[0.07] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/40">
+      <div class="flex items-center gap-2.5 flex-1 max-w-2xl">
         <!-- Campo de Búsqueda -->
         <div class="relative flex-1">
-          <Search class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search class="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             :value="textoBusquedaLocal"
             @input="manejarBusqueda"
             placeholder="Buscar por razón social, RNC, código, contacto o ciudad..."
-            class="w-full pl-9 pr-3 py-1.5 text-xs bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600 transition"
+            class="w-full pl-9 pr-9 py-1.5 text-xs bg-zinc-950/80 border border-white/[0.08] rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all shadow-inner"
           />
+          <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+            <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 bg-zinc-800/60 border border-zinc-700/50 rounded shadow-xs">/</kbd>
+          </div>
         </div>
 
-        <!-- Filtro Estado -->
-        <select
-          :value="parametros.estado || ''"
-          @change="cambiarFiltroEstado"
-          class="bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:border-zinc-600 transition"
-        >
-          <option value="">Todos los Estados</option>
-          <option value="prospecto">Prospecto</option>
-          <option value="en_negociacion">En Negociación</option>
-          <option value="activo">Activo</option>
-          <option value="inactivo">Inactivo</option>
-          <option value="cerrado_perdido">Cerrado Perdido</option>
-        </select>
+        <!-- Filtro Estado con Chevron personalizado -->
+        <div class="relative">
+          <select
+            :value="parametros.estado || ''"
+            @change="cambiarFiltroEstado"
+            class="appearance-none bg-zinc-950/80 border border-white/[0.08] text-zinc-300 text-xs rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition cursor-pointer"
+          >
+            <option value="">Todos los Estados</option>
+            <option value="prospecto">Prospecto</option>
+            <option value="en_negociacion">En Negociación</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+            <option value="cerrado_perdido">Cerrado Perdido</option>
+          </select>
+          <ChevronDown class="w-3.5 h-3.5 text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
 
-        <!-- Filtro Sector -->
-        <select
-          :value="parametros.sector || ''"
-          @change="cambiarFiltroSector"
-          class="bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:border-zinc-600 transition hidden md:block"
-        >
-          <option value="">Todos los Sectores</option>
-          <option value="Tecnología">Tecnología</option>
-          <option value="Finanzas">Finanzas</option>
-          <option value="Logística">Logística</option>
-          <option value="Turismo">Turismo & Hotelería</option>
-          <option value="Salud">Salud</option>
-          <option value="Retail">Retail</option>
-          <option value="Manufactura">Manufactura</option>
-          <option value="Alimentos">Alimentos</option>
-          <option value="Comercio">Comercio Mayorista</option>
-        </select>
+        <!-- Filtro Sector con Chevron personalizado -->
+        <div class="relative hidden md:block">
+          <select
+            :value="parametros.sector || ''"
+            @change="cambiarFiltroSector"
+            class="appearance-none bg-zinc-950/80 border border-white/[0.08] text-zinc-300 text-xs rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition cursor-pointer"
+          >
+            <option value="">Todos los Sectores</option>
+            <option value="Tecnología">Tecnología</option>
+            <option value="Finanzas">Finanzas</option>
+            <option value="Logística">Logística</option>
+            <option value="Turismo">Turismo & Hotelería</option>
+            <option value="Salud">Salud</option>
+            <option value="Retail">Retail</option>
+            <option value="Manufactura">Manufactura</option>
+            <option value="Alimentos">Alimentos</option>
+            <option value="Comercio">Comercio Mayorista</option>
+          </select>
+          <ChevronDown class="w-3.5 h-3.5 text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
 
         <!-- Limpiar Filtros -->
         <button
           v-if="parametros.busqueda || parametros.estado || parametros.sector"
           @click="limpiarFiltros"
           title="Restablecer filtros"
-          class="p-1.5 text-zinc-400 hover:text-zinc-200 bg-zinc-800 hover:bg-zinc-700/80 rounded border border-zinc-700 transition"
+          class="p-1.5 text-zinc-400 hover:text-zinc-200 bg-zinc-800/80 hover:bg-zinc-700 rounded-lg border border-white/[0.08] transition"
         >
           <RotateCcw class="w-3.5 h-3.5" />
         </button>
@@ -244,7 +272,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
         <Can I="create" an="Cliente">
           <button
             @click="emit('nuevoCliente')"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-xs rounded-md transition shadow-sm active:scale-[0.98]"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition shadow-sm shadow-emerald-950/50 border border-emerald-500/30 active:scale-[0.98]"
           >
             <Plus class="w-3.5 h-3.5 stroke-[2.5]" />
             Nuevo Cliente
@@ -256,7 +284,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
     <!-- Banner de Acciones Masivas (Aparece cuando hay clientes seleccionados) -->
     <div
       v-if="seleccionadosIds.size > 0"
-      class="px-4 py-2 bg-emerald-950/80 border-b border-emerald-500/30 flex items-center justify-between text-xs animate-in fade-in"
+      class="px-4 py-2 bg-emerald-950/40 backdrop-blur border-b border-emerald-500/20 flex items-center justify-between text-xs animate-in fade-in"
     >
       <div class="flex items-center gap-2 text-emerald-300 font-medium">
         <CheckCircle2 class="w-4 h-4 text-emerald-400" />
@@ -275,7 +303,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
         <button
           type="button"
           @click="emit('enviarMasivo', clientesSeleccionadosObjetos)"
-          class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold text-xs rounded transition shadow-sm active:scale-[0.98]"
+          class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg transition shadow-sm active:scale-[0.98]"
         >
           <Mail class="w-3.5 h-3.5" />
           <span>Enviar Correo & Documento PDF ({{ seleccionadosIds.size }})</span>
@@ -283,7 +311,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
       </div>
     </div>
 
-    <!-- Tabla Data-Grid de Alta Densidad (38px row height) -->
+    <!-- Tabla Data-Grid de Alta Densidad -->
     <div class="overflow-x-auto min-h-[360px]">
       <FlickerlessSurface 
         :loading="cargando" 
@@ -294,9 +322,9 @@ const clasesBadgePrioridad = (prioridad: string) => {
       >
         <table class="w-full text-left border-collapse text-xs">
         <thead>
-          <tr class="border-b border-zinc-800 bg-zinc-950/70 text-zinc-400 font-medium select-none">
+          <tr class="border-b border-white/[0.07] bg-[#0c0c0e]/90 text-zinc-400 text-[11px] font-medium tracking-wider uppercase select-none sticky top-0 z-10 backdrop-blur-md">
             <!-- Checkbox Seleccionar Todos -->
-            <th class="py-2.5 px-3 w-10 text-center">
+            <th class="py-3 px-3 w-10 text-center">
               <input
                 type="checkbox"
                 :checked="todosSeleccionados"
@@ -304,48 +332,48 @@ const clasesBadgePrioridad = (prioridad: string) => {
                 class="rounded bg-zinc-950 border-zinc-700 text-emerald-500 focus:ring-0 cursor-pointer"
               />
             </th>
-            <th class="py-2.5 px-3.5 w-24">Código</th>
-            <th class="py-2.5 px-3.5 cursor-pointer hover:text-zinc-200" @click="alternarOrden('razon_social')">
-              <div class="flex items-center gap-1">
+            <th class="py-3 px-3.5 w-24">Código</th>
+            <th class="py-3 px-3.5 cursor-pointer hover:text-zinc-200 transition-colors" @click="alternarOrden('razon_social')">
+              <div class="flex items-center gap-1.5">
                 <span>Razón Social / Empresa</span>
                 <ArrowUp v-if="parametros.ordenCampo === 'razon_social' && parametros.ordenDireccion === 'asc'" class="w-3.5 h-3.5 text-emerald-400" />
                 <ArrowDown v-else-if="parametros.ordenCampo === 'razon_social' && parametros.ordenDireccion === 'desc'" class="w-3.5 h-3.5 text-emerald-400" />
                 <ArrowUpDown v-else class="w-3 h-3 text-zinc-600" />
               </div>
             </th>
-            <th class="py-2.5 px-3.5">Sector</th>
-            <th class="py-2.5 px-3.5">Estado</th>
-            <th class="py-2.5 px-3.5">Prioridad</th>
-            <th class="py-2.5 px-3.5 text-right cursor-pointer hover:text-zinc-200" @click="alternarOrden('valor_estimado')">
-              <div class="flex items-center justify-end gap-1">
+            <th class="py-3 px-3.5">Sector</th>
+            <th class="py-3 px-3.5">Estado</th>
+            <th class="py-3 px-3.5">Prioridad</th>
+            <th class="py-3 px-3.5 text-right cursor-pointer hover:text-zinc-200 transition-colors" @click="alternarOrden('valor_estimado')">
+              <div class="flex items-center justify-end gap-1.5">
                 <span>Valor Estimado</span>
                 <ArrowUp v-if="parametros.ordenCampo === 'valor_estimado' && parametros.ordenDireccion === 'asc'" class="w-3.5 h-3.5 text-emerald-400" />
                 <ArrowDown v-else-if="parametros.ordenCampo === 'valor_estimado' && parametros.ordenDireccion === 'desc'" class="w-3.5 h-3.5 text-emerald-400" />
                 <ArrowUpDown v-else class="w-3 h-3 text-zinc-600" />
               </div>
             </th>
-            <th class="py-2.5 px-3.5">Responsable</th>
-            <th class="py-2.5 px-3.5 cursor-pointer hover:text-zinc-200" @click="alternarOrden('creado_en')">
-              <div class="flex items-center gap-1">
+            <th class="py-3 px-3.5">Responsable</th>
+            <th class="py-3 px-3.5 cursor-pointer hover:text-zinc-200 transition-colors" @click="alternarOrden('creado_en')">
+              <div class="flex items-center gap-1.5">
                 <span>Último Contacto</span>
                 <ArrowUp v-if="parametros.ordenCampo === 'creado_en' && parametros.ordenDireccion === 'asc'" class="w-3.5 h-3.5 text-emerald-400" />
                 <ArrowDown v-else-if="parametros.ordenCampo === 'creado_en' && parametros.ordenDireccion === 'desc'" class="w-3.5 h-3.5 text-emerald-400" />
                 <ArrowUpDown v-else class="w-3 h-3 text-zinc-600" />
               </div>
             </th>
-            <th class="py-2.5 px-3.5 text-right w-16">Acciones</th>
+            <th class="py-3 px-3.5 text-right w-16">Acciones</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-zinc-800/60">
+        <tbody class="divide-y divide-white/[0.04]">
           <!-- 1. Estado vacío (cuando no hay resultados y terminó la carga) -->
           <template v-if="clientes.length === 0 && !cargando">
             <tr>
-              <td colspan="10" class="py-12 text-center">
+              <td colspan="10" class="py-16 text-center">
                 <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
-                  <div class="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 mb-3 border border-zinc-700">
-                    <Building2 class="w-5 h-5 text-emerald-400" />
+                  <div class="w-12 h-12 rounded-xl bg-zinc-800/60 flex items-center justify-center text-zinc-400 mb-3 border border-white/[0.08]">
+                    <Building2 class="w-6 h-6 text-emerald-400" />
                   </div>
-                  <h4 class="text-sm font-semibold text-zinc-200 mb-1">
+                  <h4 class="text-sm font-semibold text-zinc-100 mb-1">
                     {{ (parametros.busqueda || parametros.estado || parametros.sector) ? 'No se encontraron clientes' : 'Directorio de clientes vacío' }}
                   </h4>
                   <p class="text-xs text-zinc-400 mb-4 text-center leading-relaxed">
@@ -357,13 +385,13 @@ const clasesBadgePrioridad = (prioridad: string) => {
                     <button
                       v-if="parametros.busqueda || parametros.estado || parametros.sector"
                       @click="limpiarFiltros"
-                      class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-md border border-zinc-700 transition"
+                      class="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-white/[0.08] transition"
                     >
                       Restablecer Filtros
                     </button>
                     <button
                       @click="emit('nuevoCliente')"
-                      class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-md transition shadow-sm"
+                      class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition shadow-sm"
                     >
                       + Registrar Nuevo Cliente
                     </button>
@@ -373,19 +401,19 @@ const clasesBadgePrioridad = (prioridad: string) => {
             </tr>
           </template>
 
-          <!-- 2. Filas reales de clientes (se mantienen visibles a 50% de opacidad durante recargas/filtros con Flickerless) -->
+          <!-- 2. Filas reales de clientes -->
           <template v-else>
             <tr
               v-for="cliente in clientes"
               :key="cliente.id"
               @click="emit('seleccionar', cliente)"
               :class="[
-                'group hover:bg-zinc-800/40 cursor-pointer transition-colors duration-100',
+                'group hover:bg-zinc-800/35 cursor-pointer transition-colors duration-150',
                 seleccionadosIds.has(cliente.id) ? 'bg-emerald-950/20' : ''
               ]"
             >
               <!-- Checkbox Fila -->
-              <td class="py-2 px-3 text-center" @click.stop>
+              <td class="py-2.5 px-3 text-center" @click.stop>
                 <input
                   type="checkbox"
                   :checked="seleccionadosIds.has(cliente.id)"
@@ -395,66 +423,91 @@ const clasesBadgePrioridad = (prioridad: string) => {
               </td>
 
               <!-- Código -->
-              <td class="py-2 px-3.5 font-mono text-[11px] text-zinc-400 tabular-nums">
-                {{ cliente.codigo }}
+              <td class="py-2.5 px-3.5">
+                <span class="inline-block px-1.5 py-0.5 rounded font-mono text-[11px] bg-zinc-800/70 border border-white/[0.06] text-zinc-300 font-medium tabular-nums">
+                  {{ cliente.codigo }}
+                </span>
               </td>
 
-              <!-- Razón Social & Nombre Comercial -->
-              <td class="py-2 px-3.5">
-                <div class="font-medium text-zinc-200 group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-                  <span>{{ cliente.razon_social }}</span>
-                  <span v-if="cliente.prioridad === 'alta'" title="Cuenta Estratégica" class="text-amber-400">
-                    <Sparkles class="w-3 h-3 inline" />
-                  </span>
-                </div>
-                <div class="text-[11px] text-zinc-500 flex items-center gap-2">
-                  <span v-if="cliente.identificacion_fiscal">{{ cliente.identificacion_fiscal }}</span>
-                  <span v-if="cliente.ciudad">• {{ cliente.ciudad }}</span>
+              <!-- Razón Social & Nombre Comercial con Avatar Monograma -->
+              <td class="py-2.5 px-3.5">
+                <div class="flex items-center gap-2.5">
+                  <div
+                    :class="[
+                      'w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold border shrink-0 uppercase tracking-tighter select-none',
+                      obtenerEstiloAvatar(cliente.razon_social).bg,
+                      obtenerEstiloAvatar(cliente.razon_social).text,
+                      obtenerEstiloAvatar(cliente.razon_social).border
+                    ]"
+                  >
+                    {{ obtenerIniciales(cliente.razon_social) }}
+                  </div>
+                  <div>
+                    <div class="font-medium text-zinc-100 group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                      <span>{{ cliente.razon_social }}</span>
+                      <span v-if="cliente.prioridad === 'alta'" title="Cuenta Estratégica" class="text-amber-400">
+                        <Sparkles class="w-3 h-3 inline" />
+                      </span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                      <span v-if="cliente.identificacion_fiscal" class="font-mono">{{ cliente.identificacion_fiscal }}</span>
+                      <span v-if="cliente.ciudad" class="text-zinc-500">• {{ cliente.ciudad }}</span>
+                    </div>
+                  </div>
                 </div>
               </td>
 
               <!-- Sector -->
-              <td class="py-2 px-3.5 text-zinc-300">
+              <td class="py-2.5 px-3.5 text-zinc-300">
                 {{ cliente.sector }}
               </td>
 
               <!-- Estado -->
-              <td class="py-2 px-3.5">
+              <td class="py-2.5 px-3.5">
                 <span
-                  :class="['inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border', clasesBadgeEstado(cliente.estado)]"
+                  :class="[
+                    'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border',
+                    clasesBadgeEstado(cliente.estado).badge
+                  ]"
                 >
+                  <span :class="['w-1.5 h-1.5 rounded-full', clasesBadgeEstado(cliente.estado).dot]"></span>
                   {{ etiquetaEstado(cliente.estado) }}
                 </span>
               </td>
 
               <!-- Prioridad -->
-              <td class="py-2 px-3.5 uppercase text-[10px] tracking-wide">
-                <span :class="clasesBadgePrioridad(cliente.prioridad)">
+              <td class="py-2.5 px-3.5">
+                <span
+                  :class="[
+                    'inline-block px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold border',
+                    clasesBadgePrioridad(cliente.prioridad)
+                  ]"
+                >
                   {{ cliente.prioridad }}
                 </span>
               </td>
 
               <!-- Valor Estimado -->
-              <td class="py-2 px-3.5 text-right font-mono font-medium text-zinc-100 tabular-nums">
+              <td class="py-2.5 px-3.5 text-right font-mono font-medium text-xs text-zinc-100 tabular-nums">
                 {{ formatearMoneda(cliente.valor_estimado) }}
               </td>
 
               <!-- Responsable -->
-              <td class="py-2 px-3.5 text-zinc-300">
+              <td class="py-2.5 px-3.5 text-zinc-300">
                 {{ cliente.responsable }}
               </td>
 
               <!-- Último Contacto -->
-              <td class="py-2 px-3.5 font-mono text-[11px] text-zinc-400 tabular-nums">
+              <td class="py-2.5 px-3.5 font-mono text-[11px] text-zinc-400 tabular-nums">
                 {{ formatearFecha(cliente.ultimo_contacto || cliente.creado_en) }}
               </td>
 
               <!-- Acciones -->
-              <td class="py-2 px-3.5 text-right" @click.stop>
+              <td class="py-2.5 px-3.5 text-right" @click.stop>
                 <button
                   @click="emit('seleccionar', cliente)"
                   title="Ver detalle de cliente"
-                  class="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
+                  class="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 transition"
                 >
                   <Eye class="w-3.5 h-3.5" />
                 </button>
@@ -467,7 +520,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
     </div>
 
     <!-- Barra de Paginación Inferior Sincronizada -->
-    <div class="p-3 border-t border-zinc-800 bg-zinc-950/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400">
+    <div class="p-3.5 border-t border-white/[0.07] bg-[#0c0c0e]/95 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-400">
       <div class="flex items-center gap-3">
         <span>
           Mostrando <strong class="text-zinc-200 font-mono">{{ total === 0 ? 0 : (parametros.pagina - 1) * parametros.tamanoPagina + 1 }}</strong> a
@@ -480,7 +533,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
           <select
             :value="parametros.tamanoPagina"
             @change="cambiarTamanoPagina"
-            class="bg-zinc-900 border border-zinc-800 text-zinc-300 rounded px-1.5 py-0.5 text-xs focus:outline-none"
+            class="bg-zinc-900 border border-white/[0.08] text-zinc-300 rounded-md px-2 py-0.5 text-xs focus:outline-none cursor-pointer"
           >
             <option :value="10">10</option>
             <option :value="15">15</option>
@@ -495,7 +548,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
         <button
           @click="irAPagina(parametros.pagina - 1)"
           :disabled="parametros.pagina <= 1 || cargando"
-          class="p-1.5 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          class="p-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
           title="Página anterior"
         >
           <ChevronLeft class="w-3.5 h-3.5" />
@@ -509,10 +562,10 @@ const clasesBadgePrioridad = (prioridad: string) => {
             @click="irAPagina(p)"
             :disabled="cargando"
             :class="[
-              'min-w-[28px] h-7 px-1.5 text-xs font-mono rounded border transition flex items-center justify-center font-medium',
+              'min-w-[28px] h-7 px-2 text-xs font-mono rounded-md border transition flex items-center justify-center font-medium',
               parametros.pagina === p
-                ? 'bg-emerald-600 border-emerald-500 text-zinc-950 font-bold shadow-sm'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                ? 'bg-emerald-600 border-emerald-500 text-white font-semibold shadow-sm shadow-emerald-950/40'
+                : 'bg-zinc-900/80 border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
             ]"
           >
             {{ p }}
@@ -526,7 +579,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
         <button
           @click="irAPagina(parametros.pagina + 1)"
           :disabled="parametros.pagina >= totalPaginas || cargando"
-          class="p-1.5 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          class="p-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
           title="Página siguiente"
         >
           <ChevronRight class="w-3.5 h-3.5" />

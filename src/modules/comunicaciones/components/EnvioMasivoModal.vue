@@ -332,9 +332,9 @@ const cerrarModal = () => {
     <div @click="cerrarModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Card -->
-    <div class="relative bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
+    <div class="relative bg-[#0e0e12] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
       <!-- Cabecera -->
-      <div class="px-5 py-3.5 border-b border-zinc-800 bg-zinc-950/80 flex items-center justify-between">
+      <div class="px-5 py-3.5 border-b border-white/[0.07] bg-[#0a0a0d] flex items-center justify-between">
         <div class="flex items-center gap-2.5">
           <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <Mail class="w-4 h-4" />
@@ -675,7 +675,7 @@ const cerrarModal = () => {
           <button
             type="button"
             @click="cerrarModal"
-            class="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md transition font-medium"
+            class="px-3.5 py-1.5 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 rounded-lg transition font-medium border border-white/[0.08]"
           >
             {{ envioFinalizado ? 'Cerrar' : 'Cancelar' }}
           </button>
@@ -685,7 +685,7 @@ const cerrarModal = () => {
             type="button"
             @click="iniciarEnvio"
             :disabled="enviando || (clientesParaEnvioEfectivo.length === 0 && !correoPruebaManual.trim())"
-            class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95"
+            class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-emerald-950/40 border border-emerald-500/30 active:scale-95"
           >
             <Loader2 v-if="enviando" class="w-4 h-4 animate-spin" />
             <Send v-else class="w-4 h-4" />
