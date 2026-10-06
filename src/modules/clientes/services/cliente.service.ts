@@ -83,7 +83,18 @@ class ClienteService {
 
     // --- Adaptador Asíncrono PostgreSQL (Simulación con latencia de red) ---
     await new Promise((resolve) => setTimeout(resolve, 320));
+    return this.filtrarYPaginarMemoria(params);
+  }
 
+  /**
+   * Obtiene la primera página o datos de memoria de forma sincrónica.
+   * Permite hidratar la tabla al instante (0ms) sin skeleton ni pantalla de espera.
+   */
+  obtenerClientesSincrono(params: ParametrosTabla): RespuestaClientesPaginada {
+    return this.filtrarYPaginarMemoria(params);
+  }
+
+  private filtrarYPaginarMemoria(params: ParametrosTabla): RespuestaClientesPaginada {
     let filtrados = [...this.memoriaClientes];
 
     // Filtro por búsqueda textual

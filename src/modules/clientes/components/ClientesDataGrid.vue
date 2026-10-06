@@ -16,7 +16,7 @@ import {
   CheckCircle2
 } from 'lucide-vue-next';
 import { computed } from 'vue';
-import { FlickerlessSurface, FlickerlessTableSkeleton } from '@flickerless/vue';
+import { FlickerlessSurface } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
 import { formatearMoneda, formatearFecha } from '@/core/lib/utils';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
@@ -107,6 +107,19 @@ const irAPagina = (pagina: number) => {
   if (pagina < 1 || pagina > props.totalPaginas) return;
   emit('actualizarParametros', { pagina });
 };
+
+const paginasVisibles = computed(() => {
+  const total = props.totalPaginas;
+  const actual = props.parametros.pagina;
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const paginas = new Set<number>([1, total]);
+  for (let i = Math.max(1, actual - 2); i <= Math.min(total, actual + 2); i++) {
+    paginas.add(i);
+  }
+  return Array.from(paginas).sort((a, b) => a - b);
+});
 
 const limpiarFiltros = () => {
   textoBusquedaLocal.value = '';
@@ -317,16 +330,9 @@ const clasesBadgePrioridad = (prioridad: string) => {
             <th class="py-2.5 px-3.5 text-right w-16">Acciones</th>
           </tr>
         </thead>
-        <!-- 1. Carga inicial en frío: Shimmer Wave -->
-        <FlickerlessTableSkeleton 
-          v-if="cargando && clientes.length === 0" 
-          :rows="6" 
-          :columns="10" 
-        />
-
-        <tbody v-else class="divide-y divide-zinc-800/60">
-          <!-- Empty State -->
-          <template v-if="clientes.length === 0">
+        <tbody class="divide-y divide-zinc-800/60">
+          <!-- 1. Estado vacío (cuando no hay resultados y terminó la carga) -->
+          <template v-if="clientes.length === 0 && !cargando">
             <tr>
               <td colspan="10" class="py-12 text-center">
                 <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
@@ -361,7 +367,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
             </tr>
           </template>
 
-          <!-- Data Rows -->
+          <!-- 2. Filas reales de clientes (se mantienen visibles a 50% de opacidad durante recargas/filtros con Flickerless) -->
           <template v-else>
             <tr
               v-for="cliente in clientes"
@@ -484,11 +490,30 @@ const clasesBadgePrioridad = (prioridad: string) => {
           @click="irAPagina(parametros.pagina - 1)"
           :disabled="parametros.pagina <= 1 || cargando"
           class="p-1.5 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          title="Página anterior"
         >
           <ChevronLeft class="w-3.5 h-3.5" />
         </button>
 
-        <span class="px-2 font-mono text-zinc-300">
+        <!-- Botones directos de número de página -->
+        <div class="hidden sm:flex items-center gap-1 mx-1">
+          <button
+            v-for="p in paginasVisibles"
+            :key="p"
+            @click="irAPagina(p)"
+            :disabled="cargando"
+            :class="[
+              'min-w-[28px] h-7 px-1.5 text-xs font-mono rounded border transition flex items-center justify-center font-medium',
+              parametros.pagina === p
+                ? 'bg-emerald-600 border-emerald-500 text-zinc-950 font-bold shadow-sm'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+            ]"
+          >
+            {{ p }}
+          </button>
+        </div>
+
+        <span class="sm:hidden px-2 font-mono text-zinc-300">
           Página {{ parametros.pagina }} de {{ totalPaginas }}
         </span>
 
@@ -496,6 +521,7 @@ const clasesBadgePrioridad = (prioridad: string) => {
           @click="irAPagina(parametros.pagina + 1)"
           :disabled="parametros.pagina >= totalPaginas || cargando"
           class="p-1.5 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          title="Página siguiente"
         >
           <ChevronRight class="w-3.5 h-3.5" />
         </button>

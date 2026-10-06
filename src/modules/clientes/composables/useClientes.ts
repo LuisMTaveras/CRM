@@ -6,19 +6,16 @@ import type { Cliente, EstadoCliente, RespuestaClientesPaginada } from '../types
 export function useClientes() {
   const { estado: parametrosURL, actualizarEstado } = useURLTableState();
 
-  const clientes = ref<Cliente[]>([]);
-  const cargando = ref(true);
-  const error = ref<string | null>(null);
-  const total = ref(0);
-  const totalPaginas = ref(1);
+  // Hidratación instantánea desde memoria/cache (0ms) para carga natural sin skeleton
+  const datosIniciales = clienteService.obtenerClientesSincrono(parametrosURL.value);
 
-  const estadisticas = ref<RespuestaClientesPaginada['estadisticas']>({
-    totalClientes: 0,
-    prospectos: 0,
-    enNegociacion: 0,
-    activos: 0,
-    valorTotalPipeline: 0,
-  });
+  const clientes = ref<Cliente[]>(datosIniciales.datos);
+  const cargando = ref(false);
+  const error = ref<string | null>(null);
+  const total = ref(datosIniciales.total);
+  const totalPaginas = ref(datosIniciales.totalPaginas);
+
+  const estadisticas = ref<RespuestaClientesPaginada['estadisticas']>(datosIniciales.estadisticas);
 
   const clienteSeleccionado = ref<Cliente | null>(null);
   const drawerAbierto = ref(false);
