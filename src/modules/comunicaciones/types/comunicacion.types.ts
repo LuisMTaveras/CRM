@@ -25,6 +25,9 @@ export interface VariablesPlantilla {
   ejecutivo?: string;
   correo_ejecutivo?: string;
   telefono_ejecutivo?: string;
+  cargo_ejecutivo?: string;
+  departamento_ejecutivo?: string;
+  flota_ejecutivo?: string;
   empresa_emisora?: string;
   rnc_empresa_emisora?: string;
   web_empresa_emisora?: string;

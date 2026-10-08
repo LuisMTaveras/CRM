@@ -4,20 +4,20 @@ import type { DatosEmpresa } from '../types/empresa.types';
 const CLAVE_STORAGE_EMPRESA = 'crm_perfil_empresa_emisora';
 
 export const DATOS_EMPRESA_POR_DEFECTO: DatosEmpresa = {
-  razonSocial: 'DEVFORGE DOMINICANA SRL',
-  nombreComercial: 'DEVFORGE Tech Solutions',
+  razonSocial: 'Ingenieria de Software Alliance S.R.L.',
+  nombreComercial: 'Alliance S.R.L.',
   identificacionFiscal: '1-32-45890-1',
-  sloganActividad: 'Soluciones de Software y Consultoría B2B',
-  correo: 'contacto@devforge.com.do',
+  sloganActividad: 'Soluciones de Software y Consultoría de TI',
+  correo: 'luismiguel@alliance.do',
   telefono: '+1 (809) 555-0100',
-  whatsapp: '+1 (809) 555-0101',
-  sitioWeb: 'www.devforge.com.do',
-  direccion: 'Av. Winston Churchill, Torre Empresarial, Suite 802',
+  whatsapp: '+1 (829) 708-4706',
+  sitioWeb: 'alliance.do',
+  direccion: 'Av. Winston Churchill No. 1099, Torre Acrópolis Piso 14, Piantini',
   ciudad: 'Santo Domingo',
   pais: 'República Dominicana',
   monedaPrincipal: 'DOP',
   simboloMoneda: 'RD$',
-  prefijoDocumentos: 'DF-PROP',
+  prefijoDocumentos: 'AL-PROP',
   piePaginaOficial: 'Documento oficial generado electrónicamente por la plataforma CRM institucional. Validez legal conforme a las leyes vigentes.',
   ultimaActualizacion: new Date().toISOString(),
 };

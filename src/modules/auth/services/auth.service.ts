@@ -1,27 +1,33 @@
 import type { Rule } from '@/core/permissions/ability';
 import type { CredencialesLogin, RolUsuario, SesionAuth, Usuario } from '../types/auth.types';
 
+const CLAVE_STORAGE_USUARIOS = 'crm_directorio_usuarios';
+
 export const USUARIOS_CRM: Usuario[] = [
   {
     id: 'usr-1',
-    nombre: 'Camila Morales',
-    email: 'camila@crm.do',
+    nombre: 'Luis M. Taveras',
+    email: 'luismiguel@alliance.do',
     contrasena: 'admin123',
     rol: 'admin',
-    rolNombre: 'Directora Comercial & Admin',
-    cargo: 'Head of Sales & CRM Admin',
-    avatar: 'CM',
+    rolNombre: 'Team Leader & Administrador',
+    cargo: 'Team Leader TI Support',
+    departamento: 'Ingeniería de Software & Soporte TI',
+    telefonoFlota: '+1 (829) 708-4706',
+    avatar: 'LT',
     activo: true,
-    ultimoAcceso: '2026-10-05T15:30:00Z',
+    ultimoAcceso: new Date().toISOString(),
   },
   {
     id: 'usr-2',
     nombre: 'Ignacio Silva',
-    email: 'ignacio@crm.do',
+    email: 'ignacio@alliance.do',
     contrasena: 'ventas123',
     rol: 'ejecutivo',
     rolNombre: 'Ejecutivo Comercial Senior',
     cargo: 'Account Executive B2B',
+    departamento: 'Ventas Corporativas',
+    telefonoFlota: '+1 (809) 555-0102',
     avatar: 'IS',
     activo: true,
     ultimoAcceso: '2026-10-05T14:15:00Z',
@@ -29,11 +35,13 @@ export const USUARIOS_CRM: Usuario[] = [
   {
     id: 'usr-3',
     nombre: 'Felipe Guzmán',
-    email: 'felipe@crm.do',
+    email: 'felipe@alliance.do',
     contrasena: 'gerente123',
     rol: 'gerente',
     rolNombre: 'Gerente de Cuentas Estratégicas',
     cargo: 'Key Account Manager',
+    departamento: 'Grandes Cuentas & Expansión',
+    telefonoFlota: '+1 (809) 555-0103',
     avatar: 'FG',
     activo: true,
     ultimoAcceso: '2026-10-04T18:00:00Z',
@@ -41,11 +49,13 @@ export const USUARIOS_CRM: Usuario[] = [
   {
     id: 'usr-4',
     nombre: 'Laura Peña',
-    email: 'laura@crm.do',
+    email: 'laura@alliance.do',
     contrasena: 'auditor123',
     rol: 'auditor',
     rolNombre: 'Auditora & Analista de Riesgo',
     cargo: 'Business Intelligence Analyst',
+    departamento: 'Auditoría & Cumplimiento',
+    telefonoFlota: '+1 (809) 555-0104',
     avatar: 'LP',
     activo: true,
     ultimoAcceso: '2026-10-05T09:45:00Z',
@@ -53,11 +63,13 @@ export const USUARIOS_CRM: Usuario[] = [
   {
     id: 'usr-5',
     nombre: 'Roberto Méndez',
-    email: 'roberto@crm.do',
+    email: 'roberto@alliance.do',
     contrasena: 'ventas123',
     rol: 'ejecutivo',
     rolNombre: 'Ejecutivo Comercial Corporativo',
     cargo: 'Corporate Account Executive',
+    departamento: 'Ventas Corporativas',
+    telefonoFlota: '+1 (809) 555-0105',
     avatar: 'RM',
     activo: true,
     ultimoAcceso: '2026-10-05T11:20:00Z',
@@ -65,38 +77,16 @@ export const USUARIOS_CRM: Usuario[] = [
   {
     id: 'usr-6',
     nombre: 'Valentina Castillo',
-    email: 'valentina@crm.do',
+    email: 'valentina@alliance.do',
     contrasena: 'ventas123',
     rol: 'ejecutivo',
     rolNombre: 'Ejecutiva de Desarrollo de Negocios',
     cargo: 'Business Development Specialist',
+    departamento: 'Nuevos Negocios',
+    telefonoFlota: '+1 (809) 555-0106',
     avatar: 'VC',
     activo: true,
     ultimoAcceso: '2026-10-05T13:40:00Z',
-  },
-  {
-    id: 'usr-7',
-    nombre: 'Marcos Almonte',
-    email: 'marcos@crm.do',
-    contrasena: 'gerente123',
-    rol: 'gerente',
-    rolNombre: 'Gerente Regional de Ventas',
-    cargo: 'Regional Sales Manager',
-    avatar: 'MA',
-    activo: true,
-    ultimoAcceso: '2026-10-04T17:10:00Z',
-  },
-  {
-    id: 'usr-8',
-    nombre: 'Daniela Rosario',
-    email: 'daniela@crm.do',
-    contrasena: 'ventas123',
-    rol: 'ejecutivo',
-    rolNombre: 'Especialista en Soluciones B2B',
-    cargo: 'B2B Solutions Representative',
-    avatar: 'DR',
-    activo: true,
-    ultimoAcceso: '2026-10-05T12:05:00Z',
   },
 ];
 
@@ -134,24 +124,44 @@ export function generarReglasPorRol(rol: RolUsuario): Rule[] {
 }
 
 class AuthService {
+  private cargarUsuariosPersistidos(): Usuario[] {
+    try {
+      const guardados = localStorage.getItem(CLAVE_STORAGE_USUARIOS);
+      if (guardados) {
+        const parsed: Usuario[] = JSON.parse(guardados);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return [...USUARIOS_CRM];
+  }
+
+  private guardarUsuariosPersistidos(lista: Usuario[]): void {
+    try {
+      localStorage.setItem(CLAVE_STORAGE_USUARIOS, JSON.stringify(lista));
+    } catch {
+      // fallback
+    }
+  }
+
   async login(credenciales: CredencialesLogin): Promise<SesionAuth> {
-    // Simular verificación asíncrona de hash contra base de datos PostgreSQL
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
     const emailLimpio = (credenciales.email || '').toLowerCase().trim();
-    const usuario = USUARIOS_CRM.find((u) => u.email.toLowerCase() === emailLimpio);
+    const directorio = this.cargarUsuariosPersistidos();
+    const usuario = directorio.find((u) => u.email.toLowerCase() === emailLimpio);
 
-    // 1. Verificación de existencia de usuario
     if (!usuario) {
       throw new Error('Credenciales inválidas: el correo o la contraseña no coinciden.');
     }
 
-    // 2. Verificación estricta de contraseña
     if (!credenciales.contrasena || usuario.contrasena !== credenciales.contrasena) {
       throw new Error('Credenciales inválidas: el correo o la contraseña no coinciden.');
     }
 
-    // 3. Verificación de estado de cuenta
     if (!usuario.activo) {
       throw new Error('Esta cuenta de usuario ha sido desactivada por el administrador.');
     }
@@ -170,8 +180,30 @@ class AuthService {
   }
 
   async obtenerUsuarios(): Promise<Usuario[]> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    return [...USUARIOS_CRM];
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return this.cargarUsuariosPersistidos();
+  }
+
+  async obtenerUsuarioPorId(id: string): Promise<Usuario | null> {
+    const usuarios = this.cargarUsuariosPersistidos();
+    return usuarios.find((u) => u.id === id) || null;
+  }
+
+  async actualizarUsuario(id: string, cambios: Partial<Usuario>): Promise<Usuario> {
+    const lista = this.cargarUsuariosPersistidos();
+    const idx = lista.findIndex((u) => u.id === id);
+    if (idx === -1) {
+      throw new Error('Usuario no encontrado.');
+    }
+
+    const usuarioActualizado: Usuario = {
+      ...lista[idx],
+      ...cambios,
+    };
+
+    lista[idx] = usuarioActualizado;
+    this.guardarUsuariosPersistidos(lista);
+    return usuarioActualizado;
   }
 }
 

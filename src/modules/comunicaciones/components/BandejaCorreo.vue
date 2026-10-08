@@ -61,7 +61,7 @@ const modalConfigAbierto = ref(false);
 const respuestaCuerpo = ref('');
 const incluirFirmaEnRespuesta = ref(true);
 const incluirPieEnRespuesta = ref(true);
-const citarOriginalEnRespuesta = ref(true);
+const citarOriginalEnRespuesta = ref(false);
 const enviandoRespuesta = ref(false);
 const feedbackRespuesta = ref<{ exito: boolean; mensaje: string } | null>(null);
 

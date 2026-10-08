@@ -89,5 +89,18 @@ export const useAuthStore = defineStore('auth', () => {
     iniciarSesion,
     cerrarSesion,
     cambiarRolRapido,
+    actualizarPerfilActual: (cambios: Partial<Usuario>) => {
+      if (!usuario.value) return;
+      usuario.value = { ...usuario.value, ...cambios };
+      globalAbility.setUser(usuario.value);
+      const reglas = generarReglasPorRol(usuario.value.rol);
+      globalAbility.updateRules(reglas);
+      const sesion = {
+        usuario: usuario.value,
+        token: token.value,
+        reglas,
+      };
+      localStorage.setItem('crm_sesion_auth', JSON.stringify(sesion));
+    },
   };
 });

@@ -9,6 +9,8 @@ export interface Usuario {
   rol: RolUsuario;
   rolNombre: string;
   cargo: string;
+  departamento?: string;
+  telefonoFlota?: string;
   avatar: string;
   activo: boolean;
   ultimoAcceso: string;

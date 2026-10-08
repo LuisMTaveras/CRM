@@ -8,7 +8,7 @@ export interface Rule {
 }
 
 export class Ability {
-  private rules: Rule[] = [];
+  private _rules: Rule[] = [];
   private user: Record<string, unknown> | null = null;
 
   setUser(user: unknown) {
@@ -16,14 +16,18 @@ export class Ability {
   }
 
   updateRules(rules: Rule[]) {
-    this.rules = rules;
+    this._rules = rules;
+  }
+
+  get rules(): Rule[] {
+    return [...this._rules];
   }
 
   can(action: Action, subject: Subject, subjectData?: Record<string, unknown>): boolean {
     const subjectName = typeof subject === 'string' ? subject : (subject.constructor?.name || 'Object');
     const data = typeof subject === 'object' ? subject : subjectData;
 
-    for (const rule of this.rules) {
+    for (const rule of this._rules) {
       const actionMatches = Array.isArray(rule.action)
         ? rule.action.includes(action) || rule.action.includes('manage')
         : rule.action === action || rule.action === 'manage';

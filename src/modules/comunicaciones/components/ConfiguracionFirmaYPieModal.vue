@@ -17,7 +17,12 @@ import {
   RefreshCw, 
   Mail, 
   ShieldCheck, 
-  Eye
+  Eye,
+  Lock,
+  Building2,
+  Phone,
+  Globe,
+  Briefcase
 } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -131,12 +136,12 @@ const guardarTodo = () => {
           <div>
             <h3 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <span>Configuración de Correo, Firma & Identidad</span>
-              <span class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                Personalizado
+              <span class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-semibold">
+                Gobierno Corporativo
               </span>
             </h3>
             <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Parametriza tus cuentas salientes/entrantes, firma profesional y pie legal institucional
+              Parametriza tus cuentas salientes/entrantes, firma con datos institucionales protegidos y pie legal
             </p>
           </div>
         </div>
@@ -156,7 +161,7 @@ const guardarTodo = () => {
           type="button"
           @click="tabActiva = 'firma'"
           class="flex items-center gap-2 px-4 py-2.5 font-medium border-b-2 text-xs transition-colors"
-          :class="tabActiva === 'firma' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
+          :class="tabActiva === 'firma' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 font-semibold' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
         >
           <PenTool class="w-3.5 h-3.5" />
           <span>Firma de Correo</span>
@@ -166,7 +171,7 @@ const guardarTodo = () => {
           type="button"
           @click="tabActiva = 'pie'"
           class="flex items-center gap-2 px-4 py-2.5 font-medium border-b-2 text-xs transition-colors"
-          :class="tabActiva === 'pie' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
+          :class="tabActiva === 'pie' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 font-semibold' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
         >
           <FileText class="w-3.5 h-3.5" />
           <span>Pie de Página Legal</span>
@@ -176,7 +181,7 @@ const guardarTodo = () => {
           type="button"
           @click="tabActiva = 'servidores'"
           class="flex items-center gap-2 px-4 py-2.5 font-medium border-b-2 text-xs transition-colors"
-          :class="tabActiva === 'servidores' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
+          :class="tabActiva === 'servidores' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 font-semibold' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
         >
           <Server class="w-3.5 h-3.5" />
           <span>Conexión de Servidor (SMTP / IMAP)</span>
@@ -187,6 +192,18 @@ const guardarTodo = () => {
       <div class="flex-1 overflow-y-auto p-6 space-y-6">
         <!-- PESTAÑA 1: FIRMA DE CORREO -->
         <div v-if="tabActiva === 'firma'" class="space-y-6">
+          <!-- Banner de Gobierno Corporativo -->
+          <div class="p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-start gap-3 text-xs">
+            <ShieldCheck class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+            <div class="space-y-1">
+              <div class="font-semibold text-indigo-900 dark:text-indigo-200">Gobierno de Identidad & Consistencia Institucional</div>
+              <p class="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                El nombre de la empresa, sitio web oficial, teléfono central PBX, tu cargo oficial y tu flota corporativa son datos protegidos administrados centralmente. Esto garantiza cumplimiento legal y una presentación corporativa intachable ante los clientes.
+              </p>
+            </div>
+          </div>
+
+          <!-- Activar Firma -->
           <div class="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl">
             <div class="space-y-0.5">
               <div class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
@@ -203,97 +220,148 @@ const guardarTodo = () => {
             </label>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Nombre Completo</label>
-              <input
-                type="text"
-                v-model="formFirma.nombreRemitente"
-                placeholder="Ej: Lic. Camila Morales"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
+          <!-- BLOQUE A: CAMPOS PROTEGIDOS (Solo Lectura con Candado) -->
+          <div class="p-4 bg-zinc-50/80 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-xl space-y-3">
+            <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+              <span class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2 text-xs">
+                <Lock class="w-3.5 h-3.5 text-amber-500" />
+                <span>Datos Corporativos & Ficha de Usuario (Protegidos)</span>
+              </span>
+              <span class="text-[10px] text-zinc-400 font-mono">Solo modificables por Administrador</span>
             </div>
 
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Cargo o Posición</label>
-              <input
-                type="text"
-                v-model="formFirma.cargo"
-                placeholder="Ej: Directora Comercial B2B"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
-            </div>
-
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Empresa</label>
-              <input
-                type="text"
-                v-model="formFirma.empresa"
-                placeholder="Ej: DEVFORGE Dominicana SRL"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
-            </div>
-
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Departamento o División</label>
-              <input
-                type="text"
-                v-model="formFirma.departamento"
-                placeholder="Ej: División Comercial & Grandes Cuentas"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
-            </div>
-
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Teléfono Fijo / Central</label>
-              <input
-                type="text"
-                v-model="formFirma.telefono"
-                placeholder="+1 (809) 555-0100"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
-            </div>
-
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Celular / WhatsApp Corporativo</label>
-              <input
-                type="text"
-                v-model="formFirma.celular"
-                placeholder="+1 (829) 555-0199"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
-            </div>
-
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Sitio Web Corporativo</label>
-              <input
-                type="text"
-                v-model="formFirma.sitioWeb"
-                placeholder="www.devforge.com.do"
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
-            </div>
-
-            <div>
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Color de Barra de Acento</label>
-              <div class="flex items-center gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Colaborador / Remitente</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Lock class="w-3 h-3" /> Ficha</span>
+                </label>
                 <input
-                  type="color"
-                  v-model="formFirma.colorAcento"
-                  class="w-10 h-9 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded cursor-pointer p-0.5"
+                  type="text"
+                  :value="formFirma.nombreRemitente"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-medium select-none"
                 />
-                <span class="font-mono text-zinc-700 dark:text-zinc-300 text-xs">{{ formFirma.colorAcento }}</span>
+              </div>
+
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Cargo Oficial Asignado</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Briefcase class="w-3 h-3" /> Ficha</span>
+                </label>
+                <input
+                  type="text"
+                  :value="formFirma.cargo"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-medium select-none"
+                />
+              </div>
+
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Empresa / Razón Social</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Building2 class="w-3 h-3" /> Institucional</span>
+                </label>
+                <input
+                  type="text"
+                  :value="formFirma.empresa"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-medium select-none"
+                />
+              </div>
+
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Departamento / División</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Lock class="w-3 h-3" /> Ficha</span>
+                </label>
+                <input
+                  type="text"
+                  :value="formFirma.departamento"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-medium select-none"
+                />
+              </div>
+
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Teléfono Central PBX</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Phone class="w-3 h-3" /> Central</span>
+                </label>
+                <input
+                  type="text"
+                  :value="formFirma.telefono"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-mono select-none"
+                />
+              </div>
+
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Flota Asignada (Celular Corporativo)</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Phone class="w-3 h-3" /> Flota</span>
+                </label>
+                <input
+                  type="text"
+                  :value="formFirma.celular"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-mono select-none"
+                />
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Sitio Web Corporativo</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Globe class="w-3 h-3" /> Oficial</span>
+                </label>
+                <input
+                  type="text"
+                  :value="formFirma.sitioWeb"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-mono select-none"
+                />
               </div>
             </div>
+          </div>
 
-            <div class="md:col-span-2">
-              <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Lema o Frase Personalizada</label>
-              <input
-                type="text"
-                v-model="formFirma.textoPersonalizado"
-                placeholder="Comprometidos con la excelencia operativa y transformación digital de su empresa."
-                class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
-              />
+          <!-- BLOQUE B: PREFERENCIAS PERSONALES DEL COLABORADOR (Editables) -->
+          <div class="p-4 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-4">
+            <div class="border-b border-zinc-200 dark:border-zinc-800/80 pb-2">
+              <span class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2 text-xs">
+                <PenTool class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Preferencias Personales de Presentación</span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Color de Barra de Acento</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="color"
+                    v-model="formFirma.colorAcento"
+                    class="w-10 h-9 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded cursor-pointer p-0.5"
+                  />
+                  <span class="font-mono text-zinc-700 dark:text-zinc-300 text-xs">{{ formFirma.colorAcento }}</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Lema o Frase de Cierre (Opcional)</label>
+                <input
+                  type="text"
+                  v-model="formFirma.textoPersonalizado"
+                  placeholder="Ej: Comprometidos con la excelencia técnica y operativa."
+                  class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
+                />
+              </div>
             </div>
           </div>
 
@@ -301,7 +369,7 @@ const guardarTodo = () => {
           <div class="space-y-2">
             <div class="flex items-center gap-2 text-zinc-800 dark:text-zinc-300 font-semibold">
               <Eye class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Vista Previa en Vivo de la Firma</span>
+              <span>Vista Previa en Vivo de tu Firma Oficial</span>
             </div>
             <div class="p-5 bg-white text-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-inner overflow-x-auto">
               <div v-html="previewFirmaHtml || '<span class=\'text-zinc-400 italic\'>Firma deshabilitada</span>'"></div>
@@ -311,6 +379,16 @@ const guardarTodo = () => {
 
         <!-- PESTAÑA 2: PIE DE PÁGINA INSTITUCIONAL -->
         <div v-if="tabActiva === 'pie'" class="space-y-6">
+          <div class="p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-start gap-3 text-xs">
+            <ShieldCheck class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+            <div class="space-y-1">
+              <div class="font-semibold text-indigo-900 dark:text-indigo-200">Aviso Legal & Cláusula de Confidencialidad</div>
+              <p class="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                Este pie legal se inyecta automáticamente al final de cada comunicación conforme a las leyes vigentes de Protección de Datos Personales (Ley No. 172-13). La dirección y RNC son administrados en la Configuración de Empresa.
+              </p>
+            </div>
+          </div>
+
           <div class="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl">
             <div class="space-y-0.5">
               <div class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
@@ -348,22 +426,30 @@ const guardarTodo = () => {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Dirección Física Institucional</label>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Dirección Física Institucional</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Lock class="w-3 h-3" /> Empresa</span>
+                </label>
                 <input
                   type="text"
-                  v-model="formPie.direccionFisica"
-                  placeholder="Av. Winston Churchill No. 1099, Torre Acrópolis Piso 14, Piantini, Santo Domingo"
-                  class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
+                  :value="formPie.direccionFisica"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed select-none"
                 />
               </div>
 
               <div>
-                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">RNC / Identificación Fiscal</label>
+                <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span>RNC / Identificación Fiscal</span>
+                  <span class="text-[10px] text-zinc-400 flex items-center gap-1"><Lock class="w-3 h-3" /> Empresa</span>
+                </label>
                 <input
                   type="text"
-                  v-model="formPie.rncEmpresa"
-                  placeholder="RNC: 1-32-45890-1"
-                  class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
+                  :value="formPie.rncEmpresa"
+                  readonly
+                  disabled
+                  class="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 cursor-not-allowed font-mono select-none"
                 />
               </div>
             </div>
@@ -454,7 +540,7 @@ const guardarTodo = () => {
                 <input
                   type="text"
                   v-model="formSmtp.servidorSmtp"
-                  placeholder="smtp.empresa.com.do"
+                  placeholder="smtp.tudominio.com"
                   class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
                 />
               </div>
@@ -486,7 +572,7 @@ const guardarTodo = () => {
                 <input
                   type="text"
                   v-model="formSmtp.usuarioSmtp"
-                  placeholder="ventas@empresa.com.do"
+                  placeholder="usuario@dominio.com"
                   class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
                 />
               </div>
@@ -542,7 +628,7 @@ const guardarTodo = () => {
                 <input
                   type="text"
                   v-model="formSmtp.servidorImap"
-                  placeholder="imap.empresa.com.do"
+                  placeholder="imap.tudominio.com"
                   class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-sky-500 placeholder-zinc-400 dark:placeholder-zinc-600"
                 />
               </div>
@@ -574,7 +660,7 @@ const guardarTodo = () => {
                 <input
                   type="text"
                   v-model="formSmtp.usuarioImap"
-                  placeholder="ventas@empresa.com.do"
+                  placeholder="usuario@dominio.com"
                   class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-sky-500 placeholder-zinc-400 dark:placeholder-zinc-600"
                 />
               </div>
@@ -614,7 +700,7 @@ const guardarTodo = () => {
             <CheckCircle2 class="w-3.5 h-3.5" />
             Configuración guardada correctamente
           </span>
-          <span v-else>Los cambios se aplicarán inmediatamente a todos los envíos y respuestas</span>
+          <span v-else>Los cambios se aplicarán inmediatamente a tus envíos y respuestas</span>
         </div>
 
         <div class="flex items-center gap-3">

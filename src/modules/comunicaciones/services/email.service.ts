@@ -120,27 +120,49 @@ class EmailService {
     const contactoPrincipal =
       cliente.contactos?.find((c) => c.es_principal) || cliente.contactos?.[0];
     const smtpConfig = smtpService.obtenerConfiguracion();
-
     const datosEmpresa = empresaService.obtenerDatos();
 
-    const nombreRemitenteEmpresa = smtpConfig.nombreRemitente || datosEmpresa.razonSocial || remitente?.nombre || 'Departamento Comercial';
-    const correoRemitenteEmpresa = smtpConfig.correoRemitente || remitente?.email || 'ventas@empresa.com.do';
+    // Resolver usuario autenticado o remitente pasado
+    let usuarioActivo: Omit<Usuario, 'contrasena'> | null = remitente || null;
+    if (!usuarioActivo) {
+      try {
+        const sesionGuardada = localStorage.getItem('crm_sesion_auth');
+        if (sesionGuardada) {
+          const sesion = JSON.parse(sesionGuardada);
+          if (sesion?.usuario) usuarioActivo = sesion.usuario;
+        }
+      } catch {
+        // Fallback silencioso
+      }
+    }
+
+    const nombreEjecutivo = usuarioActivo?.nombre || smtpConfig.nombreRemitente || 'Luis M. Taveras';
+    const correoEjecutivo = usuarioActivo?.email || smtpConfig.correoRemitente || 'luismiguel@alliance.do';
+    const cargoEjecutivo = usuarioActivo?.cargo || 'Team Leader TI Support';
+    const flotaEjecutivo = usuarioActivo?.telefonoFlota || datosEmpresa.telefono || '+1 (829) 708-4706';
+    const deptoEjecutivo = usuarioActivo?.departamento || 'Tecnología & Soporte';
+
+    const nombreRemitenteEmpresa = datosEmpresa.razonSocial || 'Ingeniería de Software Alliance S.R.L.';
+    const correoRemitenteEmpresa = smtpConfig.correoRemitente || correoEjecutivo;
     const telefonoRemitenteEmpresa = datosEmpresa.telefono || '+1 (809) 555-0100';
 
     return {
       empresa: cliente.razon_social,
       contacto_principal: contactoPrincipal?.nombre || 'Representante Legal',
       cargo_contacto: contactoPrincipal?.cargo || 'Director General',
-      rnc: cliente.identificacion_fiscal || 'Sin RNC',
+      rnc: cliente.identificacion_fiscal || 'Sin RNC Registrado',
       ciudad: cliente.ciudad || 'Santo Domingo',
       monto: formatCurrency(cliente.valor_estimado || 0),
       fecha: formatDate(new Date().toISOString()),
       empresa_remitente: nombreRemitenteEmpresa,
       correo_remitente: correoRemitenteEmpresa,
       telefono_remitente: telefonoRemitenteEmpresa,
-      ejecutivo: nombreRemitenteEmpresa,
-      correo_ejecutivo: correoRemitenteEmpresa,
-      telefono_ejecutivo: telefonoRemitenteEmpresa,
+      ejecutivo: nombreEjecutivo,
+      correo_ejecutivo: correoEjecutivo,
+      telefono_ejecutivo: flotaEjecutivo,
+      cargo_ejecutivo: cargoEjecutivo,
+      departamento_ejecutivo: deptoEjecutivo,
+      flota_ejecutivo: flotaEjecutivo,
       empresa_emisora: datosEmpresa.razonSocial,
       rnc_empresa_emisora: datosEmpresa.identificacionFiscal,
       web_empresa_emisora: datosEmpresa.sitioWeb,

@@ -948,7 +948,7 @@ app.post('/api/email/enviar', async (req, res) => {
       replyTo: config.correoRespuesta || undefined,
       subject: asunto,
       text: cuerpo,
-      html: convertirTextoAHtml(cuerpo),
+      html: convertirTextoAHtml(cuerpo, adjuntoNombre),
       attachments,
     });
 
@@ -1004,7 +1004,7 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
         replyTo: config.correoRespuesta || undefined,
         subject: asunto,
         text: cuerpo,
-        html: convertirTextoAHtml(cuerpo),
+        html: convertirTextoAHtml(cuerpo, adjuntoNombre),
         attachments,
       });
       resultados.push({ destinatario, exito: true, messageId: info.messageId });
@@ -1036,16 +1036,78 @@ function crearTransporter(config) {
   });
 }
 
-function convertirTextoAHtml(texto) {
+function convertirTextoAHtml(texto, nombreAdjunto = null) {
   if (!texto) return '';
-  const lineas = texto.split('\n').map((line) => {
-    if (line.startsWith('--')) return `<div class="firma">${line.replace('--', '').trim()}</div>`;
-    return line.trim() ? `<p>${line}</p>` : '<br>';
-  }).join('\n');
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>
-body{font-family:Arial,sans-serif;font-size:13px;color:#27272a;line-height:1.6;max-width:600px;margin:0 auto;padding:20px}
-p{margin:0 0 10px 0}.firma{margin-top:20px;padding-top:10px;border-top:1px solid #e4e4e7;color:#71717a;font-size:11px}
-</style></head><body>${lineas}</body></html>`;
+
+  const lineas = texto.split('\n');
+  let contenidoHtml = '';
+  let firmaHtml = '';
+  let enFirma = false;
+
+  for (const line of lineas) {
+    if (line.trim().startsWith('--')) {
+      enFirma = true;
+      const contenidoFirma = line.replace(/^--\s*/, '').trim();
+      if (contenidoFirma) {
+        firmaHtml += `<p style="margin: 3px 0;">${contenidoFirma}</p>`;
+      }
+      continue;
+    }
+
+    if (enFirma) {
+      if (line.trim()) {
+        firmaHtml += `<p style="margin: 3px 0;">${line}</p>`;
+      }
+    } else {
+      if (line.trim()) {
+        contenidoHtml += `<p style="margin: 0 0 12px 0; line-height: 1.65;">${line}</p>`;
+      } else {
+        contenidoHtml += `<div style="height: 8px;"></div>`;
+      }
+    }
+  }
+
+  const badgeAdjunto = nombreAdjunto ? `
+    <div style="margin-bottom: 20px; padding: 10px 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <table cellpadding="0" cellspacing="0" border="0" style="font-size: 12px; color: #334155;">
+        <tr>
+          <td style="padding-right: 8px; font-size: 14px;">📎</td>
+          <td style="font-weight: 600; color: #0f172a; padding-right: 6px;">Documento Adjunto:</td>
+          <td style="color: #4f46e5; font-weight: 600;">${nombreAdjunto}</td>
+          <td style="padding-left: 8px; font-size: 11px; color: #64748b;">(PDF Oficial B2B Verificado)</td>
+        </tr>
+      </table>
+    </div>
+  ` : '';
+
+  const bloqueFirma = firmaHtml ? `
+    <div style="margin-top: 26px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #475569; font-size: 11.5px; line-height: 1.5;">
+      ${firmaHtml}
+    </div>
+  ` : '';
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comunicación Oficial</title>
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <div style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+    <div style="height: 4px; background-color: #0f172a; border-bottom: 2px solid #4f46e5;"></div>
+    <div style="padding: 28px 26px; font-size: 13.5px; line-height: 1.6; color: #334155;">
+      ${badgeAdjunto}
+      ${contenidoHtml}
+      ${bloqueFirma}
+    </div>
+    <div style="padding: 14px 26px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 10.5px; color: #94a3b8; text-align: center; line-height: 1.4;">
+      Este mensaje y sus documentos adjuntos son de carácter confidencial y para uso exclusivo del destinatario.<br>
+      Conforme a la Ley No. 126-02 y Ley No. 172-13 sobre Protección de Datos de la República Dominicana.
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 function traducirErrorSmtp(code, mensaje) {

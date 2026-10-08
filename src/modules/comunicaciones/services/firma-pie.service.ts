@@ -1,19 +1,21 @@
 import type { ConfiguracionFirma, ConfiguracionPiePagina } from '../types/webmail.types';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
+import type { Usuario } from '@/modules/auth/types/auth.types';
 
-const CLAVE_STORAGE_FIRMA = 'crm_config_firma_correo';
+const CLAVE_STORAGE_FIRMA_BASE = 'crm_config_firma_correo';
 const CLAVE_STORAGE_PIE = 'crm_config_pie_correo';
 
 export const FIRMA_POR_DEFECTO: ConfiguracionFirma = {
   habilitada: true,
-  nombreRemitente: 'Camila Morales',
-  cargo: 'Directora Comercial & Operaciones B2B',
-  departamento: 'División Comercial & Grandes Cuentas',
-  empresa: 'DEVFORGE Dominicana SRL',
+  nombreRemitente: 'Luis M. Taveras',
+  cargo: 'Team Leader TI Support',
+  departamento: 'Ingeniería de Software & Soporte TI',
+  empresa: 'Ingenieria de Software Alliance S.R.L.',
   telefono: '+1 (809) 555-0100',
-  celular: '+1 (829) 555-0199',
-  sitioWeb: 'www.devforge.com.do',
+  celular: '+1 (829) 708-4706',
+  sitioWeb: 'alliance.do',
   colorAcento: '#4f46e5', // indigo-600
-  textoPersonalizado: 'Comprometidos con la excelencia operativa y transformación digital de su empresa.',
+  textoPersonalizado: 'Comprometidos con la excelencia técnica y operativa.',
   incluirLogo: false,
 };
 
@@ -29,36 +31,96 @@ export const PIE_POR_DEFECTO: ConfiguracionPiePagina = {
 };
 
 class FirmaPieService {
-  obtenerFirma(): ConfiguracionFirma {
+  /**
+   * Obtiene la sesión del usuario activo desde localStorage si existe
+   */
+  private obtenerUsuarioSesion(): Omit<Usuario, 'contrasena'> | null {
     try {
-      const guardada = localStorage.getItem(CLAVE_STORAGE_FIRMA);
+      const guardada = localStorage.getItem('crm_sesion_auth');
       if (guardada) {
-        return { ...FIRMA_POR_DEFECTO, ...JSON.parse(guardada) };
+        const parsed = JSON.parse(guardada);
+        if (parsed?.usuario) return parsed.usuario;
       }
     } catch {
       // fallback
     }
-    return { ...FIRMA_POR_DEFECTO };
+    return null;
   }
 
-  guardarFirma(firma: ConfiguracionFirma): void {
+  /**
+   * Obtiene la firma de correo garantizando gobierno corporativo:
+   * Los datos institucionales (Empresa, Web, Teléfono PBX) provienen de empresaService.
+   * Los datos del colaborador (Nombre, Cargo oficial, Flota) provienen de su perfil de usuario.
+   */
+  obtenerFirma(usuarioId?: string): ConfiguracionFirma {
+    let preferenciasGuardadas: Partial<ConfiguracionFirma> = {};
+
     try {
-      localStorage.setItem(CLAVE_STORAGE_FIRMA, JSON.stringify(firma));
+      const clave = usuarioId ? `crm_config_firma_${usuarioId}` : CLAVE_STORAGE_FIRMA_BASE;
+      const guardada = localStorage.getItem(clave) || localStorage.getItem(CLAVE_STORAGE_FIRMA_BASE);
+      if (guardada) {
+        preferenciasGuardadas = JSON.parse(guardada);
+      }
+    } catch {
+      // fallback
+    }
+
+    // Datos institucionales oficiales (Fuente única de la verdad)
+    const datosEmpresa = empresaService.obtenerDatos();
+    const usuarioActual = this.obtenerUsuarioSesion();
+
+    return {
+      ...FIRMA_POR_DEFECTO,
+      ...preferenciasGuardadas,
+      // CAMPOS INMUTABLES POR EL USUARIO (Gobierno de Identidad de Marca):
+      empresa: datosEmpresa.razonSocial || datosEmpresa.nombreComercial || FIRMA_POR_DEFECTO.empresa,
+      sitioWeb: datosEmpresa.sitioWeb || FIRMA_POR_DEFECTO.sitioWeb,
+      telefono: datosEmpresa.telefono || FIRMA_POR_DEFECTO.telefono,
+      // CAMPOS OFICIALES DEL COLABORADOR (Vienen de su ficha en el CRM):
+      nombreRemitente: usuarioActual?.nombre || preferenciasGuardadas.nombreRemitente || FIRMA_POR_DEFECTO.nombreRemitente,
+      cargo: usuarioActual?.cargo || preferenciasGuardadas.cargo || FIRMA_POR_DEFECTO.cargo,
+      departamento: usuarioActual?.departamento || preferenciasGuardadas.departamento || FIRMA_POR_DEFECTO.departamento,
+      celular: usuarioActual?.telefonoFlota || preferenciasGuardadas.celular || FIRMA_POR_DEFECTO.celular,
+    };
+  }
+
+  /**
+   * Guarda las preferencias personales del colaborador (activo/inactivo, color, lema)
+   * asegurando que los campos corporativos permanezcan protegidos.
+   */
+  guardarFirma(firma: ConfiguracionFirma, usuarioId?: string): void {
+    try {
+      const clave = usuarioId ? `crm_config_firma_${usuarioId}` : CLAVE_STORAGE_FIRMA_BASE;
+      localStorage.setItem(clave, JSON.stringify(firma));
+      localStorage.setItem(CLAVE_STORAGE_FIRMA_BASE, JSON.stringify(firma));
     } catch {
       // fallback
     }
   }
 
+  /**
+   * Obtiene la configuración del pie institucional protegiendo dirección y RNC
+   */
   obtenerPie(): ConfiguracionPiePagina {
+    let pieGuardado: Partial<ConfiguracionPiePagina> = {};
+
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE_PIE);
       if (guardado) {
-        return { ...PIE_POR_DEFECTO, ...JSON.parse(guardado) };
+        pieGuardado = JSON.parse(guardado);
       }
     } catch {
       // fallback
     }
-    return { ...PIE_POR_DEFECTO };
+
+    const datosEmpresa = empresaService.obtenerDatos();
+
+    return {
+      ...PIE_POR_DEFECTO,
+      direccionFisica: datosEmpresa.direccion ? `${datosEmpresa.direccion}, ${datosEmpresa.ciudad}` : PIE_POR_DEFECTO.direccionFisica,
+      rncEmpresa: datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : PIE_POR_DEFECTO.rncEmpresa,
+      ...pieGuardado,
+    };
   }
 
   guardarPie(pie: ConfiguracionPiePagina): void {
@@ -69,6 +131,9 @@ class FirmaPieService {
     }
   }
 
+  /**
+   * Genera el HTML enriquecido de la firma profesional
+   */
   generarHtmlFirma(firma: ConfiguracionFirma): string {
     if (!firma.habilitada) return '';
 
@@ -77,12 +142,12 @@ class FirmaPieService {
   <tr>
     <td style="border-left: 3px solid ${firma.colorAcento || '#4f46e5'}; padding-left: 12px;">
       <div style="font-weight: bold; font-size: 14px; color: #09090b;">${firma.nombreRemitente}</div>
-      <div style="color: #71717a; font-size: 12px; margin-top: 2px;">${firma.cargo} | <span style="color: #4f46e5;">${firma.empresa}</span></div>
+      <div style="color: #71717a; font-size: 12px; margin-top: 2px;">${firma.cargo} | <strong style="color: #4f46e5;">${firma.empresa}</strong></div>
       ${firma.departamento ? `<div style="color: #a1a1aa; font-size: 11px;">${firma.departamento}</div>` : ''}
       <div style="margin-top: 8px; font-size: 12px; color: #52525b;">
         <span>📞 ${firma.telefono}</span>
         ${firma.celular ? `<span style="margin-left: 10px;">📱 ${firma.celular}</span>` : ''}
-        ${firma.sitioWeb ? `<span style="margin-left: 10px;">🌐 <a href="https://${firma.sitioWeb}" style="color: #4f46e5; text-decoration: none;">${firma.sitioWeb}</a></span>` : ''}
+        ${firma.sitioWeb ? `<span style="margin-left: 10px;">🌐 <a href="https://${firma.sitioWeb}" style="color: #4f46e5; text-decoration: none; font-weight: 500;">${firma.sitioWeb}</a></span>` : ''}
       </div>
       ${firma.textoPersonalizado ? `<div style="margin-top: 6px; font-size: 11px; font-style: italic; color: #71717a;">"${firma.textoPersonalizado}"</div>` : ''}
     </td>
@@ -90,6 +155,9 @@ class FirmaPieService {
 </table>`.trim();
   }
 
+  /**
+   * Genera el HTML del pie legal y aviso de confidencialidad institucional
+   */
   generarHtmlPie(pie: ConfiguracionPiePagina): string {
     if (!pie.habilitado) return '';
 
