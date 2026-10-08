@@ -22,7 +22,6 @@ import {
   Paperclip, 
   Reply, 
   Mail, 
-  Sliders, 
   ChevronLeft, 
   ChevronRight, 
   Loader2, 
@@ -360,18 +359,8 @@ onMounted(async () => {
         </button>
       </div>
 
-      <!-- Acciones de Cabecera -->
+      <!-- Acciones de Cabecera (Sincronizar y Redactar) -->
       <div class="flex items-center gap-2.5 shrink-0 justify-end">
-        <!-- Acceso directo a Configuración General de Correo -->
-        <router-link
-          to="/configuracion?tab=correo"
-          class="inline-flex items-center gap-1.5 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs font-medium transition shadow-sm"
-          title="Configurar cuentas SMTP/IMAP, Firma y Pie Legal en Configuración General"
-        >
-          <Sliders class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span class="hidden md:inline">Ajustes de Servidor</span>
-        </router-link>
-
         <!-- Botón de Sincronización IMAP en Vivo -->
         <button
           type="button"
@@ -897,7 +886,7 @@ onMounted(async () => {
 
           <!-- Cuerpo Scrolleable del Mensaje -->
           <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <div class="bg-zinc-50/70 dark:bg-zinc-950/60 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 shadow-inner overflow-hidden">
+            <div class="bg-zinc-50/70 dark:bg-zinc-950/60 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 shadow-inner overflow-hidden text-zinc-900 dark:text-zinc-100">
               <EmailViewer
                 :html="mensajeSeleccionado.cuerpoHtml"
                 :texto="mensajeSeleccionado.cuerpoTexto"

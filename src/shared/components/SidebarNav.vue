@@ -36,8 +36,19 @@ const esRutaActiva = (ruta: string) => {
   <aside class="w-64 bg-white dark:bg-[#0c0c0e] border-r border-zinc-200 dark:border-white/[0.06] flex flex-col shrink-0 select-none transition-colors duration-200">
     <!-- Logotipo y Nombre del Sistema -->
     <div class="h-14 px-4 border-b border-zinc-200 dark:border-white/[0.06] flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500/20 via-indigo-600/10 to-transparent border border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-inner">
-        <Layers class="w-4 h-4 stroke-[2.2]" />
+      <div class="w-8 h-8 rounded-lg overflow-hidden border border-zinc-200 dark:border-white/[0.08] flex items-center justify-center shrink-0 bg-white dark:bg-zinc-900">
+        <img
+          v-if="perfilEmpresa.logoUrl"
+          :src="perfilEmpresa.logoUrl"
+          alt="Logotipo"
+          class="w-full h-full object-contain p-0.5"
+        />
+        <div
+          v-else
+          class="w-full h-full bg-gradient-to-br from-indigo-500/20 via-indigo-600/10 to-transparent flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner"
+        >
+          <Layers class="w-4 h-4 stroke-[2.2]" />
+        </div>
       </div>
       <div class="overflow-hidden min-w-0">
         <div class="font-semibold text-xs tracking-tight text-zinc-900 dark:text-zinc-100 truncate" :title="perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial">

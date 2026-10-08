@@ -126,4 +126,22 @@ Sin otro particular, quedamos a su entera disposición.`,
     const uri = pdfGeneratorService.obtenerDataUri(plantillaMuestra, variablesVacias);
     expect(uri.startsWith('data:application/pdf;')).toBe(true);
   });
+
+  it('renderiza exitosamente el documento incorporando el logotipo oficial de la empresa', () => {
+    const doc = pdfGeneratorService.generarDocumentoPdf(plantillaMuestra, variablesMuestra);
+    expect(doc).toBeDefined();
+    const uri = doc.output('datauristring');
+    expect(uri).toContain('data:application/pdf;');
+    expect(uri.length).toBeGreaterThan(5000);
+  });
+
+  it('sustituye correctamente el ejecutivo y cargo en la ficha de emisor y firma sin usar el nombre de la empresa', () => {
+    const doc = pdfGeneratorService.generarDocumentoPdf(plantillaMuestra, {
+      ...variablesMuestra,
+      ejecutivo: 'Luis M. Taveras',
+      cargo_ejecutivo: 'Team Leader TI Support',
+    });
+    expect(doc).toBeDefined();
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+  });
 });

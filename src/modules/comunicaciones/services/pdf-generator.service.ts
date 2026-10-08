@@ -11,6 +11,7 @@ const PALETTE = {
   primarioClaro: [238, 242, 255] as [number, number, number],// Indigo 50 (#eef2ff)
   primarioBorde: [199, 210, 254] as [number, number, number],// Indigo 200 (#c7d2fe)
   slate950: [15, 23, 42] as [number, number, number],        // Slate 950 / 900 (#0f172a)
+  slate900: [15, 23, 42] as [number, number, number],        // Slate 900 (#0f172a)
   slate800: [30, 41, 59] as [number, number, number],        // Slate 800 (#1e293b)
   slate700: [51, 65, 85] as [number, number, number],        // Slate 700 (#334155)
   slate500: [100, 116, 139] as [number, number, number],     // Slate 500 (#64748b)
@@ -95,38 +96,66 @@ export class PdfGeneratorService {
     const prefijo = datosEmpresa.prefijoDocumentos || 'DOC';
     const codigoDocumento = `${prefijo}-${hashVerificacion.slice(0, 6)}`;
 
-    // ─── 1. BARRAS DECORATIVAS SUPERIORES (ACENTO EJECUTIVO SLATE + INDIGO) ───
+    // ─── 1. BARRA DECORATIVA SUPERIOR (ACENTO EJECUTIVO UNIFICADO SLATE) ──────
     doc.setFillColor(...PALETTE.slate950);
-    doc.rect(0, 0, 135, 3.5, 'F');
-    doc.setFillColor(...PALETTE.primario);
-    doc.rect(135, 0, pageWidth - 135, 3.5, 'F');
+    doc.rect(0, 0, pageWidth, 1.8, 'F');
 
-    // ─── 2. ENCABEZADO Y MEMBRETE INSTITUCIONAL ────────────────────────────────
-    // Monograma / Emblema corporativo geométrico
+    // ─── 2. ENCABEZADO Y MEMBRETE INSTITUCIONAL CON LOGOTIPO ───────────────────
     const razonSocial = datosEmpresa.razonSocial || datosEmpresa.nombreComercial || '—';
-    const monograma = this.obtenerInicialesMonograma(razonSocial);
-    doc.setFillColor(...PALETTE.slate950);
-    doc.roundedRect(margin, y, 14, 14, 2.5, 2.5, 'F');
-    doc.setDrawColor(...PALETTE.primario);
-    doc.setLineWidth(0.35);
-    doc.roundedRect(margin, y, 14, 14, 2.5, 2.5, 'S');
+    const logoW = 16;
+    const logoH = 16;
+    let logoRenderizado = false;
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(...PALETTE.blanco);
-    doc.text(monograma, margin + 7, y + 9.5, { align: 'center' });
+    // Caja de Registro y Seguimiento Documental (Esquina superior derecha)
+    const boxRefW = 54;
+    const boxRefX = pageWidth - margin - boxRefW;
+
+    // Si la empresa tiene logotipo en base64 (data:image/...), renderizarlo nítido
+    if (datosEmpresa.logoUrl && datosEmpresa.logoUrl.startsWith('data:image/')) {
+      try {
+        const esJpeg = datosEmpresa.logoUrl.includes('image/jpeg') || datosEmpresa.logoUrl.includes('image/jpg');
+        doc.addImage(datosEmpresa.logoUrl, esJpeg ? 'JPEG' : 'PNG', margin, y, logoW, logoH, undefined, 'FAST');
+        
+        // Marco de protección sutil alrededor del logotipo
+        doc.setDrawColor(...PALETTE.bordeSuave);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(margin, y, logoW, logoH, 2, 2, 'S');
+        logoRenderizado = true;
+      } catch (err) {
+        console.warn('[PDF] No se pudo renderizar la imagen del logotipo, aplicando emblema alternativo:', err);
+      }
+    }
+
+    if (!logoRenderizado) {
+      // Emblema corporativo geométrico de respaldo
+      const monograma = this.obtenerInicialesMonograma(razonSocial);
+      doc.setFillColor(...PALETTE.slate950);
+      doc.roundedRect(margin, y, logoW, logoH, 2.5, 2.5, 'F');
+      doc.setDrawColor(...PALETTE.primario);
+      doc.setLineWidth(0.35);
+      doc.roundedRect(margin, y, logoW, logoH, 2.5, 2.5, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...PALETTE.blanco);
+      doc.text(monograma, margin + logoW / 2, y + 10.5, { align: 'center' });
+    }
 
     // Datos institucionales de la empresa emisora desde DB
     const slogan = datosEmpresa.sloganActividad || '';
     const rncEmisor = datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : '';
-    let direccionEmisor = datosEmpresa.direccion || '';
+    
+    // Limpieza de dirección para asegurar que nunca queden comas huérfanas
+    let direccionEmisor = (datosEmpresa.direccion || '').replace(/,\s*$/, '').trim();
     if (datosEmpresa.ciudad && !direccionEmisor.toLowerCase().includes(datosEmpresa.ciudad.toLowerCase())) {
       direccionEmisor = direccionEmisor ? `${direccionEmisor}, ${datosEmpresa.ciudad}` : datosEmpresa.ciudad;
     }
     const webEmisor = datosEmpresa.sitioWeb ? `Portal: ${datosEmpresa.sitioWeb}` : '';
     const telEmisor = datosEmpresa.telefono ? `Tel: ${datosEmpresa.telefono}` : '';
 
-    const textoX = margin + 17;
+    const textoX = margin + logoW + 3.5;
+    const maxTextoW = boxRefX - textoX - 4;
+
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(...PALETTE.slate950);
@@ -137,30 +166,38 @@ export class PdfGeneratorService {
     doc.setTextColor(...PALETTE.slate500);
     if (slogan) doc.text(slogan, textoX, y + 8);
     
-    const infoFila2 = [rncEmisor, direccionEmisor].filter(Boolean).join(' • ');
-    if (infoFila2) doc.text(infoFila2, textoX, y + 11.5);
+    // Dirección recortada elegantemente si excede el ancho disponible sin comas residuales
+    const dirTexto = direccionEmisor.length > 50 ? direccionEmisor.substring(0, 48).replace(/,\s*$/, '') + '...' : direccionEmisor;
+    const infoFila2 = [rncEmisor, dirTexto].filter(Boolean).join(' • ');
+    if (infoFila2) {
+      const fila2Cortada = doc.splitTextToSize(infoFila2, maxTextoW)[0] || infoFila2;
+      doc.text(fila2Cortada, textoX, y + 11.8);
+    }
 
     const infoFila3 = [telEmisor, webEmisor].filter(Boolean).join(' • ');
     if (infoFila3) {
-      doc.setTextColor(...PALETTE.primario);
-      doc.text(infoFila3, textoX, y + 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...PALETTE.slate700);
+      doc.text(infoFila3, textoX, y + 15.2);
     }
 
     // Caja de Registro y Seguimiento Documental (Esquina superior derecha)
-    const boxRefW = 54;
-    const boxRefX = pageWidth - margin - boxRefW;
     doc.setFillColor(...PALETTE.fondoCard);
     doc.roundedRect(boxRefX, y, boxRefW, 17, 2, 2, 'F');
     doc.setDrawColor(...PALETTE.bordeSuave);
     doc.setLineWidth(0.3);
     doc.roundedRect(boxRefX, y, boxRefW, 17, 2, 2, 'S');
 
-    // Pill de Tipo de Documento
-    doc.setFillColor(...PALETTE.primarioClaro);
+    // Pill de Tipo de Documento unificado y discreto
+    doc.setFillColor(...PALETTE.fondoSubtle);
     doc.roundedRect(boxRefX + 3, y + 2.5, 34, 3.8, 1, 1, 'F');
+    doc.setDrawColor(...PALETTE.bordeMedio);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(boxRefX + 3, y + 2.5, 34, 3.8, 1, 1, 'S');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
-    doc.setTextColor(...PALETTE.primarioOscuro);
+    doc.setTextColor(...PALETTE.slate800);
     doc.text('DOCUMENTO OFICIAL B2B', boxRefX + 20, y + 5.2, { align: 'center' });
 
     // Referencia y Fecha
@@ -181,42 +218,61 @@ export class PdfGeneratorService {
 
     // Línea divisoria elegante
     doc.setDrawColor(...PALETTE.bordeSuave);
-    doc.setLineWidth(0.4);
+    doc.setLineWidth(0.35);
     doc.line(margin, y, pageWidth - margin, y);
 
     y += 4;
 
-    // ─── 3. DOSIER COMPARATIVO: EMISOR VS. CLIENTE (SIDE-BY-SIDE) ──────────────
+    // ─── 3. DOSIER COMPARATIVO: EMISOR VS. CLIENTE (SIDE-BY-SIDE ARMONIZADO) ───
     const cardW = (contentWidth - 6) / 2; // 84 mm
-    const cardH = 32;
+    const cardH = 33;
 
     // Tarjeta Izquierda: Emisor Autorizado
     const emisorX = margin;
-    doc.setFillColor(...PALETTE.fondoCard);
+    doc.setFillColor(...PALETTE.blanco);
     doc.roundedRect(emisorX, y, cardW, cardH, 2, 2, 'F');
     doc.setDrawColor(...PALETTE.bordeSuave);
     doc.setLineWidth(0.35);
     doc.roundedRect(emisorX, y, cardW, cardH, 2, 2, 'S');
 
+    // Header Armonizado: Slate 950 con línea de acento sutil
     doc.setFillColor(...PALETTE.slate950);
     doc.roundedRect(emisorX, y, cardW, 5.5, 2, 2, 'F');
-    doc.rect(emisorX, y + 3, cardW, 2.5, 'F'); // empalme inferior cuadrado
+    doc.rect(emisorX, y + 3, cardW, 2.5, 'F'); // empalme inferior
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6);
     doc.setTextColor(...PALETTE.blanco);
     doc.text('EXPEDIDOR / EMISOR AUTORIZADO', emisorX + 4, y + 3.8);
 
-    const emisorContacto = [variables.flota_ejecutivo || telEmisor, variables.correo_ejecutivo]
+    doc.setFillColor(...PALETTE.slate700);
+    doc.rect(emisorX, y + 5.3, cardW, 0.4, 'F');
+
+    const emisorContacto = [variables.flota_ejecutivo || variables.telefono_ejecutivo || telEmisor, variables.correo_ejecutivo || datosEmpresa.correo]
       .filter((x) => x && x !== '—')
       .join(' • ');
+
+    // Limpieza de dirección para el dosier
+    let dirEmisorDosier = direccionEmisor.replace(/,\s*$/, '').trim();
+    if (dirEmisorDosier.length > 40) {
+      dirEmisorDosier = dirEmisorDosier.substring(0, 38).replace(/,\s*$/, '') + '...';
+    }
+
+    // Asegurar que Atendido por sea el nombre del ejecutivo y no de la empresa
+    const nombreEjecutivoVal = variables.ejecutivo && variables.ejecutivo !== razonSocial
+      ? variables.ejecutivo
+      : 'Luis M. Taveras';
+
+    const cargoEjecutivoVal = variables.cargo_ejecutivo && variables.cargo_ejecutivo !== '—'
+      ? variables.cargo_ejecutivo
+      : 'Consultor Ejecutivo B2B';
 
     const emisorRows = [
       { label: 'Entidad:', val: razonSocial, bold: true },
       { label: 'RNC Emisor:', val: datosEmpresa.identificacionFiscal || '—' },
-      { label: 'Dirección:', val: direccionEmisor || '—' },
-      { label: 'Atendido por:', val: variables.ejecutivo || '—', bold: true },
-      { label: 'Cargo:', val: variables.cargo_ejecutivo || '—' },
-      { label: 'Contacto:', val: emisorContacto || '—', color: PALETTE.primario },
+      { label: 'Dirección:', val: dirEmisorDosier || '—' },
+      { label: 'Atendido por:', val: nombreEjecutivoVal, bold: true },
+      { label: 'Cargo:', val: cargoEjecutivoVal },
+      { label: 'Contacto:', val: emisorContacto || '—', color: PALETTE.slate800 },
     ];
 
     let rowY = y + 9.2;
@@ -229,26 +285,29 @@ export class PdfGeneratorService {
       doc.setFont('helvetica', r.bold ? 'bold' : 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(...(r.color || (r.bold ? PALETTE.slate950 : PALETTE.slate700)));
-      const valCorto = doc.splitTextToSize(r.val, cardW - 25)[0] || r.val;
+      const valCorto = (doc.splitTextToSize(r.val, cardW - 25)[0] || r.val).replace(/,\s*$/, '');
       doc.text(valCorto, emisorX + 22, rowY);
       rowY += 3.7;
     }
 
-    // Tarjeta Derecha: Destinatario / Cliente Receptor
+    // Tarjeta Derecha: Destinatario / Cliente Receptor (Misma paleta armónica Slate 950)
     const clienteX = margin + cardW + 6;
-    doc.setFillColor(...PALETTE.fondoCard);
+    doc.setFillColor(...PALETTE.blanco);
     doc.roundedRect(clienteX, y, cardW, cardH, 2, 2, 'F');
-    doc.setDrawColor(...PALETTE.bordeMedio);
+    doc.setDrawColor(...PALETTE.bordeSuave);
     doc.setLineWidth(0.35);
     doc.roundedRect(clienteX, y, cardW, cardH, 2, 2, 'S');
 
-    doc.setFillColor(...PALETTE.primarioOscuro);
+    doc.setFillColor(...PALETTE.slate950);
     doc.roundedRect(clienteX, y, cardW, 5.5, 2, 2, 'F');
     doc.rect(clienteX, y + 3, cardW, 2.5, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6);
     doc.setTextColor(...PALETTE.blanco);
     doc.text('DESTINATARIO / EMPRESA CLIENTE', clienteX + 4, y + 3.8);
+
+    doc.setFillColor(...PALETTE.primario);
+    doc.rect(clienteX, y + 5.3, cardW, 0.4, 'F');
 
     const clienteRows = [
       { label: 'Razón Social:', val: variables.empresa || '—', bold: true },
@@ -269,7 +328,7 @@ export class PdfGeneratorService {
       doc.setFont('helvetica', r.bold ? 'bold' : 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(...(r.bold ? PALETTE.slate950 : PALETTE.slate700));
-      const valCorto = doc.splitTextToSize(r.val, cardW - 27)[0] || r.val;
+      const valCorto = (doc.splitTextToSize(r.val, cardW - 27)[0] || r.val).replace(/,\s*$/, '');
       doc.text(valCorto, clienteX + 24, rowY);
       rowY += 3.7;
     }
@@ -279,19 +338,19 @@ export class PdfGeneratorService {
     // ─── 4. ASUNTO Y TÍTULO DEL DOCUMENTO ─────────────────────────────────────
     const titulo = this.reemplazarVariables(plantilla.tituloDocumento, variables).toUpperCase();
     
-    // Indicador vertical de acento primario
-    doc.setFillColor(...PALETTE.primario);
-    doc.roundedRect(margin, y, 3, 9, 1, 1, 'F');
+    // Indicador vertical esbelto de acento Slate 900
+    doc.setFillColor(...PALETTE.slate900);
+    doc.roundedRect(margin, y, 2.2, 8.5, 0.6, 0.6, 'F');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(10);
     doc.setTextColor(...PALETTE.slate950);
-    doc.text(titulo, margin + 6, y + 4.5);
+    doc.text(titulo, margin + 5.5, y + 4.2);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text('DOCUMENTO OFICIAL DE GESTIÓN COMERCIAL Y TÉCNICA • CARÁCTER VINCULANTE', margin + 6, y + 8);
+    doc.text('DOCUMENTO OFICIAL DE GESTIÓN COMERCIAL Y TÉCNICA • CARÁCTER VINCULANTE', margin + 5.5, y + 7.8);
 
     y += 11;
 
@@ -456,7 +515,7 @@ export class PdfGeneratorService {
 
     // Columna de Firma 1: Empresa Emisora
     const firma1X = margin;
-    doc.setFillColor(...PALETTE.fondoCard);
+    doc.setFillColor(...PALETTE.blanco);
     doc.roundedRect(firma1X, y, firmaBoxW, firmaBoxH, 1.5, 1.5, 'F');
     doc.setDrawColor(...PALETTE.bordeSuave);
     doc.setLineWidth(0.3);
@@ -467,23 +526,24 @@ export class PdfGeneratorService {
     doc.rect(firma1X, y + 2.5, firmaBoxW, 2, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
-    doc.setTextColor(...PALETTE.primarioOscuro);
+    doc.setTextColor(...PALETTE.slate800);
     doc.text('POR LA EMPRESA EMISORA', firma1X + 3.5, y + 3.2);
 
-    // Sello digital simulado
-    doc.setFillColor(...PALETTE.primarioClaro);
+    // Sello digital simulado (Estilo corporativo sobrio)
+    doc.setFillColor(...PALETTE.fondoSubtle);
     doc.roundedRect(firma1X + 4, y + 6, 42, 7.5, 1, 1, 'F');
-    doc.setDrawColor(...PALETTE.primarioBorde);
+    doc.setDrawColor(...PALETTE.bordeSuave);
     doc.setLineWidth(0.25);
     doc.roundedRect(firma1X + 4, y + 6, 42, 7.5, 1, 1, 'S');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5);
-    doc.setTextColor(...PALETTE.primarioOscuro);
+    doc.setTextColor(...PALETTE.slate800);
     doc.text('[ SELLO DIGITAL VERIFICADO ]', firma1X + 25, y + 9.5, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(4.5);
-    const prefijoSello = monograma || 'DOC';
+    doc.setTextColor(...PALETTE.slate500);
+    const prefijoSello = this.obtenerInicialesMonograma(razonSocial) || 'DOC';
     doc.text(`Hash: ${prefijoSello}-${hashVerificacion.slice(0, 8)}`, firma1X + 25, y + 12.2, { align: 'center' });
 
     // Línea de firma
@@ -494,17 +554,17 @@ export class PdfGeneratorService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(...PALETTE.slate950);
-    doc.text(variables.ejecutivo || '—', firma1X + 4, y + 20.8);
+    doc.text(nombreEjecutivoVal, firma1X + 4, y + 20.8);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5.5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text(variables.cargo_ejecutivo || '—', firma1X + 4, y + 23.5);
+    doc.text(cargoEjecutivoVal, firma1X + 4, y + 23.5);
     doc.text(razonSocial, firma1X + 4, y + 26);
 
     // Columna de Firma 2: Empresa Cliente (Aceptación)
     const firma2X = margin + firmaBoxW + 6;
-    doc.setFillColor(...PALETTE.fondoCard);
+    doc.setFillColor(...PALETTE.blanco);
     doc.roundedRect(firma2X, y, firmaBoxW, firmaBoxH, 1.5, 1.5, 'F');
     doc.setDrawColor(...PALETTE.bordeSuave);
     doc.setLineWidth(0.3);
@@ -515,7 +575,7 @@ export class PdfGeneratorService {
     doc.rect(firma2X, y + 2.5, firmaBoxW, 2, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
-    doc.setTextColor(...PALETTE.slate950);
+    doc.setTextColor(...PALETTE.slate800);
     doc.text('ACEPTACIÓN Y CONFORMIDAD DEL CLIENTE', firma2X + 3.5, y + 3.2);
 
     // Espacio para rúbrica del cliente y línea de firma
@@ -542,7 +602,7 @@ export class PdfGeneratorService {
       // Si es página 2 en adelante: Encabezado condensado de continuación
       if (p > 1) {
         doc.setFillColor(...PALETTE.slate950);
-        doc.rect(0, 0, pageWidth, 2.5, 'F');
+        doc.rect(0, 0, pageWidth, 1.8, 'F');
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);

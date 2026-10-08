@@ -1,5 +1,6 @@
 import { ref, readonly } from 'vue';
 import type { DatosEmpresa } from '../types/empresa.types';
+import { LOGO_ALLIANCE_DEFAULT } from '../constants/logo-default';
 
 const CLAVE_STORAGE_EMPRESA = 'crm_perfil_empresa_emisora';
 const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/empresa`;
@@ -20,6 +21,7 @@ export const DATOS_EMPRESA_POR_DEFECTO: DatosEmpresa = {
   simboloMoneda: 'RD$',
   prefijoDocumentos: 'AL-PROP',
   piePaginaOficial: 'Documento oficial generado electrónicamente por la plataforma CRM institucional. Validez legal conforme a las leyes vigentes.',
+  logoUrl: LOGO_ALLIANCE_DEFAULT,
   ultimaActualizacion: new Date().toISOString(),
 };
 

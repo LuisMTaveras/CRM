@@ -18,10 +18,13 @@ import {
   Trash2,
   Edit2,
   X,
-  Check
+  Check,
+  UploadCloud,
+  Image as ImageIcon
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
+import { LOGO_ALLIANCE_DEFAULT } from '../constants/logo-default';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { dialogService } from '@/core/dialog/dialog.service';
 import { toastService } from '@/core/notifications/toast.service';
@@ -188,6 +191,48 @@ watch(
   { deep: true }
 );
 
+// Gestión y Subida de Logotipo Oficial
+const inputLogoRef = ref<HTMLInputElement | null>(null);
+
+const seleccionarLogo = () => {
+  inputLogoRef.value?.click();
+};
+
+const alCambiarLogo = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const archivo = input.files?.[0];
+  if (!archivo) return;
+
+  if (archivo.size > 3 * 1024 * 1024) {
+    toastService.error('El logotipo no debe superar los 3 MB de tamaño.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUri = e.target?.result as string;
+    if (dataUri) {
+      formulario.logoUrl = dataUri;
+      toastService.exito('Logotipo institucional cargado con éxito. Guarda los cambios para sincronizarlo.');
+    }
+  };
+  reader.onerror = () => {
+    toastService.error('No se pudo procesar la imagen del logotipo.');
+  };
+  reader.readAsDataURL(archivo);
+  input.value = '';
+};
+
+const restablecerLogoPorDefecto = () => {
+  formulario.logoUrl = LOGO_ALLIANCE_DEFAULT;
+  toastService.info('Logotipo oficial de Alliance restablecido.');
+};
+
+const quitarLogo = () => {
+  formulario.logoUrl = '';
+  toastService.info('Logotipo eliminado. Se utilizará el monograma geométrico institucional.');
+};
+
 const guardarCambios = () => {
   guardando.value = true;
   try {
@@ -339,18 +384,34 @@ onMounted(() => {
         <div class="bg-white rounded-lg p-5 text-zinc-900 shadow-sm border border-zinc-200 font-sans space-y-2">
           <div class="h-1.5 bg-indigo-600 rounded-full w-full mb-3"></div>
           <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-bold tracking-tight text-zinc-900 uppercase">
-                {{ formulario.razonSocial || 'NOMBRE DE TU EMPRESA' }}
-              </h2>
-              <p class="text-xs text-zinc-600 font-medium">
-                {{ formulario.sloganActividad || 'Actividad Comercial' }} 
-                <span v-if="formulario.identificacionFiscal">• RNC: {{ formulario.identificacionFiscal }}</span>
-              </p>
-              <p class="text-[11px] text-zinc-500 mt-0.5">
-                {{ formulario.direccion || 'Dirección de la empresa' }}, {{ formulario.ciudad || 'Ciudad' }} • Tel: {{ formulario.telefono || '+1 (809) 000-0000' }}
-              </p>
+            <div class="flex items-start gap-4">
+              <!-- Logotipo en la vista previa -->
+              <div class="w-14 h-14 rounded-xl border border-zinc-200/80 bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                <img
+                  v-if="formulario.logoUrl"
+                  :src="formulario.logoUrl"
+                  alt="Logotipo Empresa"
+                  class="w-full h-full object-contain p-1"
+                />
+                <div v-else class="text-xs font-bold text-zinc-500 font-mono">
+                  {{ formulario.razonSocial ? formulario.razonSocial.slice(0, 2).toUpperCase() : 'CRM' }}
+                </div>
+              </div>
+
+              <div>
+                <h2 class="text-base font-bold tracking-tight text-zinc-900 uppercase">
+                  {{ formulario.razonSocial || 'NOMBRE DE TU EMPRESA' }}
+                </h2>
+                <p class="text-xs text-zinc-600 font-medium">
+                  {{ formulario.sloganActividad || 'Actividad Comercial' }} 
+                  <span v-if="formulario.identificacionFiscal">• RNC: {{ formulario.identificacionFiscal }}</span>
+                </p>
+                <p class="text-[11px] text-zinc-500 mt-0.5">
+                  {{ formulario.direccion || 'Dirección de la empresa' }}, {{ formulario.ciudad || 'Ciudad' }} • Tel: {{ formulario.telefono || '+1 (809) 000-0000' }}
+                </p>
+              </div>
             </div>
+
             <div class="text-right shrink-0">
               <span class="text-[11px] font-mono font-semibold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200 block">
                 {{ formulario.prefijoDocumentos || 'DOC' }}-002841
@@ -368,6 +429,76 @@ onMounted(() => {
 
       <!-- Formulario de Configuración -->
       <form @submit.prevent="guardarCambios" class="space-y-6">
+        <!-- Bloque: Logotipo Oficial de la Empresa -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <div class="flex items-center gap-2">
+              <ImageIcon class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Logotipo Oficial de la Empresa (Membrete & PDF A4)</span>
+            </div>
+            <span class="text-[10px] text-zinc-500 font-normal">PNG, JPG, SVG o WebP (Máx. 3MB)</span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-center gap-5">
+            <!-- Contenedor del Logo Actual -->
+            <div class="relative w-28 h-28 rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0 group">
+              <img
+                v-if="formulario.logoUrl"
+                :src="formulario.logoUrl"
+                alt="Logotipo"
+                class="w-full h-full object-contain p-2"
+              />
+              <div v-else class="text-center p-2 text-zinc-400">
+                <ImageIcon class="w-8 h-8 mx-auto stroke-1" />
+                <span class="text-[10px] block mt-1 font-medium">Sin Logotipo</span>
+              </div>
+            </div>
+
+            <!-- Botones de Acción para Logo -->
+            <div class="space-y-2.5 flex-1 text-xs">
+              <input
+                ref="inputLogoRef"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                class="hidden"
+                @change="alCambiarLogo"
+              />
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  @click="seleccionarLogo"
+                  class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center gap-1.5 shadow-sm transition"
+                >
+                  <UploadCloud class="w-3.5 h-3.5" />
+                  <span>Subir Logotipo</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="restablecerLogoPorDefecto"
+                  class="px-3 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium flex items-center gap-1.5 transition"
+                >
+                  <RotateCcw class="w-3.5 h-3.5" />
+                  <span>Restablecer Original</span>
+                </button>
+
+                <button
+                  v-if="formulario.logoUrl"
+                  type="button"
+                  @click="quitarLogo"
+                  class="px-3 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5 transition"
+                >
+                  <Trash2 class="w-3.5 h-3.5" />
+                  <span>Quitar</span>
+                </button>
+              </div>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Este logotipo se incrustará de forma nítida en el membrete y encabezado de todas las propuestas, cartas y contratos generados en PDF, así como en la barra lateral del sistema.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Bloque 1: Identidad Legal y Razón Social -->
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
           <div class="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">

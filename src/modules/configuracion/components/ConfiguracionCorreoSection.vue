@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { firmaPieService, FIRMA_POR_DEFECTO, PIE_POR_DEFECTO } from '@/modules/comunicaciones/services/firma-pie.service';
 import { smtpService, PRESETS_PROVEEDORES } from '@/modules/comunicaciones/services/smtp.service';
 import { webmailService } from '@/modules/comunicaciones/services/webmail.service';
@@ -37,6 +37,19 @@ const resultadoImap = ref<{ exito: boolean; mensaje: string; latenciaMs?: number
 const guardando = ref(false);
 const mensajeGuardado = ref(false);
 
+// Control de Tema para Vista Previa
+const modoVistaPreviaFirma = ref<'auto' | 'claro' | 'oscuro'>('auto');
+const modoVistaPreviaPie = ref<'auto' | 'claro' | 'oscuro'>('auto');
+const esModoOscuroSistema = ref(false);
+
+const actualizarDeteccionTema = () => {
+  if (typeof document !== 'undefined') {
+    esModoOscuroSistema.value = document.documentElement.classList.contains('dark');
+  }
+};
+
+let observerTema: MutationObserver | null = null;
+
 const opcionesSeguridadSmtp: Array<SelectOption<TipoSeguridadSmtp>> = [
   { value: 'tls', label: 'STARTTLS (Puerto 587)' },
   { value: 'ssl', label: 'SSL / TLS (Puerto 465)' },
@@ -66,11 +79,42 @@ const cargarDatos = () => {
 
 onMounted(() => {
   cargarDatos();
+  actualizarDeteccionTema();
+  if (typeof document !== 'undefined') {
+    observerTema = new MutationObserver(actualizarDeteccionTema);
+    observerTema.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  }
 });
 
-// HTML en vivo
-const previewFirmaHtml = computed(() => firmaPieService.generarHtmlFirma(formFirma));
-const previewPieHtml = computed(() => firmaPieService.generarHtmlPie(formPie));
+onUnmounted(() => {
+  if (observerTema) {
+    observerTema.disconnect();
+    observerTema = null;
+  }
+});
+
+const previewFirmaEsOscuro = computed(() => {
+  if (modoVistaPreviaFirma.value === 'claro') return false;
+  if (modoVistaPreviaFirma.value === 'oscuro') return true;
+  return esModoOscuroSistema.value;
+});
+
+const previewPieEsOscuro = computed(() => {
+  if (modoVistaPreviaPie.value === 'claro') return false;
+  if (modoVistaPreviaPie.value === 'oscuro') return true;
+  return esModoOscuroSistema.value;
+});
+
+// HTML en vivo con adaptación fiel a modo claro y oscuro
+const previewFirmaHtml = computed(() =>
+  firmaPieService.generarHtmlFirma(formFirma, previewFirmaEsOscuro.value)
+);
+const previewPieHtml = computed(() =>
+  firmaPieService.generarHtmlPie(formPie, previewPieEsOscuro.value)
+);
 
 const aplicarPresetProveedor = (preset: ProveedorPreset) => {
   const datosPreset = PRESETS_PROVEEDORES[preset];
@@ -309,7 +353,7 @@ const restablecerValores = async () => {
               : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-700 dark:text-zinc-300'"
           >
             <div class="font-bold text-xs">cPanel Empresarial</div>
-            <div class="text-[10px] text-zinc-400">Hosting Propio / Webmail</div>
+            <div class="text-[10px] text-zinc-500 dark:text-zinc-400">Hosting Propio / Webmail</div>
           </button>
 
           <button
@@ -321,7 +365,7 @@ const restablecerValores = async () => {
               : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-950/40 text-zinc-700 dark:text-zinc-300'"
           >
             <div class="font-bold text-xs">Personalizado</div>
-            <div class="text-[10px] text-zinc-400">Servidor Dedicado</div>
+            <div class="text-[10px] text-zinc-500 dark:text-zinc-400">Servidor Dedicado</div>
           </button>
         </div>
       </div>
@@ -335,7 +379,7 @@ const restablecerValores = async () => {
               <Server class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               <span>Servidor Saliente (SMTP)</span>
             </div>
-            <span class="text-[10px] font-mono text-zinc-400">Envío de Cotizaciones & Respuestas</span>
+            <span class="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">Envío de Cotizaciones & Respuestas</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -391,7 +435,7 @@ const restablecerValores = async () => {
           <div>
             <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1 text-xs flex items-center justify-between">
               <span>Contraseña de Aplicación / Clave SMTP *</span>
-              <span class="text-[10px] text-zinc-400 font-normal">Cifrado local seguro</span>
+              <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">Cifrado local seguro</span>
             </label>
             <input
               v-model="formSmtp.contrasenaSmtp"
@@ -433,7 +477,7 @@ const restablecerValores = async () => {
               <Mail class="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span>Servidor Entrante (IMAP)</span>
             </div>
-            <span class="text-[10px] font-mono text-zinc-400">Lectura & Sincronización Webmail</span>
+            <span class="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">Lectura & Sincronización Webmail</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -489,7 +533,7 @@ const restablecerValores = async () => {
           <div>
             <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1 text-xs flex items-center justify-between">
               <span>Contraseña IMAP</span>
-              <span class="text-[10px] text-zinc-400 font-normal">Igual o independiente a SMTP</span>
+              <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">Igual o independiente a SMTP</span>
             </label>
             <input
               v-model="formSmtp.contrasenaImap"
@@ -546,7 +590,7 @@ const restablecerValores = async () => {
           <div class="flex items-center justify-between p-3.5 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl">
             <div>
               <div class="font-bold text-xs text-zinc-900 dark:text-zinc-100">Activar Firma en Correos Salientes</div>
-              <div class="text-[11px] text-zinc-500">Inserta tu tarjeta institucional en respuestas y envíos</div>
+              <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Inserta tu tarjeta institucional en respuestas y envíos</div>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" v-model="formFirma.habilitada" class="sr-only peer" />
@@ -668,15 +712,41 @@ const restablecerValores = async () => {
                 <PenTool class="w-3.5 h-3.5 text-indigo-500" />
                 <span>Vista Previa en Vivo (HTML)</span>
               </span>
-              <span class="text-[10px] text-zinc-400 font-mono">Renderizado fiel al cliente</span>
+
+              <!-- Selector de modo para la vista previa -->
+              <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[10px]">
+                <button
+                  type="button"
+                  @click="modoVistaPreviaFirma = 'claro'"
+                  title="Simular visualización en cliente con fondo claro (ej. Gmail estándar)"
+                  class="px-2 py-0.5 rounded transition"
+                  :class="!previewFirmaEsOscuro ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'"
+                >
+                  ☀️ Claro
+                </button>
+                <button
+                  type="button"
+                  @click="modoVistaPreviaFirma = 'oscuro'"
+                  title="Simular visualización en cliente con modo noche activo"
+                  class="px-2 py-0.5 rounded transition"
+                  :class="previewFirmaEsOscuro ? 'bg-zinc-900 text-white dark:bg-zinc-700 shadow-sm font-semibold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'"
+                >
+                  🌙 Oscuro
+                </button>
+              </div>
             </div>
 
-            <div class="p-5 bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800/80 rounded-xl min-h-[220px]">
+            <div
+              class="p-5 rounded-xl min-h-[220px] transition-colors overflow-hidden"
+              :class="previewFirmaEsOscuro
+                ? 'bg-zinc-950 text-zinc-100 border border-zinc-800/90 shadow-inner'
+                : 'bg-white text-zinc-900 border border-zinc-200 shadow-sm'"
+            >
               <div v-html="previewFirmaHtml"></div>
             </div>
           </div>
 
-          <div class="text-[11px] text-zinc-400 pt-4 border-t border-zinc-200 dark:border-zinc-800/60 leading-relaxed">
+          <div class="text-[11px] text-zinc-500 dark:text-zinc-400 pt-4 border-t border-zinc-200 dark:border-zinc-800/60 leading-relaxed">
             Esta tarjeta se inyectará al final de cada mensaje enviado por tu equipo comercial.
           </div>
         </div>
@@ -702,7 +772,7 @@ const restablecerValores = async () => {
           <div class="flex items-center justify-between p-3.5 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl">
             <div>
               <div class="font-bold text-xs text-zinc-900 dark:text-zinc-100">Activar Pie Legal en Correos</div>
-              <div class="text-[11px] text-zinc-500">Anexa aviso legal y cláusula de protección de datos</div>
+              <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Anexa aviso legal y cláusula de protección de datos</div>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" v-model="formPie.habilitado" class="sr-only peer" />
@@ -756,15 +826,41 @@ const restablecerValores = async () => {
                 <FileText class="w-3.5 h-3.5 text-emerald-500" />
                 <span>Vista Previa Legal (HTML)</span>
               </span>
-              <span class="text-[10px] text-zinc-400 font-mono">Cláusula 172-13</span>
+
+              <!-- Selector de modo para la vista previa -->
+              <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[10px]">
+                <button
+                  type="button"
+                  @click="modoVistaPreviaPie = 'claro'"
+                  title="Simular visualización en fondo claro"
+                  class="px-2 py-0.5 rounded transition"
+                  :class="!previewPieEsOscuro ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'"
+                >
+                  ☀️ Claro
+                </button>
+                <button
+                  type="button"
+                  @click="modoVistaPreviaPie = 'oscuro'"
+                  title="Simular visualización en modo oscuro"
+                  class="px-2 py-0.5 rounded transition"
+                  :class="previewPieEsOscuro ? 'bg-zinc-900 text-white dark:bg-zinc-700 shadow-sm font-semibold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'"
+                >
+                  🌙 Oscuro
+                </button>
+              </div>
             </div>
 
-            <div class="p-5 bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800/80 rounded-xl min-h-[220px]">
+            <div
+              class="p-5 rounded-xl min-h-[220px] transition-colors overflow-hidden"
+              :class="previewPieEsOscuro
+                ? 'bg-zinc-950 text-zinc-100 border border-zinc-800/90 shadow-inner'
+                : 'bg-white text-zinc-900 border border-zinc-200 shadow-sm'"
+            >
               <div v-html="previewPieHtml"></div>
             </div>
           </div>
 
-          <div class="text-[11px] text-zinc-400 pt-4 border-t border-zinc-200 dark:border-zinc-800/60 leading-relaxed">
+          <div class="text-[11px] text-zinc-500 dark:text-zinc-400 pt-4 border-t border-zinc-200 dark:border-zinc-800/60 leading-relaxed">
             Protege tus datos sensibles y asegura validez en auditorías tributarias y jurídicas.
           </div>
         </div>

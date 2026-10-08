@@ -1,16 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import { rolesPermisosService } from '@/modules/auth/services/roles-permisos.service';
 import { themeService } from '@/core/theme/theme.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
-import { LogOut, ChevronDown, User, Sun, Moon } from 'lucide-vue-next';
+import CommandPaletteModal from '@/shared/components/CommandPaletteModal.vue';
+import CentroNotificaciones from '@/shared/components/CentroNotificaciones.vue';
+import { LogOut, ChevronDown, User, Sun, Moon, Search } from 'lucide-vue-next';
 import type { RolUsuario } from '@/modules/auth/types/auth.types';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const menuUsuarioAbierto = ref(false);
+const paletaAbierta = ref(false);
+
+const manejarAtajoTeclado = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    paletaAbierta.value = !paletaAbierta.value;
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', manejarAtajoTeclado);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', manejarAtajoTeclado);
+});
 
 const opcionesRoles = computed<Array<SelectOption<string>>>(() => {
   return rolesPermisosService.obtenerRoles().map((r) => ({
@@ -40,9 +58,36 @@ const cerrarSesion = () => {
     <div id="header-portal-left" class="flex items-center gap-3 min-w-0 flex-1 mr-4"></div>
 
     <!-- Menú Derecho: Acciones Dinámicas de la Pantalla + Sesión y Perfil -->
-    <div class="flex items-center gap-3 shrink-0">
+    <div class="flex items-center gap-2.5 shrink-0">
       <!-- Portal Derecho: Botones de Acción de la Pantalla Activa -->
       <div id="header-portal-right" class="flex items-center gap-2"></div>
+
+      <!-- BUSCADOR UNIVERSAL (CTRL + K) -->
+      <button
+        type="button"
+        @click="paletaAbierta = true"
+        class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-100/90 hover:bg-zinc-200/80 dark:bg-zinc-900/80 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/[0.08] transition text-xs shadow-2xs group"
+        title="Abrir buscador universal (Ctrl + K)"
+      >
+        <Search class="w-3.5 h-3.5 text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
+        <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">Buscar en CRM...</span>
+        <kbd class="ml-1 font-mono text-[9px] px-1.5 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-semibold shadow-2xs">
+          Ctrl K
+        </kbd>
+      </button>
+
+      <!-- Botón buscador en pantallas pequeñas -->
+      <button
+        type="button"
+        @click="paletaAbierta = true"
+        class="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/80 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] transition shadow-2xs"
+        title="Buscar en CRM (Ctrl + K)"
+      >
+        <Search class="w-4 h-4" />
+      </button>
+
+      <!-- CENTRO DE NOTIFICACIONES B2B -->
+      <CentroNotificaciones />
 
       <div class="h-4 w-px bg-zinc-200 dark:bg-white/[0.08]"></div>
 
@@ -136,4 +181,7 @@ const cerrarSesion = () => {
       </div>
     </div>
   </header>
+
+  <!-- Paleta de Comandos Omnicanal (Ctrl + K) -->
+  <CommandPaletteModal v-model:abierto="paletaAbierta" />
 </template>

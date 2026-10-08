@@ -246,6 +246,14 @@ class PipelineService {
     return JSON.parse(JSON.stringify(this.memoriaPipelines));
   }
 
+  obtenerPipelinesSincrono(): Pipeline[] {
+    return JSON.parse(JSON.stringify(this.memoriaPipelines));
+  }
+
+  obtenerTarjetasSincrono(): TarjetaPipeline[] {
+    return JSON.parse(JSON.stringify(this.memoriaTarjetas));
+  }
+
   async obtenerPipelinePorId(id: string): Promise<Pipeline | null> {
     await new Promise((resolve) => setTimeout(resolve, 50));
     const p = this.memoriaPipelines.find((item) => item.id === id);

@@ -14,5 +14,6 @@ export interface DatosEmpresa {
   simboloMoneda: string;
   prefijoDocumentos: string;
   piePaginaOficial: string;
+  logoUrl?: string;
   ultimaActualizacion?: string;
 }

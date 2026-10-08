@@ -136,39 +136,49 @@ class FirmaPieService {
   }
 
   /**
-   * Genera el HTML enriquecido de la firma profesional
+   * Genera el HTML enriquecido de la firma profesional con soporte para modo claro y oscuro
    */
-  generarHtmlFirma(firma: ConfiguracionFirma): string {
+  generarHtmlFirma(firma: ConfiguracionFirma, modoOscuro: boolean = false): string {
     if (!firma.habilitada) return '';
 
+    const colorTexto = modoOscuro ? '#e4e4e7' : '#27272a';
+    const colorNombre = modoOscuro ? '#fafafa' : '#09090b';
+    const colorSecundario = modoOscuro ? '#a1a1aa' : '#71717a';
+    const colorDetalles = modoOscuro ? '#d4d4d8' : '#52525b';
+    const colorEnlace = modoOscuro ? '#818cf8' : (firma.colorAcento || '#4f46e5');
+
     return `
-<table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.4; border-collapse: collapse;">
+<table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif; font-size: 13px; color: ${colorTexto}; line-height: 1.4; border-collapse: collapse;">
   <tr>
     <td style="border-left: 3px solid ${firma.colorAcento || '#4f46e5'}; padding-left: 12px;">
-      <div style="font-weight: bold; font-size: 14px; color: #09090b;">${firma.nombreRemitente}</div>
-      <div style="color: #71717a; font-size: 12px; margin-top: 2px;">${firma.cargo} | <strong style="color: #4f46e5;">${firma.empresa}</strong></div>
-      ${firma.departamento ? `<div style="color: #a1a1aa; font-size: 11px;">${firma.departamento}</div>` : ''}
-      <div style="margin-top: 8px; font-size: 12px; color: #52525b;">
+      <div style="font-weight: bold; font-size: 14px; color: ${colorNombre};">${firma.nombreRemitente}</div>
+      <div style="color: ${colorSecundario}; font-size: 12px; margin-top: 2px;">${firma.cargo} | <strong style="color: ${colorEnlace};">${firma.empresa}</strong></div>
+      ${firma.departamento ? `<div style="color: ${colorSecundario}; font-size: 11px;">${firma.departamento}</div>` : ''}
+      <div style="margin-top: 8px; font-size: 12px; color: ${colorDetalles};">
         <span>📞 ${firma.telefono}</span>
         ${firma.celular ? `<span style="margin-left: 10px;">📱 ${firma.celular}</span>` : ''}
-        ${firma.sitioWeb ? `<span style="margin-left: 10px;">🌐 <a href="https://${firma.sitioWeb}" style="color: #4f46e5; text-decoration: none; font-weight: 500;">${firma.sitioWeb}</a></span>` : ''}
+        ${firma.sitioWeb ? `<span style="margin-left: 10px;">🌐 <a href="https://${firma.sitioWeb}" style="color: ${colorEnlace}; text-decoration: none; font-weight: 500;">${firma.sitioWeb}</a></span>` : ''}
       </div>
-      ${firma.textoPersonalizado ? `<div style="margin-top: 6px; font-size: 11px; font-style: italic; color: #71717a;">"${firma.textoPersonalizado}"</div>` : ''}
+      ${firma.textoPersonalizado ? `<div style="margin-top: 6px; font-size: 11px; font-style: italic; color: ${colorSecundario};">"${firma.textoPersonalizado}"</div>` : ''}
     </td>
   </tr>
 </table>`.trim();
   }
 
   /**
-   * Genera el HTML del pie legal y aviso de confidencialidad institucional
+   * Genera el HTML del pie legal y aviso de confidencialidad institucional con soporte de modo claro y oscuro
    */
-  generarHtmlPie(pie: ConfiguracionPiePagina): string {
+  generarHtmlPie(pie: ConfiguracionPiePagina, modoOscuro: boolean = false): string {
     if (!pie.habilitado) return '';
 
+    const colorBorde = modoOscuro ? '#3f3f46' : '#e4e4e7';
+    const colorTextoLegal = modoOscuro ? '#a1a1aa' : (pie.colorTexto || '#71717a');
+    const colorMetadatos = modoOscuro ? '#71717a' : '#a1a1aa';
+
     return `
-<div style="font-family: Arial, sans-serif; font-size: 10px; color: ${pie.colorTexto || '#71717a'}; line-height: 1.5; border-top: 1px dashed #e4e4e7; padding-top: 10px; margin-top: 18px;">
+<div style="font-family: Arial, sans-serif; font-size: 10px; color: ${colorTextoLegal}; line-height: 1.5; border-top: 1px dashed ${colorBorde}; padding-top: 10px; margin-top: 18px;">
   ${pie.incluirAvisoConfidencialidad ? `<p style="margin: 0 0 6px 0; text-align: justify;">${pie.textoLegal}</p>` : ''}
-  <div style="color: #a1a1aa; font-size: 9px;">
+  <div style="color: ${colorMetadatos}; font-size: 9px;">
     ${pie.incluirDireccionEmpresa && pie.direccionFisica ? `<span>🏢 ${pie.direccionFisica}</span>` : ''}
     ${pie.incluirRnc && pie.rncEmpresa ? `<span style="margin-left: 8px;">• ${pie.rncEmpresa}</span>` : ''}
   </div>

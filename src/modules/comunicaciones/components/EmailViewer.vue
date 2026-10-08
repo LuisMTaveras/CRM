@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps<{
   html?: string;
@@ -8,6 +8,7 @@ const props = defineProps<{
 
 const containerRef = ref<HTMLElement | null>(null);
 let shadowRoot: ShadowRoot | null = null;
+let themeObserver: MutationObserver | null = null;
 
 function renderEmail() {
   if (!containerRef.value) return;
@@ -16,12 +17,13 @@ function renderEmail() {
     shadowRoot = containerRef.value.attachShadow({ mode: 'open' });
   }
 
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
   if (props.html) {
     // Sanitizar etiquetas <script> para proteger contra inyección de código
     const sanitizedHtml = props.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
-    // Estilos encapsulados para el Shadow DOM:
-    // Todo lo que esté aquí dentro está 100% aislado del resto de la aplicación y jamás se filtrará al DOM global.
+    // Estilos encapsulados para el Shadow DOM adaptados al tema
     const resetStyles = `
       <style>
         :host {
@@ -29,7 +31,7 @@ function renderEmail() {
           font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           font-size: 0.8125rem;
           line-height: 1.6;
-          color: inherit;
+          color: ${isDark ? '#f4f4f5' : '#18181b'};
           word-break: break-word;
         }
         * {
@@ -43,13 +45,21 @@ function renderEmail() {
           max-width: 100% !important;
         }
         a {
-          color: #4f46e5;
+          color: ${isDark ? '#818cf8' : '#4f46e5'};
           text-decoration: underline;
         }
         p {
           margin-top: 0.5em;
           margin-bottom: 0.5em;
         }
+        ${isDark ? `
+          [style*="color: #09090b"], [style*="color: #000"], [style*="color: #27272a"], [style*="color:#09090b"], [style*="color:#000"], [style*="color:#27272a"] {
+            color: #f4f4f5 !important;
+          }
+          [style*="color: #52525b"], [style*="color: #71717a"], [style*="color:#52525b"], [style*="color:#71717a"] {
+            color: #a1a1aa !important;
+          }
+        ` : ''}
       </style>
     `;
 
@@ -70,7 +80,7 @@ function renderEmail() {
           font-size: 0.8125rem;
           line-height: 1.6;
           white-space: pre-wrap;
-          color: inherit;
+          color: ${isDark ? '#f4f4f5' : '#18181b'};
         }
       </style>
       <div>${escapedText}</div>
@@ -89,6 +99,24 @@ function escapeHtml(str: string): string {
 
 onMounted(() => {
   renderEmail();
+
+  // Observador de cambio de tema en <html> para re-renderizado instantáneo
+  if (typeof document !== 'undefined') {
+    themeObserver = new MutationObserver(() => {
+      renderEmail();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  }
+});
+
+onUnmounted(() => {
+  if (themeObserver) {
+    themeObserver.disconnect();
+    themeObserver = null;
+  }
 });
 
 watch(
