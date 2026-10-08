@@ -7,8 +7,9 @@ import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import type { PlantillaDocumento, RegistroEnvio } from '../types/comunicacion.types';
 import type { ConfiguracionSMTP } from '../types/smtp.types';
 import EnvioMasivoModal from '../components/EnvioMasivoModal.vue';
-import ConfiguracionSmtpModal from '../components/ConfiguracionSmtpModal.vue';
 import CargarDocumentoModal from '../components/CargarDocumentoModal.vue';
+import BandejaCorreo from '../components/BandejaCorreo.vue';
+import ConfiguracionFirmaYPieModal from '../components/ConfiguracionFirmaYPieModal.vue';
 import { 
   Mail, 
   FileText, 
@@ -17,15 +18,21 @@ import {
   AlertCircle,
   Clock, 
   Sparkles, 
-  Paperclip,
-  Users,
-  Server,
-  UploadCloud,
-  Trash2,
-  RefreshCw
+  Paperclip, 
+  Users, 
+  Server, 
+  UploadCloud, 
+  Trash2, 
+  RefreshCw,
+  Sliders,
+  Inbox,
+  PenTool
 } from 'lucide-vue-next';
 import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
+
+// Pestaña principal activa: por defecto la bandeja de entrada
+const pestanaActiva = ref<'bandeja' | 'despacho'>('bandeja');
 
 const plantillas = ref<PlantillaDocumento[]>(emailService.obtenerPlantillas());
 const historial = ref<RegistroEnvio[]>([]);
@@ -35,7 +42,7 @@ const smtpConfig = ref<ConfiguracionSMTP>(smtpService.obtenerConfiguracion());
 const servidorEmailActivo = ref<boolean | null>(null);
 
 const modalEnvioAbierto = ref(false);
-const modalSmtpAbierto = ref(false);
+const modalConfigAbierto = ref(false);
 const modalCargarDocumentoAbierto = ref(false);
 const cargando = ref(true);
 
@@ -86,8 +93,9 @@ const eliminarPlantillaPersonalizada = (id: string) => {
   plantillas.value = emailService.obtenerPlantillas();
 };
 
-const onSmtpGuardado = (nuevaConfig: ConfiguracionSMTP) => {
-  smtpConfig.value = nuevaConfig;
+const onConfigGuardada = () => {
+  smtpConfig.value = smtpService.obtenerConfiguracion();
+  verificarServidorEmail();
 };
 
 onMounted(() => {
@@ -107,7 +115,7 @@ onMounted(() => {
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
-              Comunicaciones & Despacho Masivo
+              Comunicaciones & Centro de Correo
             </h1>
             <span
               class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0"
@@ -119,11 +127,11 @@ onMounted(() => {
                   servidorEmailActivo ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
                 ]"
               ></span>
-              {{ servidorEmailActivo ? 'SMTP Conectado' : 'SMTP en Espera' }}
+              {{ servidorEmailActivo ? 'Servidor Activo (SMTP/IMAP)' : 'Servidor en Espera' }}
             </span>
           </div>
           <p class="text-[11px] text-zinc-400 truncate hidden md:block">
-            Carga tus documentos de Word o PDF, personaliza variables y despacha correos con servidor SMTP corporativo
+            Bandeja de entrada empresarial, respuestas con firma configurada y despacho masivo
           </p>
         </div>
       </div>
@@ -134,6 +142,16 @@ onMounted(() => {
       <div class="flex items-center gap-2">
         <button
           type="button"
+          @click="modalConfigAbierto = true"
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
+        >
+          <Sliders class="w-3.5 h-3.5 text-emerald-400" />
+          <span>Firma & Servidores</span>
+        </button>
+
+        <button
+          v-if="pestanaActiva === 'despacho'"
+          type="button"
           @click="modalCargarDocumentoAbierto = true"
           class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
         >
@@ -142,15 +160,7 @@ onMounted(() => {
         </button>
 
         <button
-          type="button"
-          @click="modalSmtpAbierto = true"
-          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
-        >
-          <Server class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Configurar SMTP</span>
-        </button>
-
-        <button
+          v-if="pestanaActiva === 'despacho'"
           type="button"
           @click="abrirEnvioConPlantilla()"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-sm shadow-emerald-950/40 active:scale-95"
@@ -158,327 +168,342 @@ onMounted(() => {
           <Send class="w-3.5 h-3.5" />
           <span>Lanzar Campaña</span>
         </button>
-
-        <button
-          type="button"
-          @click="cargarDatos"
-          :disabled="cargando"
-          title="Actualizar plantillas y registros"
-          class="p-2 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
-        >
-          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
-        </button>
       </div>
     </Teleport>
 
-    <!-- Contenido Protegido con Flickerless Surface -->
-    <FlickerlessSurface
-      :loading="cargando"
-      :delay-ms="180"
-      :preserve-height="true"
-      stream-color="#10b981"
-      announce-text="Actualizando módulo de comunicaciones y plantillas..."
-      class="space-y-5 rounded-xl overflow-hidden"
-    >
-      <!-- Banner de Advertencia cuando el servidor de correo no está activo -->
-      <div
-        v-if="servidorEmailActivo === false"
-        class="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3.5 flex items-start gap-3 text-xs"
-      >
-        <AlertCircle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-        <div class="space-y-1">
-          <div class="font-semibold text-amber-300">Servidor de correo local no está activo</div>
-          <div class="text-zinc-400">
-            Para enviar correos reales por SMTP, debes iniciar el servidor en otra terminal:
-            <code class="ml-1 px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded font-mono text-emerald-400">npm run email-server</code>
-          </div>
-          <div class="text-zinc-500">En modo offline, los envíos se registran en el historial pero no llegan al destinatario.</div>
-        </div>
-      </div>
+    <!-- Barra de Pestañas Principales (Bandeja vs Despacho Masivo) -->
+    <div class="flex items-center justify-between border-b border-zinc-800 pb-1">
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          @click="pestanaActiva = 'bandeja'"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition"
+          :class="pestanaActiva === 'bandeja' 
+            ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm' 
+            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
+        >
+          <Inbox class="w-4 h-4 text-emerald-400" />
+          <span>Bandeja de Correo (Webmail)</span>
+        </button>
 
-      <!-- Indicadores de Rendimiento de Comunicaciones -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
-          <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
-            <span>Plantillas & Documentos</span>
-            <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-400">
-              <FileText class="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-          </div>
-          <div>
-            <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1">{{ plantillas.length }}</div>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/50 text-zinc-400">Oficiales & subidos</span>
-          </div>
-        </div>
-
-        <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
-          <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
-            <span>Correos Enviados</span>
-            <div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-              <Send class="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div>
-            <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1">{{ historial.length }}</div>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 border border-sky-500/20 text-sky-400">Con PDF adjunto</span>
-          </div>
-        </div>
-
-        <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
-          <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
-            <span>Destinatarios Cartera</span>
-            <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-              <Users class="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div>
-            <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1">{{ todosLosClientes.length }}</div>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">Empresas B2B</span>
-          </div>
-        </div>
-
-        <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
-          <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
-            <span>Servidor SMTP</span>
-            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Server class="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div>
-            <div class="text-xs font-semibold font-mono text-white truncate mb-1" :title="smtpConfig.servidorSmtp">
-              {{ smtpConfig.servidorSmtp }}
-            </div>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              Puerto {{ smtpConfig.puertoSmtp }}
-            </span>
-          </div>
-        </div>
-
-        <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
-          <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
-            <span>Remitente Oficial</span>
-            <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-300">
-              <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-          </div>
-          <div>
-            <div class="text-xs font-medium text-white truncate mb-1" :title="smtpConfig.correoRemitente">
-              {{ smtpConfig.correoRemitente }}
-            </div>
-            <span class="text-[10px] text-zinc-500 block truncate">{{ smtpConfig.nombreRemitente }}</span>
-          </div>
-        </div>
-      </div>
-
-    <!-- Banner Rápido de Carga Drag & Drop de Documentos Word / PDF -->
-    <div
-      @click="modalCargarDocumentoAbierto = true"
-      class="bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-lg p-4 transition cursor-pointer flex flex-col sm:flex-row items-center justify-between gap-4"
-    >
-      <div class="flex items-center gap-3.5">
-        <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-          <UploadCloud class="w-5 h-5" />
-        </div>
-        <div>
-          <h2 class="text-xs font-bold text-zinc-100">
-            ¿Tienes un documento en Word (.docx) o contrato listo para enviar?
-          </h2>
-          <p class="text-[11px] text-zinc-400 mt-0.5">
-            Súbelo directamente. El sistema extraerá el texto, identificará las variables <span class="font-mono text-emerald-400">`{{ '{' + '{empresa}' + '}' }}`</span> y <span class="font-mono text-emerald-400">`{{ '{' + '{contacto_principal}' + '}' }}`</span> y generará el PDF oficial automáticamente.
-          </p>
-        </div>
+        <button
+          type="button"
+          @click="pestanaActiva = 'despacho'"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition"
+          :class="pestanaActiva === 'despacho' 
+            ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm' 
+            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
+        >
+          <Send class="w-4 h-4 text-sky-400" />
+          <span>Despacho Masivo & Cotizaciones PDF</span>
+        </button>
       </div>
 
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded text-xs font-medium shrink-0 transition"
+        @click="modalConfigAbierto = true"
+        class="text-xs text-zinc-400 hover:text-emerald-400 flex items-center gap-1.5 font-medium transition"
       >
-        <UploadCloud class="w-3.5 h-3.5 text-emerald-400" />
-        <span>Subir Documento Ahora</span>
+        <PenTool class="w-3.5 h-3.5" />
+        <span>Configurar Firma & Pie de Página</span>
       </button>
     </div>
 
-    <!-- Catálogo Completo de Plantillas y Documentos Dinámicos -->
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3.5">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-          <Sparkles class="w-4 h-4 text-emerald-400" />
-          <span>Catálogo de Documentos Oficiales & Plantillas B2B</span>
-          <span class="text-[10px] font-mono text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
-            {{ plantillas.length }} disponibles
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            @click="modalCargarDocumentoAbierto = true"
-            class="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 underline"
-          >
-            + Cargar Nuevo Documento
-          </button>
-        </div>
-      </div>
+    <!-- PESTAÑA 1: BANDEJA DE CORREO (WEBMAIL CLIENT) -->
+    <div v-if="pestanaActiva === 'bandeja'" class="w-full">
+      <BandejaCorreo />
+    </div>
 
-      <!-- Estado vacío cuando no hay plantillas registradas -->
-      <div v-if="plantillas.length === 0" class="p-8 text-center bg-zinc-950/60 border border-zinc-800/80 rounded-lg">
-        <div class="max-w-md mx-auto flex flex-col items-center">
-          <div class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mb-3">
-            <FileText class="w-5 h-5 text-emerald-400" />
-          </div>
-          <h3 class="text-sm font-semibold text-zinc-200 mb-1">Catálogo de plantillas limpio</h3>
-          <p class="text-xs text-zinc-400 mb-4 leading-relaxed">
-            No hay documentos predeterminados. Puedes cargar tus propios archivos Word (.docx) o redactar plantillas personalizadas para tus propuestas y contratos comerciales.
-          </p>
-          <button
-            type="button"
-            @click="modalCargarDocumentoAbierto = true"
-            class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition shadow-sm"
-          >
-            <UploadCloud class="w-3.5 h-3.5" />
-            <span>Cargar Documento Word (.docx)</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Cuadrícula de Plantillas -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+    <!-- PESTAÑA 2: DESPACHO MASIVO & COTIZACIONES -->
+    <div v-else class="space-y-5 w-full">
+      <!-- Contenido Protegido con Flickerless Surface -->
+      <FlickerlessSurface
+        :loading="cargando"
+        :delay-ms="180"
+        :preserve-height="true"
+        stream-color="#10b981"
+        announce-text="Actualizando módulo de comunicaciones y plantillas..."
+        class="space-y-5 rounded-xl overflow-hidden"
+      >
+        <!-- Banner de Advertencia si servidor local está inactivo -->
         <div
-          v-for="plt in plantillas"
-          :key="plt.id"
-          class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 hover:border-zinc-700 transition flex flex-col justify-between group"
+          v-if="servidorEmailActivo === false"
+          class="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3.5 flex items-start gap-3 text-xs"
         >
-          <div>
-            <div class="flex items-center justify-between text-[11px] font-medium text-emerald-400 mb-1.5 uppercase tracking-wide">
-              <span>{{ plt.categoria }}</span>
-              <span class="font-mono text-[10px] text-zinc-500 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
-                PDF A4
+          <AlertCircle class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div class="space-y-1">
+            <div class="font-semibold text-amber-300">Servidor de correo local no está activo</div>
+            <div class="text-zinc-400">
+              Para enviar correos reales por SMTP, debes iniciar el servidor en otra terminal:
+              <code class="ml-1 px-2 py-0.5 bg-zinc-900 border border-zinc-700 rounded font-mono text-emerald-400">npm run email-server</code>
+            </div>
+            <div class="text-zinc-500">En modo offline, los envíos se registran en el historial pero no llegan al destinatario.</div>
+          </div>
+        </div>
+
+        <!-- Indicadores de Rendimiento de Comunicaciones -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
+              <span>Plantillas & Documentos</span>
+              <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-400">
+                <FileText class="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1">{{ plantillas.length }}</div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/50 text-zinc-400">Oficiales & subidos</span>
+            </div>
+          </div>
+
+          <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
+              <span>Correos Enviados</span>
+              <div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                <Send class="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1">{{ historial.length }}</div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 border border-sky-500/20 text-sky-400">Con PDF adjunto</span>
+            </div>
+          </div>
+
+          <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
+              <span>Destinatarios Cartera</span>
+              <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Users class="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div>
+              <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1">{{ todosLosClientes.length }}</div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">Empresas B2B</span>
+            </div>
+          </div>
+
+          <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
+              <span>Servidor SMTP</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <Server class="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-semibold font-mono text-white truncate mb-1" :title="smtpConfig.servidorSmtp">
+                {{ smtpConfig.servidorSmtp }}
+              </div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                Puerto {{ smtpConfig.puertoSmtp }}
               </span>
             </div>
-
-            <h2 class="text-xs font-bold text-zinc-100 mb-1 leading-snug group-hover:text-emerald-400 transition">
-              {{ plt.nombre }}
-            </h2>
-
-            <p class="text-[11px] text-zinc-400 leading-relaxed mb-3 line-clamp-3">
-              {{ plt.descripcion }}
-            </p>
           </div>
 
-          <div class="pt-3 border-t border-zinc-900 flex items-center justify-between gap-2">
-            <span class="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
-              <Paperclip class="w-3 h-3 text-zinc-400" />
-              Adjunto PDF
-            </span>
-
-            <div class="flex items-center gap-1.5">
-              <button
-                type="button"
-                @click="eliminarPlantillaPersonalizada(plt.id)"
-                title="Eliminar plantilla"
-                class="p-1 text-zinc-500 hover:text-rose-400 transition"
-              >
-                <Trash2 class="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                @click="abrirEnvioConPlantilla(plt)"
-                class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium transition"
-              >
-                Usar & Enviar
-              </button>
+          <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-zinc-400 mb-2 text-xs font-medium">
+              <span>Remitente Oficial</span>
+              <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-300">
+                <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-medium text-white truncate mb-1" :title="smtpConfig.correoRemitente">
+                {{ smtpConfig.correoRemitente }}
+              </div>
+              <span class="text-[10px] text-zinc-500 block truncate">{{ smtpConfig.nombreRemitente }}</span>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Historial de Envíos Recientes en Ancho Completo -->
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden text-xs">
-      <div class="p-3.5 border-b border-zinc-800 bg-zinc-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="flex items-center gap-2 font-semibold text-zinc-200">
-          <Clock class="w-4 h-4 text-emerald-400" />
-          <span>Historial de Comunicaciones y Documentos Despachados</span>
-          <span class="font-mono text-zinc-500 text-[11px]">({{ historial.length }} envíos registrados)</span>
+        <!-- Banner Drag & Drop de Documentos Word / PDF -->
+        <div
+          @click="modalCargarDocumentoAbierto = true"
+          class="bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 transition cursor-pointer flex flex-col sm:flex-row items-center justify-between gap-4"
+        >
+          <div class="flex items-center gap-3.5">
+            <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+              <UploadCloud class="w-5 h-5" />
+            </div>
+            <div>
+              <h2 class="text-xs font-bold text-zinc-100">
+                ¿Tienes un documento en Word (.docx) o contrato listo para enviar?
+              </h2>
+              <p class="text-[11px] text-zinc-400 mt-0.5">
+                Súbelo directamente. El sistema extraerá el texto, identificará las variables y generará el PDF oficial automáticamente.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-xs font-medium shrink-0 transition"
+          >
+            <UploadCloud class="w-3.5 h-3.5 text-emerald-400" />
+            <span>Subir Documento Ahora</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          @click="cargarDatos"
-          class="p-1 text-zinc-400 hover:text-zinc-200 transition"
-          title="Actualizar historial"
-        >
-          <RefreshCw class="w-3.5 h-3.5" />
-        </button>
-      </div>
+        <!-- Catálogo de Plantillas -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3.5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+              <Sparkles class="w-4 h-4 text-emerald-400" />
+              <span>Catálogo de Documentos Oficiales & Plantillas B2B</span>
+              <span class="text-[10px] font-mono text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
+                {{ plantillas.length }} disponibles
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="modalCargarDocumentoAbierto = true"
+                class="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 underline"
+              >
+                + Cargar Nuevo Documento
+              </button>
+            </div>
+          </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-zinc-800 bg-zinc-950/80 text-zinc-400 font-medium">
-              <th class="py-2.5 px-3.5">Destinatario</th>
-              <th class="py-2.5 px-3.5">Asunto del Correo</th>
-              <th class="py-2.5 px-3.5">Documento PDF Adjunto</th>
-              <th class="py-2.5 px-3.5">Remitente Configurado</th>
-              <th class="py-2.5 px-3.5">Fecha y Hora</th>
-              <th class="py-2.5 px-3.5 text-right">Estado</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-zinc-800/60">
-            <tr v-if="historial.length === 0">
-              <td colspan="6" class="py-8 text-center text-zinc-500">
-                Aún no se han despachado correos masivos en esta sesión. Selecciona una plantilla o sube un documento para enviar.
-              </td>
-            </tr>
-            <tr v-for="envio in historial" :key="envio.id" class="hover:bg-zinc-800/20">
-              <td class="py-2.5 px-3.5">
-                <div class="font-medium text-zinc-200">{{ envio.empresa }}</div>
-                <div class="text-[11px] text-zinc-400 font-mono">{{ envio.emailDestino }}</div>
-              </td>
-              <td class="py-2.5 px-3.5 text-zinc-300 font-medium">
-                {{ envio.asunto }}
-              </td>
-              <td class="py-2.5 px-3.5 font-mono text-[11px] text-emerald-400">
-                <div class="inline-flex items-center gap-1.5">
-                  <Paperclip class="w-3.5 h-3.5 text-zinc-500" />
-                  <span>{{ envio.nombreAdjunto }}</span>
-                  <span class="text-zinc-500 text-[10px]">({{ envio.tamanoAdjuntoKb }} KB)</span>
+          <!-- Cuadrícula de Plantillas -->
+          <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+            <div
+              v-for="plt in plantillas"
+              :key="plt.id"
+              class="bg-zinc-950 p-4 rounded-xl border border-zinc-800 hover:border-zinc-700 transition flex flex-col justify-between group"
+            >
+              <div>
+                <div class="flex items-center justify-between text-[11px] font-medium text-emerald-400 mb-1.5 uppercase tracking-wide">
+                  <span>{{ plt.categoria }}</span>
+                  <span class="font-mono text-[10px] text-zinc-500 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
+                    PDF A4
+                  </span>
                 </div>
-              </td>
-              <td class="py-2.5 px-3.5 text-zinc-400">
-                {{ envio.remitente }}
-              </td>
-              <td class="py-2.5 px-3.5 text-zinc-500 font-mono text-[11px]">
-                {{ formatDate(envio.fechaEnvio, 'datetime') }}
-              </td>
-              <td class="py-2.5 px-3.5 text-right">
-                <span
-                  v-if="envio.estado === 'enviado'"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                >
-                  <CheckCircle2 class="w-3 h-3" />
-                  Entregado
-                </span>
-                <span
-                  v-else-if="envio.estado === 'fallido'"
-                  :title="envio.error"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 cursor-help"
-                >
-                  <AlertCircle class="w-3 h-3" />
-                  Fallido
-                </span>
-                <span v-else class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
-                  Pendiente
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    </FlickerlessSurface>
 
-    <!-- Modal de Envío Masivo -->
+                <h2 class="text-xs font-bold text-zinc-100 mb-1 leading-snug group-hover:text-emerald-400 transition">
+                  {{ plt.nombre }}
+                </h2>
+
+                <p class="text-[11px] text-zinc-400 leading-relaxed mb-3 line-clamp-3">
+                  {{ plt.descripcion }}
+                </p>
+              </div>
+
+              <div class="pt-3 border-t border-zinc-900 flex items-center justify-between gap-2">
+                <span class="text-[10px] font-mono text-zinc-500 flex items-center gap-1">
+                  <Paperclip class="w-3 h-3 text-zinc-400" />
+                  Adjunto PDF
+                </span>
+
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    @click="eliminarPlantillaPersonalizada(plt.id)"
+                    title="Eliminar plantilla"
+                    class="p-1 text-zinc-500 hover:text-rose-400 transition"
+                  >
+                    <Trash2 class="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    @click="abrirEnvioConPlantilla(plt)"
+                    class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium transition"
+                  >
+                    Usar & Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historial de Envíos Recientes -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden text-xs">
+          <div class="p-3.5 border-b border-zinc-800 bg-zinc-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2 font-semibold text-zinc-200">
+              <Clock class="w-4 h-4 text-emerald-400" />
+              <span>Historial de Despachos Recientes</span>
+              <span class="font-mono text-zinc-500 text-[11px]">({{ historial.length }} registros)</span>
+            </div>
+
+            <button
+              type="button"
+              @click="cargarDatos"
+              class="p-1 text-zinc-400 hover:text-zinc-200 transition"
+              title="Actualizar historial"
+            >
+              <RefreshCw class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-zinc-800 bg-zinc-950/80 text-zinc-400 font-medium">
+                  <th class="py-2.5 px-3.5">Destinatario</th>
+                  <th class="py-2.5 px-3.5">Asunto del Correo</th>
+                  <th class="py-2.5 px-3.5">Adjunto PDF</th>
+                  <th class="py-2.5 px-3.5">Remitente</th>
+                  <th class="py-2.5 px-3.5">Fecha y Hora</th>
+                  <th class="py-2.5 px-3.5 text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-800/60">
+                <tr v-if="historial.length === 0">
+                  <td colspan="6" class="py-8 text-center text-zinc-500">
+                    Aún no se han despachado correos masivos en esta sesión.
+                  </td>
+                </tr>
+                <tr v-for="envio in historial" :key="envio.id" class="hover:bg-zinc-800/20">
+                  <td class="py-2.5 px-3.5">
+                    <div class="font-medium text-zinc-200">{{ envio.empresa }}</div>
+                    <div class="text-[11px] text-zinc-400 font-mono">{{ envio.emailDestino }}</div>
+                  </td>
+                  <td class="py-2.5 px-3.5 text-zinc-300 font-medium">
+                    {{ envio.asunto }}
+                  </td>
+                  <td class="py-2.5 px-3.5 font-mono text-[11px] text-emerald-400">
+                    <div class="inline-flex items-center gap-1.5">
+                      <Paperclip class="w-3.5 h-3.5 text-zinc-500" />
+                      <span>{{ envio.nombreAdjunto }}</span>
+                      <span class="text-zinc-500 text-[10px]">({{ envio.tamanoAdjuntoKb }} KB)</span>
+                    </div>
+                  </td>
+                  <td class="py-2.5 px-3.5 text-zinc-400">
+                    {{ envio.remitente }}
+                  </td>
+                  <td class="py-2.5 px-3.5 text-zinc-500 font-mono text-[11px]">
+                    {{ formatDate(envio.fechaEnvio) }}
+                  </td>
+                  <td class="py-2.5 px-3.5 text-right">
+                    <span
+                      v-if="envio.estado === 'enviado'"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    >
+                      <CheckCircle2 class="w-3 h-3" />
+                      Entregado
+                    </span>
+                    <span
+                      v-else-if="envio.estado === 'fallido'"
+                      :title="envio.error"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                    >
+                      <AlertCircle class="w-3 h-3" />
+                      Fallido
+                    </span>
+                    <span v-else class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                      Pendiente
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </FlickerlessSurface>
+    </div>
+
+    <!-- Modales -->
     <EnvioMasivoModal
       v-if="modalEnvioAbierto"
       :abierto="modalEnvioAbierto"
@@ -488,15 +513,12 @@ onMounted(() => {
       @completado="cargarDatos"
     />
 
-    <!-- Modal de Configuración SMTP / IMAP -->
-    <ConfiguracionSmtpModal
-      v-if="modalSmtpAbierto"
-      :abierto="modalSmtpAbierto"
-      @cerrar="modalSmtpAbierto = false"
-      @guardado="onSmtpGuardado"
+    <ConfiguracionFirmaYPieModal
+      :abierto="modalConfigAbierto"
+      @cerrar="modalConfigAbierto = false"
+      @guardado="onConfigGuardada"
     />
 
-    <!-- Modal de Carga de Documentos Word / PDF -->
     <CargarDocumentoModal
       v-if="modalCargarDocumentoAbierto"
       :abierto="modalCargarDocumentoAbierto"
