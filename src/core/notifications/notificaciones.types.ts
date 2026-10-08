@@ -1,4 +1,4 @@
-export type TipoNotificacion = 'correo' | 'propuesta' | 'cliente' | 'pipeline' | 'sistema';
+export type TipoNotificacion = 'correo' | 'propuesta' | 'cliente' | 'pipeline' | 'sistema' | 'tarea' | 'seguimiento';
 
 export type PrioridadNotificacion = 'alta' | 'media' | 'baja';
 

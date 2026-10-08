@@ -16,7 +16,8 @@ import {
   Server, 
   Sparkles,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  Clock
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -47,6 +48,9 @@ const resolverIcono = (tipo: string) => {
       return Kanban;
     case 'cliente':
       return Building2;
+    case 'tarea':
+    case 'seguimiento':
+      return Clock;
     case 'sistema':
       return Server;
     default:
@@ -67,6 +71,9 @@ const resolverColorIcono = (tipo: string, prioridad: string) => {
       return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
     case 'cliente':
       return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+    case 'tarea':
+    case 'seguimiento':
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
     default:
       return 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20';
   }

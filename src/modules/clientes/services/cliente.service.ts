@@ -512,6 +512,11 @@ class ClienteService {
     return false;
   }
 
+  async obtenerTodosLosClientes(): Promise<Cliente[]> {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return JSON.parse(JSON.stringify(this.memoriaClientes));
+  }
+
   async eliminarCliente(id: string): Promise<boolean> {
     await new Promise((resolve) => setTimeout(resolve, 250));
     const idx = this.memoriaClientes.findIndex((c) => c.id === id);

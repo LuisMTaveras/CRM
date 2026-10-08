@@ -7,6 +7,7 @@ import ConfiguracionView from '@/modules/configuracion/views/ConfiguracionView.v
 import LoginView from '@/modules/auth/views/LoginView.vue';
 import UsuariosView from '@/modules/auth/views/UsuariosView.vue';
 import ComunicacionesView from '@/modules/comunicaciones/views/ComunicacionesView.vue';
+import { AgendaView } from '@/modules/agenda';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const router = createRouter({
@@ -38,6 +39,11 @@ const router = createRouter({
       path: '/pipeline/:id',
       name: 'pipeline-detalle',
       component: PipelineView,
+    },
+    {
+      path: '/agenda',
+      name: 'agenda',
+      component: AgendaView,
     },
     {
       path: '/comunicaciones',

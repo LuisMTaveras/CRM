@@ -41,6 +41,16 @@ export class BusquedaService {
         ruta: '/pipeline',
       },
       {
+        id: 'mod-agenda',
+        categoria: 'modulos',
+        titulo: 'Agenda & Tareas de Seguimiento',
+        subtitulo: 'Next steps, llamadas programadas, reuniones y detector de estancamiento',
+        badge: 'Agenda',
+        badgeColor: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20',
+        icono: 'CalendarClock',
+        ruta: '/agenda',
+      },
+      {
         id: 'mod-comunicaciones',
         categoria: 'modulos',
         titulo: 'Envíos, Documentos & Bandeja',
@@ -107,6 +117,16 @@ export class BusquedaService {
         badgeColor: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20',
         icono: 'Plus',
         ruta: '/clientes?accion=nuevo',
+      },
+      {
+        id: 'acc-nueva-actividad',
+        categoria: 'acciones',
+        titulo: 'Programar Próxima Actividad Comercial',
+        subtitulo: 'Crear recordatorio de llamada, reunión, videollamada o seguimiento',
+        badge: 'Agenda',
+        badgeColor: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20',
+        icono: 'CalendarClock',
+        ruta: '/agenda?accion=nueva',
       },
       {
         id: 'acc-nueva-plantilla',

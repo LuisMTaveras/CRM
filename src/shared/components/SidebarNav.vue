@@ -8,7 +8,8 @@ import {
   Layers, 
   Settings, 
   Users,
-  Mail
+  Mail,
+  CalendarClock
 } from 'lucide-vue-next';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 
@@ -19,6 +20,7 @@ const enlaces = [
   { nombre: 'Métricas & KPIs', ruta: '/', icono: BarChart3 },
   { nombre: 'Cartera Clientes', ruta: '/clientes', icono: Building2 },
   { nombre: 'Pipeline Kanban', ruta: '/pipeline', icono: Kanban },
+  { nombre: 'Agenda & Tareas', ruta: '/agenda', icono: CalendarClock },
   { nombre: 'Envíos & Documentos', ruta: '/comunicaciones', icono: Mail },
   { nombre: 'Usuarios & Roles', ruta: '/usuarios', icono: Users },
   { nombre: 'Empresa & Ajustes', ruta: '/configuracion', icono: Settings },

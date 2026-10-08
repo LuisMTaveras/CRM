@@ -20,6 +20,8 @@ import {
   Tag,
   AlertCircle,
   AlertOctagon,
+  AlertTriangle,
+  CalendarClock,
   GripVertical,
   ArrowLeft
 } from 'lucide-vue-next';
@@ -27,6 +29,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { formatCurrency, formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { pipelineService } from '../services/pipeline.service';
+import { actividadesService, ModalActividadSeguimiento } from '@/modules/agenda';
 import type { 
   Pipeline, 
   ColumnaPipeline, 
@@ -221,10 +224,43 @@ const cambiarPipeline = (id: string) => {
   router.push(`/pipeline/${id}`);
 };
 
+// Detector de Clientes Estancados (> 10 días sin interacción)
+const filtroSoloEstancados = ref(false);
+const modalActividadAbierto = ref(false);
+const tarjetaSeleccionadaSeguimiento = ref<TarjetaPipeline | null>(null);
+
+const diagnosticoEstancado = (tarjeta: TarjetaPipeline, col?: ColumnaPipeline) => {
+  if (col?.es_completado || col?.estado === 'completado') {
+    return { estancado: false, diasSinContacto: 0, fechaReferencia: '', motivo: 'Etapa completada' };
+  }
+  return actividadesService.esClienteEstancado(
+    { id: tarjeta.id, creado_en: tarjeta.creado_en },
+    { id: tarjeta.cliente_id }
+  );
+};
+
+const totalTarjetasEstancadas = computed(() => {
+  if (!pipelineActivo.value) return 0;
+  const colCompletadaId = columnaCompletada.value?.id;
+  return tarjetas.value.filter((t) => {
+    if (t.columna_id === colCompletadaId) return false;
+    const col = pipelineActivo.value?.columnas.find((c) => c.id === t.columna_id);
+    return diagnosticoEstancado(t, col).estancado;
+  }).length;
+});
+
+const abrirModalSeguimiento = (tarjeta: TarjetaPipeline) => {
+  tarjetaSeleccionadaSeguimiento.value = tarjeta;
+  modalActividadAbierto.value = true;
+};
+
 const tarjetasPorColumna = (columnaId: string) => {
-  return tarjetas.value
-    .filter((t) => t.columna_id === columnaId)
-    .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  let list = tarjetas.value.filter((t) => t.columna_id === columnaId);
+  if (filtroSoloEstancados.value) {
+    const col = pipelineActivo.value?.columnas.find((c) => c.id === columnaId);
+    list = list.filter((t) => diagnosticoEstancado(t, col).estancado);
+  }
+  return list.sort((a, b) => (a.orden || 0) - (b.orden || 0));
 };
 
 const totalMontoColumna = (columnaId: string) => {
@@ -681,6 +717,28 @@ watch(
             min-width-class="min-w-[190px]"
           />
         </div>
+
+        <!-- Filtro Rápido: Clientes Estancados (> 10 días sin interacción) -->
+        <button
+          type="button"
+          @click="filtroSoloEstancados = !filtroSoloEstancados"
+          class="px-2.5 py-1.5 rounded-xl border text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+          :class="[
+            filtroSoloEstancados
+              ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/20'
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+          ]"
+          :title="filtroSoloEstancados ? 'Mostrar todas las tarjetas' : 'Filtrar para ver solo oportunidades estancadas (> 10 días)'"
+        >
+          <AlertTriangle class="w-3.5 h-3.5 text-amber-500" />
+          <span>Estancados (> 10d)</span>
+          <span
+            v-if="totalTarjetasEstancadas > 0"
+            class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono font-semibold"
+          >
+            {{ totalTarjetasEstancadas }}
+          </span>
+        </button>
       </div>
 
       <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200 dark:border-white/[0.05]">
@@ -927,9 +985,30 @@ watch(
                   {{ tarjeta.monto ? formatCurrency(tarjeta.monto) : '—' }}
                 </span>
                 <span class="text-[10px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
-                  <Calendar class="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+                  <Calendar class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                   {{ formatDate(tarjeta.fecha_objetivo) }}
                 </span>
+              </div>
+
+              <!-- Detector de Estancamiento (> 10 días sin interacción) -->
+              <div
+                v-if="diagnosticoEstancado(tarjeta, col).estancado"
+                class="mt-2 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 flex items-center justify-between gap-1.5"
+                :title="diagnosticoEstancado(tarjeta, col).motivo"
+              >
+                <div class="flex items-center gap-1 text-[10px] font-medium min-w-0">
+                  <AlertTriangle class="w-3 h-3 text-amber-500 shrink-0" />
+                  <span class="truncate">Estancado (+{{ diagnosticoEstancado(tarjeta, col).diasSinContacto }}d)</span>
+                </div>
+                <button
+                  type="button"
+                  @click.stop="abrirModalSeguimiento(tarjeta)"
+                  class="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[10px] font-semibold text-amber-800 dark:text-amber-300 transition flex items-center gap-1 shrink-0"
+                  title="Programar llamada, reunión o recordatorio de seguimiento"
+                >
+                  <CalendarClock class="w-2.5 h-2.5" />
+                  <span>Actuar</span>
+                </button>
               </div>
 
               <!-- Botones de Transición Rápida entre Columnas -->
@@ -956,6 +1035,13 @@ watch(
                 </div>
 
                 <div class="flex items-center gap-1">
+                  <button
+                    @click.stop="abrirModalSeguimiento(tarjeta)"
+                    title="Programar próxima actividad / Next step"
+                    class="p-1 text-zinc-400 hover:text-amber-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                  >
+                    <CalendarClock class="w-3.5 h-3.5" />
+                  </button>
                   <button
                     @click.stop="eliminarTarjeta(tarjeta)"
                     title="Eliminar elemento"
@@ -1062,5 +1148,16 @@ watch(
         </div>
       </div>
     </div>
+
+    <!-- Modal para Programar Actividad / Seguimiento desde Tarjeta del Kanban -->
+    <ModalActividadSeguimiento
+      v-if="modalActividadAbierto"
+      v-model:abierto="modalActividadAbierto"
+      :cliente-preseleccionado-id="tarjetaSeleccionadaSeguimiento?.cliente_id"
+      :tarjeta-preseleccionada-id="tarjetaSeleccionadaSeguimiento?.id"
+      :pipeline-id="pipelineActivoId"
+      @guardada="sincronizarTarjetasSilencioso"
+      @cerrar="tarjetaSeleccionadaSeguimiento = null"
+    />
   </div>
 </template>
