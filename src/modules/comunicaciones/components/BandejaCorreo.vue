@@ -28,10 +28,10 @@ import {
   Loader2, 
   Building2, 
   CheckCircle2, 
-  AlertCircle,
-  X
+  AlertCircle
 } from 'lucide-vue-next';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
+import { toastService } from '@/core/notifications/toast.service';
 
 const carpetas = ref<CarpetaCorreo[]>([]);
 const carpetaActiva = ref<CarpetaCorreoId>('inbox');
@@ -40,12 +40,6 @@ const mensajeSeleccionado = ref<MensajeCorreo | null>(null);
 
 const cargando = ref(true);
 const sincronizando = ref(false);
-const estadoSincronizacion = ref<{
-  exito: boolean;
-  mensaje: string;
-  sincronizados?: number;
-  hora?: string;
-} | null>(null);
 
 const busqueda = ref('');
 const pagina = ref(1);
@@ -108,32 +102,29 @@ const cargarMensajes = async () => {
 const sincronizarCorreos = async (forzarSilencioso = false) => {
   if (sincronizando.value) return;
   sincronizando.value = true;
-  if (!forzarSilencioso) estadoSincronizacion.value = null;
 
   try {
     const res = await webmailService.sincronizar(carpetaActiva.value, 35);
     if (res.exito) {
-      estadoSincronizacion.value = {
-        exito: true,
-        mensaje: res.mensaje,
-        sincronizados: res.sincronizados,
-        hora: new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }),
-      };
       await cargarCarpetas();
       await cargarMensajes();
+
+      if (!forzarSilencioso) {
+        if (res.sincronizados && res.sincronizados > 0) {
+          toastService.exito(res.mensaje || `Se sincronizaron ${res.sincronizados} correos.`);
+        } else if (res.mensaje?.toLowerCase().includes('no se encontró')) {
+          toastService.info(res.mensaje);
+        } else {
+          toastService.exito(res.mensaje || 'Bandeja sincronizada exitosamente.');
+        }
+      } else if (res.sincronizados && res.sincronizados > 0) {
+        toastService.exito(`Se sincronizaron ${res.sincronizados} correos nuevos.`);
+      }
     } else {
-      estadoSincronizacion.value = {
-        exito: false,
-        mensaje: res.mensaje || res.error || 'Error al conectar con el servidor IMAP.',
-        sincronizados: 0,
-      };
+      toastService.advertencia(res.mensaje || res.error || 'Error al conectar con el servidor IMAP.');
     }
   } catch (err: any) {
-    estadoSincronizacion.value = {
-      exito: false,
-      mensaje: `Error de sincronización: ${err.message || 'Servidor no responde'}`,
-      sincronizados: 0,
-    };
+    toastService.error(`Error de sincronización: ${err.message || 'Servidor no responde'}`);
   } finally {
     sincronizando.value = false;
   }
@@ -264,38 +255,6 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-4 w-full">
-    <!-- Banner de feedback de sincronización -->
-    <div
-      v-if="estadoSincronizacion"
-      class="p-2.5 px-4 rounded-xl border text-xs flex items-center justify-between transition-all"
-      :class="estadoSincronizacion.exito ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/10 border-rose-500/25 text-rose-700 dark:text-rose-300'"
-    >
-      <div class="flex items-center gap-2 min-w-0">
-        <CheckCircle2 v-if="estadoSincronizacion.exito" class="w-4 h-4 text-emerald-500 shrink-0" />
-        <AlertCircle v-else class="w-4 h-4 text-rose-500 shrink-0" />
-        <span class="truncate font-medium">{{ estadoSincronizacion.mensaje }}</span>
-        <span v-if="estadoSincronizacion.hora" class="text-[10px] opacity-75 font-mono">({{ estadoSincronizacion.hora }})</span>
-      </div>
-
-      <div class="flex items-center gap-2 shrink-0">
-        <button
-          v-if="!estadoSincronizacion.exito"
-          type="button"
-          @click="modalConfigAbierto = true"
-          class="text-[11px] underline font-semibold hover:opacity-80"
-        >
-          Revisar credenciales
-        </button>
-        <button
-          type="button"
-          @click="estadoSincronizacion = null"
-          class="p-1 hover:opacity-75 rounded"
-        >
-          <X class="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
-
     <!-- Barra de Control Superior -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
       <!-- Búsqueda rápida -->

@@ -48,8 +48,7 @@ const onEnvioCompletado = () => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+  <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
         <span class="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
@@ -104,6 +103,7 @@ const onEnvioCompletado = () => {
       </div>
     </Teleport>
 
+  <div class="w-full space-y-4">
     <!-- Alerta de Error si ocurre -->
     <div
       v-if="error"

@@ -69,8 +69,7 @@ const restablecer = async () => {
 </script>
 
 <template>
-  <div class="space-y-6 max-w-5xl pb-10">
-    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+  <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
         <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
@@ -119,7 +118,8 @@ const restablecer = async () => {
       </div>
     </Teleport>
 
-    <!-- Contenedor Protegido con Flickerless Surface -->
+  <!-- Contenedor Protegido con Flickerless Surface -->
+  <div class="w-full space-y-4 pb-8">
     <FlickerlessSurface
       :loading="guardando"
       :delay-ms="180"

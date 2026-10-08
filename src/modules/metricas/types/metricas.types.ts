@@ -4,6 +4,7 @@ export interface SectorMetrica {
   porcentaje: number;
   montoTotal: number;
   colorClase: string;
+  colorHex: string;
 }
 
 export interface EtapaMetrica {
@@ -12,6 +13,7 @@ export interface EtapaMetrica {
   cantidad: number;
   monto: number;
   porcentaje: number;
+  tasaConversionEtapa: number;
 }
 
 export interface ResponsableMetrica {
@@ -19,6 +21,16 @@ export interface ResponsableMetrica {
   deals: number;
   monto: number;
   ganadas: number;
+  tasaExito: number;
+}
+
+export interface MesTendencia {
+  mes: string;
+  mesCorto: string;
+  montoGanado: number;
+  montoPipeline: number;
+  dealsGanados: number;
+  dealsTotales: number;
 }
 
 export interface MetricasComerciales {
@@ -33,4 +45,5 @@ export interface MetricasComerciales {
   distribucionSectores: SectorMetrica[];
   distribucionEtapas: EtapaMetrica[];
   topResponsables: ResponsableMetrica[];
+  tendenciaMensual: MesTendencia[];
 }

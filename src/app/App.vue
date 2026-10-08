@@ -31,7 +31,7 @@ onMounted(() => {
       <HeaderBar />
 
       <!-- Vista de Rutas con Scroll Interno -->
-      <main class="flex-1 overflow-y-auto p-6 bg-zinc-50 dark:bg-zinc-950">
+      <main class="flex-1 overflow-y-auto px-6 py-4 bg-zinc-50 dark:bg-zinc-950">
         <router-view />
       </main>
     </div>

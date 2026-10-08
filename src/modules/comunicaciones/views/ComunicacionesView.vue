@@ -105,8 +105,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-5 w-full">
-    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+  <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
         <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
@@ -171,6 +170,7 @@ onMounted(() => {
       </div>
     </Teleport>
 
+  <div class="w-full space-y-4">
     <!-- Barra de Pestañas Principales (Bandeja vs Despacho Masivo) -->
     <div class="flex items-center justify-between border-b border-zinc-800 pb-1">
       <div class="flex items-center gap-2">

@@ -527,8 +527,7 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+  <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
         <!-- Retorno al Catálogo General de Pipelines -->
@@ -643,6 +642,7 @@ watch(
       </div>
     </Teleport>
 
+  <div class="w-full space-y-4">
     <!-- Barra de Filtros en Tiempo Real -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.06] text-xs shadow-sm">
       <div class="flex flex-wrap items-center gap-2.5 flex-1">

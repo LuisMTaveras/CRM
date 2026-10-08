@@ -140,8 +140,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6 max-w-6xl">
-    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+  <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
         <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
@@ -202,7 +201,8 @@ onMounted(async () => {
       </div>
     </Teleport>
 
-    <!-- Contenido Protegido con Flickerless Surface -->
+  <!-- Contenido Protegido con Flickerless Surface -->
+  <div class="w-full space-y-4 pb-8">
     <FlickerlessSurface
       :loading="cargando"
       :delay-ms="180"

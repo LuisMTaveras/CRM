@@ -166,53 +166,53 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6 max-w-7xl mx-auto pb-10">
-    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
-    <Teleport to="#header-portal-left">
-      <div class="flex items-center gap-3 min-w-0">
-        <span class="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
-          <FolderKanban class="w-5 h-5" />
-        </span>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
-              Consulta de Pipelines y Tableros
-            </h1>
-            <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
-              {{ metricasGlobales.totalTableros }} Disponibles
-            </span>
-          </div>
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
-            Supervisa el avance de cada proceso operativo o comercial y haz clic en cualquier tablero para entrar al tablero de tarjetas.
-          </p>
+  <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+  <Teleport to="#header-portal-left">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
+        <FolderKanban class="w-5 h-5" />
+      </span>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+            Consulta de Pipelines y Tableros
+          </h1>
+          <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+            {{ metricasGlobales.totalTableros }} Disponibles
+          </span>
         </div>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
+          Supervisa el avance de cada proceso operativo o comercial y haz clic en cualquier tablero para entrar al tablero de tarjetas.
+        </p>
       </div>
-    </Teleport>
+    </div>
+  </Teleport>
 
-    <!-- Teleport de Acciones Globales a la Barra Superior -->
-    <Teleport to="#header-portal-right">
-      <div class="flex items-center gap-2">
-        <button
-          @click="modalNuevoPipelineAbierto = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
-        >
-          <Plus class="w-3.5 h-3.5" />
-          <span>+ Nuevo Tablero</span>
-        </button>
+  <!-- Teleport de Acciones Globales a la Barra Superior -->
+  <Teleport to="#header-portal-right">
+    <div class="flex items-center gap-2">
+      <button
+        @click="modalNuevoPipelineAbierto = true"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
+      >
+        <Plus class="w-3.5 h-3.5" />
+        <span>+ Nuevo Tablero</span>
+      </button>
 
-        <button
-          @click="cargarDatos"
-          :disabled="cargando"
-          title="Actualizar datos"
-          class="p-2 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
-        </button>
-      </div>
-    </Teleport>
+      <button
+        @click="cargarDatos"
+        :disabled="cargando"
+        title="Actualizar datos"
+        class="p-2 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition shadow-sm disabled:opacity-50"
+      >
+        <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
+      </button>
+    </div>
+  </Teleport>
 
+  <div class="w-full space-y-4 pb-8">
     <!-- Banner Resumen de Métricas Globales (KPIs de Alto Impacto) -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="saas-card p-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.07] bg-white dark:bg-zinc-900/50 flex items-center gap-3 shadow-sm">
         <span class="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
           <TrendingUp class="w-4 h-4" />
