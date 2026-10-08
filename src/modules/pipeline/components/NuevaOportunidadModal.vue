@@ -113,30 +113,30 @@ onMounted(() => {
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop oscuro -->
     <div
-      class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+      class="fixed inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-sm transition-opacity"
       @click="emit('cerrar')"
     ></div>
 
     <!-- Modal Card -->
     <div
-      class="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col"
+      class="relative w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col"
     >
       <!-- Cabecera -->
-      <div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/80">
+      <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950/80">
         <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
             <Briefcase class="w-4 h-4" />
           </div>
           <div>
-            <h2 class="text-sm font-bold text-zinc-100">Nueva Oportunidad Comercial (Deal)</h2>
-            <p class="text-[11px] text-zinc-400">Vincular una negociación a la cartera de clientes</p>
+            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Nueva Oportunidad Comercial (Deal)</h2>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Vincular una negociación a la cartera de clientes</p>
           </div>
         </div>
 
         <button
           type="button"
           @click="emit('cerrar')"
-          class="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg transition"
+          class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 p-1 rounded-lg transition"
         >
           <X class="w-4 h-4" />
         </button>
@@ -146,21 +146,21 @@ onMounted(() => {
       <form @submit.prevent="guardarOportunidad" class="p-5 space-y-4 text-xs">
         <div
           v-if="errorMensaje"
-          class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs"
+          class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs"
         >
           {{ errorMensaje }}
         </div>
 
         <!-- Selector de Cliente (si no está fijo) -->
         <div v-if="!props.clienteIdFijo">
-          <label class="block text-zinc-400 font-medium mb-1">
-            Empresa / Cuenta Cliente <span class="text-rose-400">*</span>
+          <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+            Empresa / Cuenta Cliente <span class="text-rose-500">*</span>
           </label>
           <select
             v-model="formulario.cliente_id"
             required
             :disabled="cargandoClientes"
-            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+            class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
           >
             <option value="" disabled>Seleccione una empresa de la cartera</option>
             <option
@@ -175,41 +175,41 @@ onMounted(() => {
 
         <!-- Título del Deal -->
         <div>
-          <label class="block text-zinc-400 font-medium mb-1">
-            Nombre / Título de la Oportunidad <span class="text-rose-400">*</span>
+          <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+            Nombre / Título de la Oportunidad <span class="text-rose-500">*</span>
           </label>
           <input
             v-model="formulario.titulo"
             type="text"
             required
             placeholder="Ej: Contrato Marco de Suministro B2B 2026"
-            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+            class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
           />
         </div>
 
         <!-- Monto Estimado y Etapa -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">
-              Valor / Monto Estimado (RD$) <span class="text-rose-400">*</span>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+              Valor / Monto Estimado (RD$) <span class="text-rose-500">*</span>
             </label>
             <input
               v-model.number="formulario.monto"
               type="number"
               min="1"
               required
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 font-mono focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">
-              Etapa Inicial <span class="text-rose-400">*</span>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+              Etapa Inicial <span class="text-rose-500">*</span>
             </label>
             <select
               v-model="formulario.etapa"
               @change="ajustarProbabilidad"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition capitalize"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition capitalize"
             >
               <option value="calificacion">Calificación</option>
               <option value="propuesta">Propuesta Enviada</option>
@@ -224,8 +224,8 @@ onMounted(() => {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
             <div class="flex justify-between items-center mb-1">
-              <label class="text-zinc-400 font-medium">Probabilidad de Cierre</label>
-              <span class="font-mono text-emerald-400 font-semibold">{{ formulario.probabilidad }}%</span>
+              <label class="text-zinc-700 dark:text-zinc-400 font-medium">Probabilidad de Cierre</label>
+              <span class="font-mono text-indigo-600 dark:text-indigo-400 font-semibold">{{ formulario.probabilidad }}%</span>
             </div>
             <input
               v-model.number="formulario.probabilidad"
@@ -233,36 +233,36 @@ onMounted(() => {
               min="0"
               max="100"
               step="5"
-              class="w-full accent-emerald-500 bg-zinc-950 cursor-pointer"
+              class="w-full accent-indigo-600 bg-zinc-200 dark:bg-zinc-950 cursor-pointer"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">
-              Fecha Estimada de Cierre <span class="text-rose-400">*</span>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+              Fecha Estimada de Cierre <span class="text-rose-500">*</span>
             </label>
             <input
               v-model="formulario.fecha_cierre_estimada"
               type="date"
               required
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 font-mono focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
         </div>
 
         <!-- Botones de Acción -->
-        <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-800">
+        <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <button
             type="button"
             @click="emit('cerrar')"
-            class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium transition"
+            class="px-4 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium transition"
           >
             Cancelar
           </button>
           <button
             type="submit"
             :disabled="guardando"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm transition disabled:opacity-50"
           >
             <Loader2 v-if="guardando" class="w-4 h-4 animate-spin" />
             <Plus v-else class="w-4 h-4" />

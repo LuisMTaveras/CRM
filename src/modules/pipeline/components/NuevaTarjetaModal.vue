@@ -216,31 +216,31 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+  <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
     <div
-      class="bg-zinc-900 border border-white/[0.08] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]"
+      class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-titulo-tarjeta"
     >
       <!-- Cabecera -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.07] bg-zinc-950/60">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-zinc-950/60">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
             <Plus class="w-4 h-4" />
           </div>
           <div>
-            <h2 id="modal-titulo-tarjeta" class="text-sm font-semibold text-white tracking-tight">
+            <h2 id="modal-titulo-tarjeta" class="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight">
               {{ pipeline.tipo === 'visitas' ? 'Programar Visitas a Clientes' : 'Crear Tarjetas en ' + pipeline.nombre }}
             </h2>
-            <p class="text-xs text-zinc-400">
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
               Tablero activo: {{ pipeline.nombre }}
             </p>
           </div>
         </div>
         <button
           @click="emit('cerrar')"
-          class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition"
+          class="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
           aria-label="Cerrar modal"
         >
           <X class="w-4 h-4" />
@@ -252,30 +252,30 @@ onMounted(() => {
         :loading="cargandoClientes"
         :delay-ms="120"
         :preserve-height="true"
-        stream-color="#10b981"
+        stream-color="#4f46e5"
         announce-text="Cargando catálogo de clientes..."
-        class="overflow-y-auto flex-1 p-6 space-y-4 text-xs"
+        class="overflow-y-auto flex-1 p-6 space-y-4 text-xs bg-white dark:bg-zinc-900"
       >
-        <div v-if="errorMensaje" class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+        <div v-if="errorMensaje" class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs">
           {{ errorMensaje }}
         </div>
 
         <!-- Selector de Modo: Múltiples Clientes vs Individual -->
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="font-medium text-zinc-300 flex items-center gap-1.5">
+            <label class="font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <Building2 class="w-3.5 h-3.5 text-zinc-400" />
               <span>Modalidad de Selección de Clientes</span>
             </label>
-            <div class="inline-flex p-0.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[11px]">
+            <div class="inline-flex p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-[11px]">
               <button
                 type="button"
                 @click="modoMultiplesClientes = true"
                 :class="[
                   'px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1',
                   modoMultiplesClientes
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-white dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-indigo-500/20 shadow-sm'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                 ]"
               >
                 <Users class="w-3 h-3" />
@@ -287,8 +287,8 @@ onMounted(() => {
                 :class="[
                   'px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1',
                   !modoMultiplesClientes
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-white dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-indigo-500/20 shadow-sm'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                 ]"
               >
                 <User class="w-3 h-3" />
@@ -298,29 +298,29 @@ onMounted(() => {
           </div>
 
           <!-- MODO MÚLTIPLES CLIENTES -->
-          <div v-if="modoMultiplesClientes" class="space-y-2 bg-zinc-950/60 p-3 rounded-xl border border-white/[0.06]">
+          <div v-if="modoMultiplesClientes" class="space-y-2 bg-zinc-50 dark:bg-zinc-950/60 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.06]">
             <div class="flex items-center justify-between gap-2">
               <div class="relative flex-1">
-                <Search class="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
+                <Search class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-2.5" />
                 <input
                   v-model="busquedaCliente"
                   type="text"
                   placeholder="Filtrar clientes por razón social o nombre..."
-                  class="w-full pl-9 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/40"
+                  class="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500/50"
                 />
               </div>
               <div class="flex items-center gap-1.5 shrink-0 text-[11px]">
                 <button
                   type="button"
                   @click="seleccionarTodosVisibles"
-                  class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition"
+                  class="px-2 py-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded transition"
                 >
                   Marcar todos
                 </button>
                 <button
                   type="button"
                   @click="desmarcarTodos"
-                  class="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-rose-400 rounded transition"
+                  class="px-2 py-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 rounded transition"
                 >
                   Limpiar
                 </button>
@@ -328,15 +328,15 @@ onMounted(() => {
             </div>
 
             <!-- Contador de Selección -->
-            <div class="flex items-center justify-between text-[11px] px-1 text-zinc-400">
+            <div class="flex items-center justify-between text-[11px] px-1 text-zinc-500 dark:text-zinc-400">
               <span>Seleccionados para programar:</span>
-              <span class="font-semibold text-emerald-400">
+              <span class="font-semibold text-indigo-600 dark:text-indigo-400">
                 {{ clientesSeleccionadosIds.length }} {{ clientesSeleccionadosIds.length === 1 ? 'cliente' : 'clientes' }}
               </span>
             </div>
 
             <!-- Lista de Selección con Checkbox -->
-            <div class="max-h-40 overflow-y-auto space-y-1 pr-1 border border-white/[0.04] rounded-lg p-1 bg-zinc-900/50">
+            <div class="max-h-40 overflow-y-auto space-y-1 pr-1 border border-zinc-200 dark:border-white/[0.04] rounded-lg p-1 bg-white dark:bg-zinc-900/50">
               <div
                 v-for="cli in clientesFiltrados"
                 :key="cli.id"
@@ -344,13 +344,13 @@ onMounted(() => {
                 :class="[
                   'px-2.5 py-1.5 rounded-md flex items-center justify-between cursor-pointer transition select-none text-xs',
                   estaSeleccionado(cli.id)
-                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                    : 'hover:bg-zinc-800/60 text-zinc-300 border border-transparent'
+                    ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-900 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20'
+                    : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border border-transparent'
                 ]"
               >
                 <div class="truncate pr-2">
                   <span class="font-medium">{{ cli.nombre_comercial || cli.razon_social }}</span>
-                  <span v-if="cli.nombre_comercial" class="text-[10px] text-zinc-500 ml-1.5 font-normal">
+                  <span v-if="cli.nombre_comercial" class="text-[10px] text-zinc-400 dark:text-zinc-500 ml-1.5 font-normal">
                     ({{ cli.razon_social }})
                   </span>
                 </div>
@@ -358,15 +358,15 @@ onMounted(() => {
                   :class="[
                     'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition',
                     estaSeleccionado(cli.id)
-                      ? 'bg-emerald-500 border-emerald-500 text-black'
-                      : 'border-zinc-700 bg-zinc-950'
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950'
                   ]"
                 >
                   <Check v-if="estaSeleccionado(cli.id)" class="w-3 h-3 stroke-[3]" />
                 </div>
               </div>
 
-              <div v-if="clientesFiltrados.length === 0" class="text-center py-4 text-zinc-500 text-xs">
+              <div v-if="clientesFiltrados.length === 0" class="text-center py-4 text-zinc-400 dark:text-zinc-500 text-xs">
                 No se encontraron clientes con ese nombre
               </div>
             </div>
@@ -376,7 +376,7 @@ onMounted(() => {
           <div v-else class="space-y-1">
             <select
               v-model="formulario.cliente_id_individual"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500/50 transition"
             >
               <option value="" disabled>Seleccione un cliente...</option>
               <option
@@ -392,24 +392,24 @@ onMounted(() => {
 
         <!-- Asunto / Título -->
         <div>
-          <label class="block font-medium text-zinc-300 mb-1.5">
+          <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
             {{ pipeline.tipo === 'visitas' ? 'Motivo o Asunto General de la Visita' : 'Título de la Tarjeta / Oportunidad' }}
-            <span v-if="modoMultiplesClientes" class="text-zinc-500 font-normal">(Opcional: se nombrará con el cliente si se deja vacío)</span>
-            <span v-else class="text-rose-400">*</span>
+            <span v-if="modoMultiplesClientes" class="text-zinc-400 dark:text-zinc-500 font-normal">(Opcional: se nombrará con el cliente si se deja vacío)</span>
+            <span v-else class="text-rose-500">*</span>
           </label>
           <input
             v-model="formulario.titulo"
             type="text"
             :placeholder="pipeline.tipo === 'visitas' ? 'Ej: Visita de prospección técnica y diagnóstico' : 'Ej: Propuesta de renovación anual'"
-            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+            class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500/50 transition"
           />
         </div>
 
         <!-- Columna Inicial y Prioridad con AppSelect idéntico a la referencia -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-medium text-zinc-300 mb-1.5">
-              Columna / Estado Inicial <span class="text-rose-400">*</span>
+            <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Columna / Estado Inicial <span class="text-rose-500">*</span>
             </label>
             <AppSelect
               :model-value="formulario.columna_id"
@@ -421,7 +421,7 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="block font-medium text-zinc-300 mb-1.5">
+            <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
               Prioridad
             </label>
             <AppSelect
@@ -437,19 +437,19 @@ onMounted(() => {
         <!-- Fecha Objetivo y Monto -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-medium text-zinc-300 mb-1.5 flex items-center gap-1.5">
+            <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
               <Calendar class="w-3.5 h-3.5 text-zinc-400" />
               <span>{{ pipeline.tipo === 'visitas' ? 'Fecha Programada' : 'Fecha Estimada Cierre' }}</span>
             </label>
             <input
               v-model="formulario.fecha_objetivo"
               type="date"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500/50 transition"
             />
           </div>
 
           <div>
-            <label class="block font-medium text-zinc-300 mb-1.5 flex items-center gap-1.5">
+            <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
               <DollarSign class="w-3.5 h-3.5 text-zinc-400" />
               <span>{{ pipeline.tipo === 'visitas' ? 'Presupuesto / Valor Proyectado ($)' : 'Monto del Trato ($)' }}</span>
             </label>
@@ -458,14 +458,14 @@ onMounted(() => {
               type="number"
               min="0"
               step="5000"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50 transition font-mono"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500/50 transition font-mono"
             />
           </div>
         </div>
 
         <!-- Notas / Observaciones -->
         <div>
-          <label class="block font-medium text-zinc-300 mb-1.5 flex items-center gap-1.5">
+          <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
             <FileText class="w-3.5 h-3.5 text-zinc-400" />
             <span>{{ pipeline.tipo === 'visitas' ? 'Dirección / Objetivos / Instrucciones de Ruta' : 'Notas y Observaciones' }}</span>
           </label>
@@ -473,13 +473,13 @@ onMounted(() => {
             v-model="formulario.notas"
             rows="2"
             :placeholder="pipeline.tipo === 'visitas' ? 'Indica dirección, persona de contacto en sede, objetivos a revisar...' : 'Detalles clave de la oportunidad comercial...'"
-            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition resize-none"
+            class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500/50 transition resize-none"
           ></textarea>
         </div>
       </FlickerlessSurface>
 
       <!-- Pie del Modal -->
-      <div class="flex items-center justify-between px-6 py-4 border-t border-white/[0.07] bg-zinc-950/60">
+      <div class="flex items-center justify-between px-6 py-4 border-t border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-zinc-950/60">
         <div class="text-zinc-500 text-[11px]">
           <span v-if="modoMultiplesClientes">
             Creará {{ clientesSeleccionadosIds.length }} {{ clientesSeleccionadosIds.length === 1 ? 'tarjeta' : 'tarjetas' }}
@@ -493,7 +493,7 @@ onMounted(() => {
           <button
             type="button"
             @click="emit('cerrar')"
-            class="px-4 py-2 rounded-lg border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
+            class="px-4 py-2 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition"
           >
             Cancelar
           </button>
@@ -502,7 +502,7 @@ onMounted(() => {
             type="button"
             @click="guardar"
             :disabled="guardando || (modoMultiplesClientes && clientesSeleccionadosIds.length === 0)"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition active:scale-95 disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-sm transition active:scale-95 disabled:opacity-50"
           >
             <Loader2 v-if="guardando" class="w-3.5 h-3.5 animate-spin" />
             <span>

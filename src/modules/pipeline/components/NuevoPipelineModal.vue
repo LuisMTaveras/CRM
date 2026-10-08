@@ -341,35 +341,35 @@ watch(
 </script>
 
 <template>
-  <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+  <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-fade-in">
     <!-- Diálogo Espacioso y Amplio (max-w-5xl) -->
     <div
-      class="bg-zinc-950 border border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[94vh]"
+      class="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.09] rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[94vh]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-titulo-pipeline"
     >
       <!-- Cabecera Superior Amplia -->
-      <div class="flex items-center justify-between px-6 py-4.5 border-b border-white/[0.08] bg-zinc-900/60">
+      <div class="flex items-center justify-between px-6 py-4.5 border-b border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-zinc-900/60">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
             <Layers class="w-5 h-5" />
           </div>
           <div>
-            <h2 id="modal-titulo-pipeline" class="text-sm sm:text-base font-semibold text-white tracking-tight flex items-center gap-2">
+            <h2 id="modal-titulo-pipeline" class="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
               <span>Crear Nuevo Pipeline / Tablero Kanban</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-flex">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hidden sm:inline-flex">
                 Configurador Avanzado
               </span>
             </h2>
-            <p class="text-xs text-zinc-400">
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
               Selecciona una plantilla optimizada o diseña tu flujo con estados macro precisos para métricas de avance
             </p>
           </div>
         </div>
         <button
           @click="emit('cerrar')"
-          class="text-zinc-400 hover:text-white p-1.5 rounded-xl hover:bg-zinc-800 transition"
+          class="text-zinc-400 hover:text-zinc-700 dark:hover:text-white p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
           aria-label="Cerrar modal"
         >
           <X class="w-4 h-4" />
@@ -381,21 +381,21 @@ watch(
         :loading="false"
         :delay-ms="80"
         :preserve-height="true"
-        stream-color="#10b981"
-        class="p-6 overflow-y-auto space-y-6 text-xs flex-1"
+        stream-color="#4f46e5"
+        class="p-6 overflow-y-auto space-y-6 text-xs flex-1 bg-white dark:bg-zinc-950"
       >
-        <div v-if="errorMensaje" class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+        <div v-if="errorMensaje" class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
           <span>{{ errorMensaje }}</span>
         </div>
 
         <!-- 1. Catálogo Completo de Plantillas Optimizadas -->
         <div>
           <div class="flex items-center justify-between mb-3">
-            <label class="font-semibold text-zinc-200 text-xs flex items-center gap-2">
-              <Sparkles class="w-3.5 h-3.5 text-emerald-400" />
+            <label class="font-semibold text-zinc-800 dark:text-zinc-200 text-xs flex items-center gap-2">
+              <Sparkles class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Plantillas Estratégicas Sugeridas</span>
             </label>
-            <span class="text-[11px] text-zinc-400">
+            <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
               Haz clic para cargar automáticamente etapas preconfiguradas
             </span>
           </div>
@@ -410,8 +410,8 @@ watch(
               :class="[
                 'p-3.5 rounded-xl border text-left transition relative flex flex-col justify-between gap-3 group',
                 formulario.plantillaSeleccionada === plantilla.id
-                  ? 'bg-emerald-500/[0.08] border-emerald-500/40 ring-1 ring-emerald-500/30'
-                  : 'bg-zinc-900/50 border-white/[0.06] hover:bg-zinc-900 hover:border-white/[0.14]'
+                  ? 'bg-indigo-50/70 dark:bg-indigo-500/[0.08] border-indigo-500/40 ring-1 ring-indigo-500/30'
+                  : 'bg-zinc-50/60 dark:bg-zinc-900/50 border-zinc-200 dark:border-white/[0.06] hover:bg-zinc-100/70 dark:hover:bg-zinc-900 hover:border-zinc-300 dark:hover:border-white/[0.14]'
               ]"
             >
               <div>
@@ -421,10 +421,10 @@ watch(
                       <component :is="plantilla.icono" class="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <h3 class="font-semibold text-xs text-white group-hover:text-emerald-300 transition-colors">
+                      <h3 class="font-semibold text-xs text-zinc-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
                         {{ plantilla.titulo }}
                       </h3>
-                      <span class="text-[10px] text-zinc-400 font-normal block leading-tight">
+                      <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal block leading-tight">
                         {{ plantilla.etiqueta }}
                       </span>
                     </div>
@@ -433,39 +433,39 @@ watch(
                   <!-- Indicador de plantilla activa -->
                   <div
                     v-if="formulario.plantillaSeleccionada === plantilla.id"
-                    class="w-4 h-4 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shrink-0 shadow-sm"
+                    class="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm"
                   >
                     <Check class="w-3 h-3 stroke-[3]" />
                   </div>
                 </div>
 
-                <p class="text-[11px] text-zinc-400 leading-relaxed mb-2.5 line-clamp-2">
+                <p class="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed mb-2.5 line-clamp-2">
                   {{ plantilla.descripcion }}
                 </p>
               </div>
 
               <!-- Vista previa secuencial de etapas -->
-              <div class="pt-2 border-t border-white/[0.04]">
-                <div class="text-[10px] text-zinc-400 mb-1 font-medium">Etapas incluidas:</div>
+              <div class="pt-2 border-t border-zinc-200 dark:border-white/[0.04]">
+                <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mb-1 font-medium">Etapas incluidas:</div>
                 <div class="flex flex-wrap gap-1">
                   <span
                     v-for="(c, cIdx) in plantilla.columnas"
                     :key="cIdx"
                     :class="[
                       'px-1.5 py-0.5 rounded text-[9px] font-medium border flex items-center gap-1',
-                      c.estado === 'completado' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                      c.estado === 'bloqueado' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                      c.estado === 'en_proceso' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' :
-                      'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      c.estado === 'completado' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                      c.estado === 'bloqueado' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' :
+                      c.estado === 'en_proceso' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' :
+                      'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                     ]"
                   >
                     <span
                       :class="[
                         'w-1 h-1 rounded-full',
-                        c.estado === 'completado' ? 'bg-emerald-400' :
-                        c.estado === 'bloqueado' ? 'bg-rose-400' :
-                        c.estado === 'en_proceso' ? 'bg-sky-400' :
-                        'bg-amber-400'
+                        c.estado === 'completado' ? 'bg-emerald-500' :
+                        c.estado === 'bloqueado' ? 'bg-rose-500' :
+                        c.estado === 'en_proceso' ? 'bg-sky-500' :
+                        'bg-amber-500'
                       ]"
                     ></span>
                     <span>{{ c.titulo }}</span>
@@ -479,55 +479,55 @@ watch(
         <!-- 2. Información General del Tablero (2 Columnas) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
           <div>
-            <label class="block font-medium text-zinc-300 mb-1.5">
-              Nombre del Pipeline / Tablero <span class="text-rose-400">*</span>
+            <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Nombre del Pipeline / Tablero <span class="text-rose-500">*</span>
             </label>
             <input
               v-model="formulario.nombre"
               type="text"
               placeholder="Ejemplo: Clientes A Visitar, Embudo Consultivo..."
-              class="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition font-medium"
+              class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500/50 transition font-medium"
             />
           </div>
 
           <div>
-            <label class="block font-medium text-zinc-300 mb-1.5">
-              Descripción u Objetivo Operativo <span class="text-zinc-500 font-normal">(Opcional)</span>
+            <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Descripción u Objetivo Operativo <span class="text-zinc-400 dark:text-zinc-500 font-normal">(Opcional)</span>
             </label>
             <input
               v-model="formulario.descripcion"
               type="text"
               placeholder="Propósito operativo y metas de este tablero"
-              class="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+              class="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500/50 transition"
             />
           </div>
         </div>
 
         <!-- 3. Configurador de Etapas del Tablero -->
         <div class="space-y-3 pt-2">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/[0.06] pb-2">
             <div class="flex items-center gap-2">
-              <label class="font-semibold text-zinc-200 text-xs">
+              <label class="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">
                 Etapas y Columnas del Tablero
               </label>
-              <span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 font-mono text-[11px] border border-white/[0.06]">
+              <span class="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] border border-zinc-200 dark:border-white/[0.06]">
                 {{ formulario.columnas.length }} de {{ LIMITE_MAXIMO_COLUMNAS }} máx.
               </span>
             </div>
 
             <!-- Guía de Estados Macro -->
-            <div class="flex items-center gap-2 flex-wrap text-[11px] text-zinc-400">
+            <div class="flex items-center gap-2 flex-wrap text-[11px] text-zinc-500 dark:text-zinc-400">
               <span class="flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Pendiente
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Pendiente
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span> En Proceso
+                <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> En Proceso
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Bloqueado
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Bloqueado
               </span>
-              <span class="flex items-center gap-1 text-emerald-400 font-medium">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Completado (Exactamente 1)
+              <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Completado (Exactamente 1)
               </span>
             </div>
           </div>
@@ -543,7 +543,7 @@ watch(
                   ? 'bg-emerald-500/[0.05] border-emerald-500/30'
                   : col.estado === 'bloqueado'
                   ? 'bg-rose-500/[0.04] border-rose-500/25'
-                  : 'bg-zinc-900/70 border-white/[0.07] hover:border-white/[0.14]'
+                  : 'bg-zinc-50/70 dark:bg-zinc-900/70 border-zinc-200 dark:border-white/[0.07] hover:border-zinc-300 dark:hover:border-white/[0.14]'
               ]"
             >
               <!-- Número de orden e Input de Título -->
@@ -553,7 +553,7 @@ watch(
                     type="button"
                     :disabled="idx === 0 || idx === formulario.columnas.length - 1"
                     @click="moverColumnaArriba(idx)"
-                    class="p-0.5 text-zinc-500 hover:text-white disabled:opacity-20 transition"
+                    class="p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white disabled:opacity-20 transition"
                     title="Subir orden"
                   >
                     <ChevronUp class="w-3 h-3" />
@@ -562,14 +562,14 @@ watch(
                     type="button"
                     :disabled="idx >= formulario.columnas.length - 2"
                     @click="moverColumnaAbajo(idx)"
-                    class="p-0.5 text-zinc-500 hover:text-white disabled:opacity-20 transition"
+                    class="p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-white disabled:opacity-20 transition"
                     title="Bajar orden"
                   >
                     <ChevronDown class="w-3 h-3" />
                   </button>
                 </div>
 
-                <span class="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 flex items-center justify-center font-mono text-[11px] font-semibold shrink-0 border border-white/[0.06]">
+                <span class="w-6 h-6 rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center font-mono text-[11px] font-semibold shrink-0 border border-zinc-300 dark:border-white/[0.06]">
                   {{ idx + 1 }}
                 </span>
 
@@ -577,7 +577,7 @@ watch(
                   v-model="col.titulo"
                   type="text"
                   placeholder="Nombre de la etapa..."
-                  class="flex-1 px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 font-medium text-xs focus:outline-none focus:border-emerald-500/50 transition"
+                  class="flex-1 px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-medium text-xs focus:outline-none focus:border-indigo-500/50 transition"
                 />
               </div>
 
@@ -589,14 +589,14 @@ watch(
                   <!-- Última columna: Fija como Completado (Meta Final inalterable) -->
                   <div
                     v-if="idx === formulario.columnas.length - 1"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold text-xs shadow-sm cursor-not-allowed select-none min-w-[135px] justify-between"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold text-xs shadow-sm cursor-not-allowed select-none min-w-[135px] justify-between"
                     title="La última etapa es siempre la Meta Final (100% Completado). No se le puede cambiar el estado y las nuevas etapas se agregan arriba de esta."
                   >
                     <div class="flex items-center gap-1.5">
-                      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                       <span>Completado</span>
                     </div>
-                    <span class="text-[10px] text-emerald-400/80 font-normal">Meta</span>
+                    <span class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">Meta</span>
                   </div>
 
                   <!-- Columnas intermedias y primera: Selector con estados (Pendiente, En Proceso, Bloqueado) -->
@@ -611,7 +611,7 @@ watch(
                 </div>
 
                 <!-- Selector de Color para la Columna -->
-                <div class="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-950 border border-zinc-800/80">
+                <div class="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80">
                   <button
                     v-for="(opt, optIdx) in opcionesColor"
                     :key="optIdx"
@@ -621,7 +621,7 @@ watch(
                     :class="[
                       'w-3.5 h-3.5 rounded-full transition-all',
                       opt.dotClass,
-                      col.color === opt.color ? 'ring-2 ring-white scale-125 z-10' : 'opacity-40 hover:opacity-100'
+                      col.color === opt.color ? 'ring-2 ring-indigo-500 dark:ring-white scale-125 z-10' : 'opacity-40 hover:opacity-100'
                     ]"
                   ></button>
                 </div>
@@ -634,8 +634,8 @@ watch(
                   :class="[
                     'p-1.5 rounded-lg transition',
                     idx === formulario.columnas.length - 1
-                      ? 'text-zinc-700 cursor-not-allowed'
-                      : 'text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 disabled:opacity-20'
+                      ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed'
+                      : 'text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-20'
                   ]"
                   :title="idx === formulario.columnas.length - 1 ? 'La etapa meta de completado es obligatoria y no puede eliminarse' : 'Eliminar etapa'"
                 >
@@ -645,38 +645,38 @@ watch(
             </div>
           </div>
 
-          <!-- Añadir nueva etapa si no se ha alcanzado el límite de 6 (se agrega ARRIBA de la última) -->
+          <!-- Añadir nueva etapa si no se ha alcanzado el límite (se agrega ARRIBA de la última) -->
           <div v-if="formulario.columnas.length < LIMITE_MAXIMO_COLUMNAS" class="flex items-center gap-2.5 pt-2">
             <input
               v-model="nuevaColumnaTitulo"
               @keydown.enter.prevent="agregarColumna"
               type="text"
               placeholder="+ Escribe el nombre de otra etapa (se agregará arriba de Completado)..."
-              class="flex-1 px-3.5 py-2 bg-zinc-900 border border-dashed border-zinc-800 hover:border-zinc-700 rounded-xl text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+              class="flex-1 px-3.5 py-2 bg-zinc-50 dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500/50 transition"
             />
             <button
               type="button"
               @click="agregarColumna"
-              class="px-4 py-2 rounded-xl border border-white/[0.08] bg-zinc-800 hover:bg-zinc-700 text-white font-medium flex items-center gap-1.5 transition text-xs shrink-0"
+              class="px-4 py-2 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-white font-medium flex items-center gap-1.5 transition text-xs shrink-0"
               title="Añadir nueva etapa arriba de la meta de Completado"
             >
-              <Plus class="w-3.5 h-3.5 text-emerald-400" />
+              <Plus class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Añadir Etapa</span>
             </button>
           </div>
-          <div v-else class="text-[11px] text-zinc-500 italic p-2 rounded-lg bg-zinc-900/40 border border-white/[0.04]">
+          <div v-else class="text-[11px] text-zinc-500 italic p-2 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-white/[0.04]">
             ✓ Has configurado el máximo recomendado de {{ LIMITE_MAXIMO_COLUMNAS }} etapas para este tablero.
           </div>
         </div>
       </FlickerlessSurface>
 
       <!-- Pie del Modal Espacioso y Claro -->
-      <div class="flex items-center justify-between gap-4 px-6 py-4 border-t border-white/[0.08] bg-zinc-900/60">
-        <div class="text-[11px] text-zinc-400 hidden sm:flex items-center gap-1.5">
-          <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400" />
+      <div class="flex items-center justify-between gap-4 px-6 py-4 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-zinc-900/60">
+        <div class="text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:flex items-center gap-1.5">
+          <CheckCircle2 class="w-3.5 h-3.5 text-emerald-500" />
           <span>
             Etapa de Meta Final:
-            <strong class="text-zinc-200">
+            <strong class="text-zinc-800 dark:text-zinc-200">
               {{ formulario.columnas.find((c) => c.estado === 'completado')?.titulo || 'Ninguna' }}
             </strong>
           </span>
@@ -686,7 +686,7 @@ watch(
           <button
             type="button"
             @click="emit('cerrar')"
-            class="px-4 py-2.5 rounded-xl border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
+            class="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition"
           >
             Cancelar
           </button>
@@ -695,7 +695,7 @@ watch(
             type="button"
             @click="guardar"
             :disabled="guardando"
-            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-lg shadow-emerald-950/50 transition active:scale-95 disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-lg shadow-indigo-950/20 transition active:scale-95 disabled:opacity-50"
           >
             <Loader2 v-if="guardando" class="w-3.5 h-3.5 animate-spin" />
             <span>{{ guardando ? 'Creando Tablero...' : 'Crear Tablero' }}</span>

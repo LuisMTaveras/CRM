@@ -534,19 +534,19 @@ watch(
         <!-- Retorno al Catálogo General de Pipelines -->
         <router-link
           to="/pipeline"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-white/[0.08] bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition shadow-sm group shrink-0"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/90 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-xs font-semibold transition shadow-sm group shrink-0"
         >
-          <ArrowLeft class="w-3.5 h-3.5 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
+          <ArrowLeft class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 group-hover:-translate-x-0.5 transition-transform" />
           <span class="hidden sm:inline">Todos los Tableros</span>
         </router-link>
 
-        <span class="text-zinc-700 hidden sm:inline">/</span>
+        <span class="text-zinc-400 dark:text-zinc-700 hidden sm:inline">/</span>
 
         <!-- Icono y Selector de Tablero Activo -->
         <div class="flex items-center gap-2 min-w-0">
           <span
             class="p-1.5 rounded-lg border shrink-0"
-            :class="pipelineActivo?.tipo === 'visitas' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'"
+            :class="pipelineActivo?.tipo === 'visitas' ? 'bg-sky-500/10 border-sky-500/20 text-sky-500 dark:text-sky-400' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'"
           >
             <MapPin v-if="pipelineActivo?.tipo === 'visitas'" class="w-3.5 h-3.5" />
             <Kanban v-else class="w-3.5 h-3.5" />
@@ -557,13 +557,13 @@ watch(
             @update:model-value="(nuevoId) => cambiarPipeline(nuevoId as string)"
             :options="opcionesPipelines"
             min-width-class="min-w-[190px]"
-            trigger-class="text-xs font-semibold bg-zinc-900 border-white/[0.1] hover:border-white/[0.2] px-2.5 py-1"
+            trigger-class="text-xs font-semibold bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.1] hover:border-zinc-300 dark:hover:border-white/[0.2] px-2.5 py-1"
           />
         </div>
 
         <!-- Badge de Conteo Activo -->
-        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
           {{ tarjetas.length }} {{ pipelineActivo?.tipo === 'visitas' ? 'Visitas' : 'Tarjetas' }}
         </span>
 
@@ -572,26 +572,26 @@ watch(
           <button
             @click="menuOpcionesPipelineAbierto = !menuOpcionesPipelineAbierto"
             title="Ajustes de este tablero"
-            class="p-1.5 rounded-lg border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition"
+            class="p-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition"
           >
             <Settings2 class="w-3.5 h-3.5" />
           </button>
 
           <div
             v-if="menuOpcionesPipelineAbierto"
-            class="absolute left-0 mt-1.5 w-52 bg-zinc-950 border border-white/[0.1] rounded-xl shadow-xl z-50 p-1 text-xs"
+            class="absolute left-0 mt-1.5 w-52 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.1] rounded-xl shadow-xl z-50 p-1 text-xs"
           >
             <button
               @click="abrirModalNuevaColumna"
               :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
-              class="w-full text-left px-3 py-2 rounded-lg text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition disabled:opacity-40"
+              class="w-full text-left px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 transition disabled:opacity-40"
             >
-              <Plus class="w-3.5 h-3.5 text-emerald-400" />
+              <Plus class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>+ Agregar Columna</span>
             </button>
             <button
               @click="abrirEditarPipeline"
-              class="w-full text-left px-3 py-2 rounded-lg text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition"
+              class="w-full text-left px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 transition"
             >
               <Edit3 class="w-3.5 h-3.5 text-zinc-400" />
               <span>Editar Nombre / Descripción</span>
@@ -599,7 +599,7 @@ watch(
             <button
               v-if="!pipelineActivo?.es_predeterminado"
               @click="eliminarPipelineActivo"
-              class="w-full text-left px-3 py-2 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
+              class="w-full text-left px-3 py-2 rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
             >
               <Trash2 class="w-3.5 h-3.5" />
               <span>Eliminar Tablero</span>
@@ -615,7 +615,7 @@ watch(
         <!-- Botón Programar Visitas / Nueva Tarjeta -->
         <button
           @click="abrirModalNuevaTarjeta()"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-emerald-950/40"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
         >
           <Plus class="w-3.5 h-3.5" />
           <span>{{ pipelineActivo?.tipo === 'visitas' ? '+ Programar Visitas' : '+ Nueva Tarjeta' }}</span>
@@ -625,9 +625,9 @@ watch(
         <button
           @click="abrirModalNuevaColumna"
           :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40"
         >
-          <Plus class="w-3.5 h-3.5 text-emerald-400" />
+          <Plus class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           <span>+ Columna</span>
         </button>
 
@@ -636,31 +636,31 @@ watch(
           @click="cargarDatos"
           :disabled="cargando"
           title="Actualizar datos"
-          class="inline-flex items-center gap-1.5 p-2 rounded-xl border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 p-2 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/80 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-medium transition shadow-sm hover:border-zinc-300 dark:hover:border-white/[0.16] disabled:opacity-50"
         >
-          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
+          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
         </button>
       </div>
     </Teleport>
 
     <!-- Barra de Filtros en Tiempo Real -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/60 p-3 rounded-xl border border-white/[0.06] text-xs">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.06] text-xs shadow-sm">
       <div class="flex flex-wrap items-center gap-2.5 flex-1">
         <!-- Búsqueda -->
         <div class="relative min-w-[220px] flex-1 sm:flex-initial">
-          <Search class="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
+          <Search class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-2.5" />
           <input
             v-model="filtros.busqueda"
             @input="cargarDatos"
             type="text"
             :placeholder="pipelineActivo?.tipo === 'visitas' ? 'Buscar cliente o motivo de visita...' : 'Buscar cliente o trato...'"
-            class="w-full pl-9 pr-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-zinc-700 transition"
+            class="w-full pl-9 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500 transition"
           />
         </div>
 
-        <!-- Filtro por Responsable con diseño idéntico a la referencia -->
+        <!-- Filtro por Responsable -->
         <div class="flex items-center gap-1.5">
-          <Filter class="w-3.5 h-3.5 text-zinc-500 hidden sm:block" />
+          <Filter class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hidden sm:block" />
           <AppSelect
             :model-value="filtros.responsable || ''"
             @update:model-value="(nuevo) => { filtros.responsable = nuevo as string; cargarDatos(); }"
@@ -670,7 +670,7 @@ watch(
           />
         </div>
 
-        <!-- Filtro por Prioridad con diseño idéntico a la referencia -->
+        <!-- Filtro por Prioridad -->
         <div class="flex items-center gap-1.5">
           <AppSelect
             :model-value="filtros.prioridad || ''"
@@ -682,9 +682,9 @@ watch(
         </div>
       </div>
 
-      <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-white/[0.05]">
+      <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200 dark:border-white/[0.05]">
         <span class="text-zinc-500 font-medium">Volumen Económico:</span>
-        <span class="font-mono font-semibold text-emerald-400 text-sm">
+        <span class="font-mono font-semibold text-indigo-600 dark:text-indigo-400 text-sm">
           {{ formatCurrency(metricasProgreso.montoCompletado + metricasProgreso.montoPendiente) }}
         </span>
       </div>
@@ -695,7 +695,7 @@ watch(
       :loading="cargando"
       :delay-ms="180"
       :preserve-height="true"
-      stream-color="#10b981"
+      stream-color="#4f46e5"
       announce-text="Actualizando tablero..."
       class="rounded-xl overflow-hidden"
     >
@@ -704,46 +704,46 @@ watch(
         <div
           v-for="(col, colIndex) in pipelineActivo?.columnas || []"
           :key="col.id"
-          class="w-72 shrink-0 saas-card rounded-xl overflow-hidden flex flex-col border border-white/[0.08] transition-colors h-full max-h-full"
+          class="w-72 shrink-0 saas-card rounded-xl overflow-hidden flex flex-col border border-zinc-200 dark:border-white/[0.08] transition-colors h-full max-h-full bg-zinc-50/50 dark:bg-transparent"
           :class="[
-            columnaDestinoId === col.id ? 'ring-2 ring-emerald-500/40 bg-zinc-900/90' : ''
+            columnaDestinoId === col.id ? 'ring-2 ring-indigo-500/40 bg-indigo-50/20 dark:bg-zinc-900/90' : ''
           ]"
           @dragover="onDragOverColumna(col.id, $event)"
           @dragleave="onDragLeave(col.id)"
           @drop="onDropColumna(col.id, $event)"
         >
           <!-- Cabecera de Columna -->
-          <div class="p-3 border-b border-white/[0.07] bg-[#0c0c0e]/80 flex items-center justify-between shrink-0">
+          <div class="p-3 border-b border-zinc-200 dark:border-white/[0.07] bg-white dark:bg-[#0c0c0e]/80 flex items-center justify-between shrink-0 shadow-sm">
             <div class="flex items-center gap-1.5 truncate">
               <span :class="['w-2 h-2 rounded-full border shrink-0', col.color]"></span>
-              <span class="text-xs font-semibold text-zinc-200 truncate" :title="col.titulo">
+              <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-200 truncate" :title="col.titulo">
                 {{ col.titulo }}
               </span>
               <!-- Indicador de Estado Macro de la Etapa -->
               <span
                 v-if="col.estado === 'completado' || col.es_completado"
-                class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shrink-0"
+                class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 shrink-0"
                 title="Estado Meta: Las tarjetas aquí suman al 100% completado"
               >
                 ✓ Completado
               </span>
               <span
                 v-else-if="col.estado === 'en_proceso'"
-                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 shrink-0"
                 title="Estado En Proceso: Actividades o visitas en curso"
               >
                 En Proceso
               </span>
               <span
                 v-else-if="col.estado === 'bloqueado'"
-                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/20 shrink-0"
                 title="Estado Bloqueado: Tarea o visita detenida temporalmente"
               >
                 Bloqueado
               </span>
               <span
                 v-else
-                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20 shrink-0"
                 title="Estado Pendiente: Tareas o visitas por iniciar"
               >
                 Pendiente
@@ -751,7 +751,7 @@ watch(
             </div>
             
             <div class="flex items-center gap-1.5 shrink-0">
-              <span class="text-[11px] font-mono text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md border border-white/[0.06]">
+              <span class="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-200/70 dark:bg-zinc-800/80 px-2 py-0.5 rounded-md border border-zinc-300 dark:border-white/[0.06]">
                 {{ tarjetasPorColumna(col.id).length }}
               </span>
 
@@ -759,7 +759,7 @@ watch(
               <button
                 @click="abrirModalNuevaTarjeta(col.id)"
                 title="Agregar elemento en esta etapa"
-                class="w-5 h-5 rounded hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-emerald-400 transition"
+                class="w-5 h-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
               >
                 <Plus class="w-3.5 h-3.5" />
               </button>
@@ -768,7 +768,7 @@ watch(
               <div class="relative">
                 <button
                   @click="columnaMenuAbiertoId = columnaMenuAbiertoId === col.id ? null : col.id"
-                  class="w-5 h-5 rounded hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition"
+                  class="w-5 h-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition"
                   title="Opciones de columna"
                 >
                   <MoreHorizontal class="w-3.5 h-3.5" />
@@ -776,11 +776,11 @@ watch(
 
                 <div
                   v-if="columnaMenuAbiertoId === col.id"
-                  class="absolute right-0 mt-1 w-52 bg-zinc-900 border border-white/[0.1] rounded-xl shadow-xl z-20 p-1 text-xs"
+                  class="absolute right-0 mt-1 w-52 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.1] rounded-xl shadow-xl z-20 p-1 text-xs"
                 >
                   <button
                     @click="abrirModalEditarColumna(col)"
-                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-800 text-zinc-200 flex items-center gap-1.5 transition"
+                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5 transition"
                   >
                     <Edit3 class="w-3 h-3 text-zinc-400" />
                     <span>Editar Etapa / Estado Macro</span>
@@ -789,7 +789,7 @@ watch(
                   <button
                     v-if="colIndex > 0"
                     @click="moverColumna(col.id, 'izquierda')"
-                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-800 text-zinc-200 flex items-center gap-1.5 transition"
+                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5 transition"
                   >
                     <ChevronLeft class="w-3 h-3 text-zinc-400" />
                     <span>Mover a la izquierda</span>
@@ -798,18 +798,18 @@ watch(
                   <button
                     v-if="pipelineActivo && colIndex < pipelineActivo.columnas.length - 1"
                     @click="moverColumna(col.id, 'derecha')"
-                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-800 text-zinc-200 flex items-center gap-1.5 transition"
+                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5 transition"
                   >
                     <ChevronRight class="w-3 h-3 text-zinc-400" />
                     <span>Mover a la derecha</span>
                   </button>
 
-                  <div class="my-1 border-t border-white/[0.06]"></div>
+                  <div class="my-1 border-t border-zinc-200 dark:border-white/[0.06]"></div>
 
                   <button
                     @click="eliminarColumna(col)"
                     :disabled="pipelineActivo?.columnas?.length === 1"
-                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-rose-500/10 text-rose-400 flex items-center gap-1.5 transition disabled:opacity-40"
+                    class="w-full text-left px-2.5 py-1.5 rounded hover:bg-rose-500/10 text-rose-500 dark:text-rose-400 flex items-center gap-1.5 transition disabled:opacity-40"
                   >
                     <Trash2 class="w-3 h-3" />
                     <span>Eliminar Columna</span>
@@ -820,9 +820,9 @@ watch(
           </div>
 
           <!-- Total Acumulado por Etapa -->
-          <div class="px-3.5 py-1.5 bg-[#09090b]/40 border-b border-white/[0.05] text-[11px] font-mono text-zinc-400 flex justify-between shrink-0">
+          <div class="px-3.5 py-1.5 bg-zinc-100/70 dark:bg-[#09090b]/40 border-b border-zinc-200 dark:border-white/[0.05] text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex justify-between shrink-0">
             <span>Subtotal:</span>
-            <span class="text-zinc-200 font-semibold">{{ formatCurrency(totalMontoColumna(col.id)) }}</span>
+            <span class="text-zinc-800 dark:text-zinc-200 font-semibold">{{ formatCurrency(totalMontoColumna(col.id)) }}</span>
           </div>
 
           <!-- Lista de Tarjetas con Soporte de Reordenamiento Vertical (Arriba/Abajo) -->
@@ -834,9 +834,9 @@ watch(
             <!-- Estado vacío por columna -->
             <div
               v-if="tarjetasPorColumna(col.id).length === 0"
-              class="text-center py-10 px-2 text-zinc-600 text-xs border border-dashed border-zinc-800/60 rounded-lg flex flex-col items-center justify-center pointer-events-none"
+              class="text-center py-10 px-2 text-zinc-400 dark:text-zinc-600 text-xs border border-dashed border-zinc-300 dark:border-zinc-800/60 rounded-lg flex flex-col items-center justify-center pointer-events-none"
             >
-              <Tag class="w-4 h-4 text-zinc-700 mb-1" />
+              <Tag class="w-4 h-4 text-zinc-300 dark:text-zinc-700 mb-1" />
               <span>Sin elementos en esta etapa</span>
             </div>
 
@@ -848,31 +848,31 @@ watch(
               @dragstart="onDragStart(tarjeta, $event)"
               @dragover="onDragOverTarjeta(tarjeta, $event)"
               @drop.stop="onDropColumna(col.id, $event)"
-              class="bg-zinc-900/70 p-3 rounded-xl border border-white/[0.07] hover:border-white/[0.18] hover:bg-zinc-900 transition-all duration-150 shadow-sm group cursor-grab active:cursor-grabbing relative"
+              class="bg-white dark:bg-zinc-900/70 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.07] hover:border-zinc-300 dark:hover:border-white/[0.18] hover:bg-zinc-50/70 dark:hover:bg-zinc-900 transition-all duration-150 shadow-sm group cursor-grab active:cursor-grabbing relative"
               :class="[
                 tarjetaDestinoId === tarjeta.id
                   ? posicionInsercion === 'antes'
-                    ? 'border-t-2 border-t-emerald-400'
-                    : 'border-b-2 border-b-emerald-400'
+                    ? 'border-t-2 border-t-indigo-500'
+                    : 'border-b-2 border-b-indigo-500'
                   : ''
               ]"
             >
               <!-- Cabecera de la tarjeta con Grip y Controles Arriba/Abajo -->
-              <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
-                <span class="font-medium text-emerald-400 flex items-center gap-1.5 truncate max-w-[150px]" :title="tarjeta.cliente_nombre">
-                  <GripVertical class="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 shrink-0" />
+              <div class="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1.5">
+                <span class="font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 truncate max-w-[150px]" :title="tarjeta.cliente_nombre">
+                  <GripVertical class="w-3 h-3 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0" />
                   <Building2 class="w-3.5 h-3.5 shrink-0" />
                   <span class="truncate">{{ tarjeta.cliente_nombre }}</span>
                 </span>
 
                 <!-- Controles para reordenar ARRIBA / ABAJO dentro de la columna -->
                 <div class="flex items-center gap-1">
-                  <div class="flex items-center bg-zinc-950/80 rounded border border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition">
+                  <div class="flex items-center bg-zinc-100 dark:bg-zinc-950/80 rounded border border-zinc-200 dark:border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition">
                     <button
                       :disabled="cardIndex === 0"
                       @click.stop="moverTarjetaVertical(tarjeta, 'arriba')"
                       title="Subir tarjeta"
-                      class="p-0.5 hover:text-white disabled:opacity-20 transition"
+                      class="p-0.5 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition"
                     >
                       <ChevronUp class="w-3 h-3" />
                     </button>
@@ -880,7 +880,7 @@ watch(
                       :disabled="cardIndex === tarjetasPorColumna(col.id).length - 1"
                       @click.stop="moverTarjetaVertical(tarjeta, 'abajo')"
                       title="Bajar tarjeta"
-                      class="p-0.5 hover:text-white disabled:opacity-20 transition"
+                      class="p-0.5 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition"
                     >
                       <ChevronDown class="w-3 h-3" />
                     </button>
@@ -888,7 +888,7 @@ watch(
 
                   <span
                     v-if="col.estado === 'bloqueado'"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/25 flex items-center gap-1 shrink-0"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-500 dark:text-rose-300 border border-rose-500/25 flex items-center gap-1 shrink-0"
                     title="Esta tarjeta o visita se encuentra bloqueada"
                   >
                     <AlertOctagon class="w-2.5 h-2.5" />
@@ -902,12 +902,12 @@ watch(
               </div>
 
               <!-- Título de la Tarjeta / Visita -->
-              <div class="text-xs font-medium text-zinc-100 group-hover:text-emerald-300 transition-colors mb-2 leading-snug">
+              <div class="text-xs font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors mb-2 leading-snug">
                 {{ tarjeta.titulo }}
               </div>
 
               <!-- Notas u Objetivo (si tiene) -->
-              <p v-if="tarjeta.notas" class="text-[11px] text-zinc-400 line-clamp-2 mb-2 bg-zinc-950/40 p-1.5 rounded border border-white/[0.04]">
+              <p v-if="tarjeta.notas" class="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 mb-2 bg-zinc-50 dark:bg-zinc-950/40 p-1.5 rounded border border-zinc-200 dark:border-white/[0.04]">
                 {{ tarjeta.notas }}
               </p>
 
@@ -918,24 +918,24 @@ watch(
               </div>
 
               <!-- Monto y Fecha -->
-              <div class="flex items-center justify-between pt-2 border-t border-white/[0.05] text-xs">
-                <span class="font-mono font-semibold text-zinc-200 tabular-nums">
+              <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-white/[0.05] text-xs">
+                <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-200 tabular-nums">
                   {{ tarjeta.monto ? formatCurrency(tarjeta.monto) : '—' }}
                 </span>
-                <span class="text-[10px] text-zinc-400 flex items-center gap-1 font-mono">
-                  <Calendar class="w-3 h-3 text-zinc-500" />
+                <span class="text-[10px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
+                  <Calendar class="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
                   {{ formatDate(tarjeta.fecha_objetivo) }}
                 </span>
               </div>
 
               <!-- Botones de Transición Rápida entre Columnas -->
-              <div class="mt-2.5 pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px]">
+              <div class="mt-2.5 pt-2 border-t border-zinc-100 dark:border-white/[0.04] flex items-center justify-between text-[10px]">
                 <div class="flex items-center gap-1">
                   <button
                     v-if="colIndex > 0"
                     @click.stop="retrocederColumna(tarjeta)"
                     title="Mover a etapa previa"
-                    class="p-1 text-zinc-500 hover:text-zinc-200 rounded hover:bg-zinc-800 transition"
+                    class="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                   >
                     <ChevronLeft class="w-3.5 h-3.5" />
                   </button>
@@ -944,7 +944,7 @@ watch(
                     v-if="pipelineActivo && colIndex < pipelineActivo.columnas.length - 1"
                     @click.stop="avanzarColumna(tarjeta)"
                     title="Avanzar a siguiente etapa"
-                    class="p-1 text-zinc-400 hover:text-emerald-400 rounded hover:bg-zinc-800 transition flex items-center gap-0.5 font-medium"
+                    class="p-1 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center gap-0.5 font-medium"
                   >
                     <span>Mover</span>
                     <ChevronRight class="w-3.5 h-3.5" />
@@ -955,7 +955,7 @@ watch(
                   <button
                     @click.stop="eliminarTarjeta(tarjeta)"
                     title="Eliminar elemento"
-                    class="p-1 text-zinc-600 hover:text-rose-400 rounded hover:bg-zinc-800 transition"
+                    class="p-1 text-zinc-400 hover:text-rose-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                   </button>
@@ -970,21 +970,21 @@ watch(
           <button
             v-if="(pipelineActivo?.columnas?.length || 0) < LIMITE_MAXIMO_COLUMNAS"
             @click="abrirModalNuevaColumna"
-            class="w-full py-8 border-2 border-dashed border-zinc-800 hover:border-emerald-500/40 rounded-xl bg-zinc-950/40 hover:bg-zinc-900/50 text-zinc-500 hover:text-emerald-400 flex flex-col items-center justify-center gap-2 transition group"
+            class="w-full py-8 border-2 border-dashed border-zinc-300 dark:border-zinc-800 hover:border-indigo-500/50 rounded-xl bg-zinc-50/50 dark:bg-zinc-950/40 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex flex-col items-center justify-center gap-2 transition group"
           >
-            <div class="w-8 h-8 rounded-full bg-zinc-800 group-hover:bg-emerald-500/10 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition">
+            <div class="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 group-hover:bg-indigo-500/10 flex items-center justify-center text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition shadow-sm">
               <Plus class="w-4 h-4" />
             </div>
             <span class="text-xs font-medium">+ Agregar Nueva Columna</span>
-            <span class="text-[10px] text-zinc-600">({{ pipelineActivo?.columnas?.length || 0 }}/{{ LIMITE_MAXIMO_COLUMNAS }} etapas)</span>
+            <span class="text-[10px] text-zinc-400 dark:text-zinc-600">({{ pipelineActivo?.columnas?.length || 0 }}/{{ LIMITE_MAXIMO_COLUMNAS }} etapas)</span>
           </button>
           <div
             v-else
-            class="w-full py-6 px-4 border border-zinc-800/80 rounded-xl bg-zinc-950/30 text-zinc-600 flex flex-col items-center justify-center text-center gap-1.5"
+            class="w-full py-6 px-4 border border-zinc-200 dark:border-zinc-800/80 rounded-xl bg-white dark:bg-zinc-950/30 text-zinc-500 flex flex-col items-center justify-center text-center gap-1.5"
           >
-            <AlertCircle class="w-4 h-4 text-zinc-500" />
-            <span class="text-xs font-medium text-zinc-400">Límite de {{ LIMITE_MAXIMO_COLUMNAS }} etapas</span>
-            <span class="text-[10px] text-zinc-500">Mantiene el tablero enfocado con métricas claras</span>
+            <AlertCircle class="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+            <span class="text-xs font-medium text-zinc-700 dark:text-zinc-400">Límite de {{ LIMITE_MAXIMO_COLUMNAS }} etapas</span>
+            <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Mantiene el tablero enfocado con métricas claras</span>
           </div>
         </div>
       </div>
@@ -1024,34 +1024,34 @@ watch(
       v-if="modalEditarNombrePipeline"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
     >
-      <div class="bg-zinc-900 border border-white/[0.08] rounded-xl shadow-2xl w-full max-w-md overflow-hidden p-5 space-y-4 text-xs">
-        <h3 class="text-sm font-semibold text-white">Editar Tablero</h3>
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl w-full max-w-md overflow-hidden p-5 space-y-4 text-xs">
+        <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Editar Tablero</h3>
         <div>
-          <label class="block font-medium text-zinc-300 mb-1.5">Nombre del Tablero</label>
+          <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Nombre del Tablero</label>
           <input
             v-model="nombrePipelineEditado"
             type="text"
-            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50"
+            class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500"
           />
         </div>
         <div>
-          <label class="block font-medium text-zinc-300 mb-1.5">Descripción</label>
+          <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Descripción</label>
           <input
             v-model="descripcionPipelineEditada"
             type="text"
-            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50"
+            class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500"
           />
         </div>
-        <div class="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+        <div class="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-white/[0.06]">
           <button
             @click="modalEditarNombrePipeline = false"
-            class="px-3.5 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+            class="px-3.5 py-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700"
           >
             Cancelar
           </button>
           <button
             @click="guardarEdicionPipeline"
-            class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+            class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
           >
             Guardar Cambios
           </button>
