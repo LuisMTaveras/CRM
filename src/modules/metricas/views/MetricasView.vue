@@ -57,62 +57,68 @@ onMounted(() => {
 
 <template>
   <div class="space-y-5 max-w-6xl pb-10">
-    <!-- Encabezado de la Sección -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.07]">
-      <div>
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <h1 class="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
-            <BarChart3 class="w-5 h-5 text-emerald-400" />
-            Métricas de Rendimiento y Conversión Comercial
-          </h1>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Cálculo Dinámico en Tiempo Real
-          </span>
+    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+    <Teleport to="#header-portal-left">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+          <BarChart3 class="w-5 h-5" />
         </div>
-        <p class="text-xs text-zinc-400 mt-1">
-          Analítica viva calculada a partir de los {{ metricas.totalCuentas }} clientes y {{ metricas.totalOportunidades }} oportunidades del CRM
-        </p>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+              Métricas de Rendimiento & Conversión B2B
+            </h1>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Cálculo Dinámico
+            </span>
+          </div>
+          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+            Analítica viva calculada a partir de {{ metricas.totalCuentas }} clientes y {{ metricas.totalOportunidades }} oportunidades
+          </p>
+        </div>
       </div>
+    </Teleport>
 
+    <!-- Teleport de Controles hacia la Barra Superior -->
+    <Teleport to="#header-portal-right">
       <div class="flex items-center gap-2">
-        <!-- Selector de Períodos -->
-        <div class="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-lg border border-white/[0.08]">
+        <div class="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-xl border border-white/[0.08]">
           <button
             @click="cambiarPeriodo('mes')"
             :disabled="cargando"
             :class="[
-              'px-2.5 py-1 text-xs font-medium rounded-md transition',
+              'px-2.5 py-1 text-xs font-medium rounded-lg transition',
               periodoSeleccionado === 'mes'
                 ? 'bg-emerald-600 text-white font-semibold shadow-sm shadow-emerald-950/40'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
             ]"
           >
-            Este Mes
+            Mes
           </button>
           <button
             @click="cambiarPeriodo('trimestre')"
             :disabled="cargando"
             :class="[
-              'px-2.5 py-1 text-xs font-medium rounded-md transition',
+              'px-2.5 py-1 text-xs font-medium rounded-lg transition',
               periodoSeleccionado === 'trimestre'
                 ? 'bg-emerald-600 text-white font-semibold shadow-sm shadow-emerald-950/40'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
             ]"
           >
-            Trimestre Q4
+            Trimestre
           </button>
           <button
             @click="cambiarPeriodo('anual')"
             :disabled="cargando"
             :class="[
-              'px-2.5 py-1 text-xs font-medium rounded-md transition',
+              'px-2.5 py-1 text-xs font-medium rounded-lg transition',
               periodoSeleccionado === 'anual'
                 ? 'bg-emerald-600 text-white font-semibold shadow-sm shadow-emerald-950/40'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
             ]"
           >
-            Año 2026
+            Año
           </button>
         </div>
 
@@ -120,12 +126,12 @@ onMounted(() => {
           @click="cargarMetricas"
           :disabled="cargando"
           title="Actualizar analítica"
-          class="p-2 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition"
+          class="p-2 rounded-xl border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 transition hover:text-white disabled:opacity-50"
         >
           <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-emerald-400' : '']" />
         </button>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Contenido Analítico con Flickerless -->
     <FlickerlessSurface

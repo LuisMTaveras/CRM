@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { ClientesView } from '@/modules/clientes';
 import PipelineView from '@/modules/pipeline/views/PipelineView.vue';
+import PipelinesCatalogView from '@/modules/pipeline/views/PipelinesCatalogView.vue';
 import MetricasView from '@/modules/metricas/views/MetricasView.vue';
 import ConfiguracionView from '@/modules/configuracion/views/ConfiguracionView.vue';
 import LoginView from '@/modules/auth/views/LoginView.vue';
@@ -24,7 +25,12 @@ const router = createRouter({
     },
     {
       path: '/pipeline',
-      name: 'pipeline',
+      name: 'pipelines-catalogo',
+      component: PipelinesCatalogView,
+    },
+    {
+      path: '/pipeline/:id',
+      name: 'pipeline-detalle',
       component: PipelineView,
     },
     {

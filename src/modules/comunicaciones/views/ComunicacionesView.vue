@@ -98,76 +98,78 @@ onMounted(() => {
 
 <template>
   <div class="space-y-5 w-full">
-    <!-- Encabezado Principal y Acciones de la Sección -->
-    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-      <div>
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Mail class="w-5 h-5" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-zinc-100 tracking-tight">
-              Comunicaciones & Despacho Masivo de Documentos
+    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+    <Teleport to="#header-portal-left">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+          <Mail class="w-5 h-5" />
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+              Comunicaciones & Despacho Masivo
             </h1>
-            <p class="text-xs text-zinc-400 mt-0.5">
-              Carga tus documentos de Word o PDF, personaliza variables y despacha correos con servidor SMTP corporativo
-            </p>
+            <span
+              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0"
+              :class="servidorEmailActivo ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'"
+            >
+              <span
+                :class="[
+                  'w-1.5 h-1.5 rounded-full',
+                  servidorEmailActivo ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                ]"
+              ></span>
+              {{ servidorEmailActivo ? 'SMTP Conectado' : 'SMTP en Espera' }}
+            </span>
           </div>
+          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+            Carga tus documentos de Word o PDF, personaliza variables y despacha correos con servidor SMTP corporativo
+          </p>
         </div>
       </div>
+    </Teleport>
 
-      <!-- Barra de Acciones Principales -->
-      <div class="flex flex-wrap items-center gap-2.5">
+    <!-- Teleport de Acciones hacia la Barra Superior -->
+    <Teleport to="#header-portal-right">
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          @click="modalCargarDocumentoAbierto = true"
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
+        >
+          <UploadCloud class="w-3.5 h-3.5 text-sky-400" />
+          <span>+ Cargar Word</span>
+        </button>
+
+        <button
+          type="button"
+          @click="modalSmtpAbierto = true"
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
+        >
+          <Server class="w-3.5 h-3.5 text-emerald-400" />
+          <span>Configurar SMTP</span>
+        </button>
+
+        <button
+          type="button"
+          @click="abrirEnvioConPlantilla()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-sm shadow-emerald-950/40 active:scale-95"
+        >
+          <Send class="w-3.5 h-3.5" />
+          <span>Lanzar Campaña</span>
+        </button>
+
         <button
           type="button"
           @click="cargarDatos"
           :disabled="cargando"
           title="Actualizar plantillas y registros"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border border-white/[0.08] rounded-lg text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
+          class="p-2 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
         >
-          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-emerald-400' : 'text-zinc-400']" />
-          <span>Actualizar</span>
-        </button>
-
-        <!-- Botón Configurar SMTP / IMAP -->
-        <button
-          type="button"
-          @click="modalSmtpAbierto = true"
-          class="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-lg text-xs font-medium transition shadow-sm hover:border-white/[0.16]"
-        >
-          <Server class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Configurar SMTP & IMAP</span>
-          <span
-            :class="[
-              'w-2 h-2 rounded-full',
-              servidorEmailActivo === null ? 'bg-zinc-500 animate-pulse' :
-              servidorEmailActivo ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-            ]"
-            :title="servidorEmailActivo ? 'Servidor de correo activo' : 'Servidor de correo INACTIVO — Ejecuta: npm run email-server'"
-          ></span>
-        </button>
-
-        <!-- Botón Cargar Documento Word / PDF -->
-        <button
-          type="button"
-          @click="modalCargarDocumentoAbierto = true"
-          class="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-100 border border-white/[0.08] rounded-lg text-xs font-medium transition shadow-sm active:scale-95 hover:border-white/[0.16]"
-        >
-          <UploadCloud class="w-3.5 h-3.5 text-sky-400" />
-          <span>+ Cargar Documento Word (.docx)</span>
-        </button>
-
-        <!-- Botón Lanzar Campaña Masiva -->
-        <button
-          type="button"
-          @click="abrirEnvioConPlantilla()"
-          class="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition shadow-sm shadow-emerald-950/40 border border-emerald-500/30 active:scale-95"
-        >
-          <Send class="w-3.5 h-3.5" />
-          <span>Lanzar Campaña Masiva</span>
+          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
         </button>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Contenido Protegido con Flickerless Surface -->
     <FlickerlessSurface

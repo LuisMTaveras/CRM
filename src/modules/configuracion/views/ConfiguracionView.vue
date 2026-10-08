@@ -70,54 +70,54 @@ const restablecer = async () => {
 
 <template>
   <div class="space-y-6 max-w-5xl pb-10">
-    <!-- Encabezado de la Sección -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-      <div>
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Building2 class="w-5 h-5" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-zinc-100 tracking-tight">
-              Ajustes de Empresa & Sistema
-            </h1>
-            <p class="text-xs text-zinc-400 mt-0.5">
-              Personaliza la identidad corporativa que emite las propuestas, contratos, correos y reportes del CRM
-            </p>
-          </div>
+    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+    <Teleport to="#header-portal-left">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+          <Building2 class="w-5 h-5" />
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+            Ajustes de Empresa & Sistema
+          </h1>
+          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+            Personaliza la identidad corporativa que emite las propuestas, contratos y reportes
+          </p>
         </div>
       </div>
+    </Teleport>
 
-      <!-- Selector de Pestañas -->
-      <div class="flex items-center bg-zinc-900/80 p-1 rounded-lg border border-white/[0.08] self-start sm:self-auto">
+    <!-- Teleport de Pestañas hacia la Barra Superior -->
+    <Teleport to="#header-portal-right">
+      <div class="flex items-center bg-zinc-900/80 p-1 rounded-xl border border-white/[0.08]">
         <button
           type="button"
           @click="pestanaActiva = 'empresa'"
           :class="[
-            'px-3.5 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5',
+            'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
             pestanaActiva === 'empresa'
-              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-white/[0.08]'
               : 'text-zinc-400 hover:text-zinc-200'
           ]"
         >
           <Building2 class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Perfil de la Empresa</span>
+          <span>Perfil Empresa</span>
         </button>
         <button
           type="button"
           @click="pestanaActiva = 'sistema'"
           :class="[
-            'px-3.5 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5',
+            'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
             pestanaActiva === 'sistema'
-              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-white/[0.08]'
               : 'text-zinc-400 hover:text-zinc-200'
           ]"
         >
           <Server class="w-3.5 h-3.5 text-sky-400" />
-          <span>Servicios & Conexión</span>
+          <span>Servicios</span>
         </button>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Contenedor Protegido con Flickerless Surface -->
     <FlickerlessSurface

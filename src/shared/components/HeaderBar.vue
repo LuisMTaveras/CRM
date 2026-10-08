@@ -21,21 +21,17 @@ const cerrarSesion = () => {
 </script>
 
 <template>
-  <header class="h-14 border-b border-white/[0.06] bg-[#09090b]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none z-30 relative">
-    <!-- Migas de Pan / Estado Activo -->
-    <div class="flex items-center gap-2.5 text-xs text-zinc-400">
-      <span class="text-zinc-500 font-medium">CRM</span>
-      <span class="text-zinc-700">/</span>
-      <span class="font-medium text-zinc-200">Operaciones B2B</span>
-      <span class="text-zinc-700">/</span>
-      <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-zinc-400 bg-zinc-900/80 px-2 py-0.5 rounded-md border border-white/[0.06]">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-        <span>Producción</span>
-      </span>
-    </div>
+  <header class="h-16 border-b border-white/[0.06] bg-[#09090b]/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none z-30 relative">
+    <!-- Portal Izquierdo: Título, Icono, Badge y Contexto de la Pantalla Activa -->
+    <div id="header-portal-left" class="flex items-center gap-3 min-w-0 flex-1 mr-4"></div>
 
-    <!-- Menú Derecho: Estado de Sesión y Perfil -->
-    <div class="flex items-center gap-3">
+    <!-- Menú Derecho: Acciones Dinámicas de la Pantalla + Sesión y Perfil -->
+    <div class="flex items-center gap-3 shrink-0">
+      <!-- Portal Derecho: Botones de Acción de la Pantalla Activa -->
+      <div id="header-portal-right" class="flex items-center gap-2"></div>
+
+      <div class="h-4 w-px bg-white/[0.08]"></div>
+
       <!-- Selector Rápido de Rol Activo -->
       <div class="hidden sm:flex items-center gap-2 bg-zinc-900/80 border border-white/[0.08] rounded-lg px-2.5 py-1 text-xs shadow-sm">
         <Sparkles class="w-3.5 h-3.5 text-emerald-400" />

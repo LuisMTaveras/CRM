@@ -567,25 +567,31 @@ class PipelineService {
 
     if (pipelineId === 'pipeline-comercial') {
       const oportunidadesOriginales = await clienteService.obtenerTodasLasOportunidades();
-      resultado = oportunidadesOriginales.map((op, idx) => ({
-        id: op.id,
-        pipeline_id: 'pipeline-comercial',
-        columna_id: op.etapa,
-        cliente_id: op.cliente_id,
-        cliente_nombre: op.cliente_nombre,
-        cliente_sector: op.cliente_sector,
-        responsable: op.responsable,
-        titulo: op.titulo,
-        monto: op.monto,
-        fecha_objetivo: op.fecha_cierre_estimada,
-        probabilidad: op.probabilidad,
-        prioridad: op.probabilidad >= 70 ? 'alta' : op.probabilidad >= 40 ? 'media' : 'baja',
-        orden: idx + 1,
-        creado_en: op.creado_en,
-      }));
-
-      const manuales = this.memoriaTarjetas.filter((t) => t.pipeline_id === 'pipeline-comercial');
-      resultado = [...resultado, ...manuales];
+      // Aseguramos que todas las oportunidades se inicialicen en memoriaTarjetas si no existen
+      for (let idx = 0; idx < oportunidadesOriginales.length; idx++) {
+        const op = oportunidadesOriginales[idx];
+        const existente = this.memoriaTarjetas.find((t) => t.id === op.id);
+        if (!existente) {
+          this.memoriaTarjetas.push({
+            id: op.id,
+            pipeline_id: 'pipeline-comercial',
+            columna_id: op.etapa,
+            cliente_id: op.cliente_id,
+            cliente_nombre: op.cliente_nombre,
+            cliente_sector: op.cliente_sector,
+            responsable: op.responsable,
+            titulo: op.titulo,
+            monto: op.monto,
+            fecha_objetivo: op.fecha_cierre_estimada,
+            probabilidad: op.probabilidad,
+            prioridad: op.probabilidad >= 70 ? 'alta' : op.probabilidad >= 40 ? 'media' : 'baja',
+            orden: idx + 1,
+            creado_en: op.creado_en,
+          });
+        }
+      }
+      this.guardarTarjetas();
+      resultado = this.memoriaTarjetas.filter((t) => t.pipeline_id === 'pipeline-comercial');
     } else {
       if (
         pipelineId === 'pipeline-visitas' &&
@@ -809,8 +815,40 @@ class PipelineService {
     nuevaColumnaId: string,
     nuevoIndice?: number
   ): Promise<boolean> {
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
+    // 1. Si no existe en memoria, aseguramos la carga inicial del pipeline
+    let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    if (!tarjeta) {
+      await this.obtenerTarjetas(pipelineId);
+      tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    }
+
+    if (!tarjeta) {
+      // Si aún no está en memoria, la creamos en memoria para no perder el cambio
+      console.warn(`[PipelineService] Tarjeta ${tarjetaId} registrada dinámicamente en pipeline ${pipelineId}`);
+      tarjeta = {
+        id: tarjetaId,
+        pipeline_id: pipelineId,
+        columna_id: nuevaColumnaId,
+        cliente_id: '',
+        cliente_nombre: 'Elemento Reubicado',
+        cliente_sector: 'General',
+        responsable: 'Equipo Comercial',
+        fecha_objetivo: new Date().toISOString().slice(0, 10),
+        titulo: 'Elemento de Tablero',
+        monto: 0,
+        prioridad: 'media',
+        orden: 1,
+        creado_en: new Date().toISOString(),
+      };
+      this.memoriaTarjetas.push(tarjeta);
+    } else {
+      tarjeta.columna_id = nuevaColumnaId;
+      tarjeta.pipeline_id = pipelineId;
+    }
+
+    // 2. Si el pipeline es comercial y la columna coincide con una etapa válida de oportunidad, sincronizar clienteService
     if (
       pipelineId === 'pipeline-comercial' &&
       ['calificacion', 'propuesta', 'negociacion', 'ganada', 'perdida'].includes(nuevaColumnaId)
@@ -822,20 +860,16 @@ class PipelineService {
       }
     }
 
-    const tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
-    if (!tarjeta) return true;
-
-    tarjeta.columna_id = nuevaColumnaId;
-
-    // Obtener tarjetas restantes en la columna destino
+    // 3. Reordenar dentro de la columna destino
     const tarjetasDestino = this.memoriaTarjetas
       .filter((t) => t.pipeline_id === pipelineId && t.columna_id === nuevaColumnaId && t.id !== tarjetaId)
-      .sort((a, b) => a.orden - b.orden);
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 
+    const tarjetaAMover: TarjetaPipeline = tarjeta;
     if (nuevoIndice !== undefined && nuevoIndice >= 0 && nuevoIndice <= tarjetasDestino.length) {
-      tarjetasDestino.splice(nuevoIndice, 0, tarjeta);
+      tarjetasDestino.splice(nuevoIndice, 0, tarjetaAMover);
     } else {
-      tarjetasDestino.push(tarjeta);
+      tarjetasDestino.push(tarjetaAMover);
     }
 
     // Reasignar órdenes secuenciales
@@ -853,9 +887,13 @@ class PipelineService {
     tarjetaId: string,
     direccion: 'arriba' | 'abajo'
   ): Promise<boolean> {
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
-    const tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    if (!tarjeta) {
+      await this.obtenerTarjetas(pipelineId);
+      tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    }
     if (!tarjeta) return false;
 
     const columnaId = tarjeta.columna_id;
@@ -869,10 +907,12 @@ class PipelineService {
     const targetIndex = direccion === 'arriba' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= tarjetasColumna.length) return false;
 
-    // Intercambiar
-    const temp = tarjetasColumna[index];
-    tarjetasColumna[index] = tarjetasColumna[targetIndex];
-    tarjetasColumna[targetIndex] = temp;
+    const itemActual = tarjetasColumna[index];
+    const itemDestino = tarjetasColumna[targetIndex];
+    if (!itemActual || !itemDestino) return false;
+
+    tarjetasColumna[index] = itemDestino;
+    tarjetasColumna[targetIndex] = itemActual;
 
     tarjetasColumna.forEach((t, idx) => {
       t.orden = idx + 1;

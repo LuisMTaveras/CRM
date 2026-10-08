@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { 
   Kanban, 
   MapPin, 
@@ -16,13 +16,14 @@ import {
   Trash2, 
   Edit3, 
   MoreHorizontal, 
-  Layers, 
   Settings2,
   Tag,
   AlertCircle,
   AlertOctagon,
-  GripVertical
+  GripVertical,
+  ArrowLeft
 } from 'lucide-vue-next';
+import { useRoute, useRouter } from 'vue-router';
 import { formatCurrency, formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { pipelineService } from '../services/pipeline.service';
@@ -30,8 +31,7 @@ import type {
   Pipeline, 
   ColumnaPipeline, 
   TarjetaPipeline, 
-  FiltrosPipeline,
-  ResumenPipelineItem
+  FiltrosPipeline
 } from '../types/pipeline.types';
 import { LIMITE_MAXIMO_COLUMNAS } from '../types/pipeline.types';
 import NuevoPipelineModal from '../components/NuevoPipelineModal.vue';
@@ -41,10 +41,12 @@ import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
+const route = useRoute();
+const router = useRouter();
+
 const cargando = ref(true);
 const pipelines = ref<Pipeline[]>([]);
-const resumenPipelines = ref<ResumenPipelineItem[]>([]);
-const pipelineActivoId = ref<string>('pipeline-visitas');
+const pipelineActivoId = ref<string>((route.params.id as string) || 'pipeline-comercial');
 const tarjetas = ref<TarjetaPipeline[]>([]);
 const responsablesDisponibles = ref<string[]>([]);
 
@@ -184,10 +186,12 @@ const metricasProgreso = computed(() => {
 const cargarPipelines = async () => {
   try {
     pipelines.value = await pipelineService.obtenerPipelines();
-    if (!pipelines.value.some((p) => p.id === pipelineActivoId.value) && pipelines.value.length > 0) {
+    const idEnRuta = route.params.id as string;
+    if (idEnRuta && pipelines.value.some((p) => p.id === idEnRuta)) {
+      pipelineActivoId.value = idEnRuta;
+    } else if (pipelines.value.length > 0 && !pipelines.value.some((p) => p.id === pipelineActivoId.value)) {
       pipelineActivoId.value = pipelines.value[0].id;
     }
-    resumenPipelines.value = await pipelineService.obtenerResumenPipelines();
   } catch (err) {
     console.error('Error cargando catálogo de pipelines:', err);
     toastService.error('No se pudo cargar la lista de tableros.');
@@ -213,7 +217,7 @@ const cambiarPipeline = (id: string) => {
   pipelineActivoId.value = id;
   menuOpcionesPipelineAbierto.value = false;
   columnaMenuAbiertoId.value = null;
-  cargarDatos();
+  router.push(`/pipeline/${id}`);
 };
 
 const tarjetasPorColumna = (columnaId: string) => {
@@ -226,17 +230,33 @@ const totalMontoColumna = (columnaId: string) => {
   return tarjetasPorColumna(columnaId).reduce((acc, t) => acc + (t.monto || 0), 0);
 };
 
-// Movimiento de tarjetas entre columnas
-const moverTarjetaAColumna = async (tarjeta: TarjetaPipeline, nuevaColumnaId: string, nuevoIndice?: number) => {
+// Sincronización silenciosa en segundo plano (sin activar spinner ni Flickerless)
+const sincronizarTarjetasSilencioso = async () => {
+  if (!pipelineActivoId.value) return;
   try {
+    tarjetas.value = await pipelineService.obtenerTarjetas(pipelineActivoId.value, filtros);
+  } catch (err) {
+    console.error('Error sincronizando tarjetas en segundo plano:', err);
+  }
+};
+
+// Movimiento de tarjetas entre columnas con actualización optimista inmediata
+const moverTarjetaAColumna = async (tarjeta: TarjetaPipeline, nuevaColumnaId: string, nuevoIndice?: number) => {
+  const columnaAnteriorId = tarjeta.columna_id;
+  // 1. Reflejo visual inmediato en la interfaz (0ms de latencia percibida)
+  tarjeta.columna_id = nuevaColumnaId;
+  const colDestino = pipelineActivo.value?.columnas?.find((c) => c.id === nuevaColumnaId);
+
+  try {
+    // 2. Persistencia automática en el servicio
     await pipelineService.moverTarjetaColumna(pipelineActivoId.value, tarjeta.id, nuevaColumnaId, nuevoIndice);
-    tarjeta.columna_id = nuevaColumnaId;
-    const colDestino = pipelineActivo.value?.columnas?.find((c) => c.id === nuevaColumnaId);
     toastService.exito(`Elemento movido a "${colDestino?.titulo || 'nueva etapa'}"`);
-    await cargarDatos();
+    // 3. Sincronización silenciosa en segundo plano sin parpadeos
+    await sincronizarTarjetasSilencioso();
   } catch {
+    tarjeta.columna_id = columnaAnteriorId;
     toastService.error('No se pudo mover el elemento.');
-    cargarDatos();
+    await sincronizarTarjetasSilencioso();
   }
 };
 
@@ -262,7 +282,7 @@ const retrocederColumna = (tarjeta: TarjetaPipeline) => {
 const moverTarjetaVertical = async (tarjeta: TarjetaPipeline, direccion: 'arriba' | 'abajo') => {
   try {
     await pipelineService.moverTarjetaPosicionVertical(pipelineActivoId.value, tarjeta.id, direccion);
-    await cargarDatos();
+    await sincronizarTarjetasSilencioso();
   } catch {
     toastService.error('No se pudo cambiar el orden.');
   }
@@ -308,6 +328,13 @@ const onDragOverColumna = (columnaId: string, event: DragEvent) => {
     event.dataTransfer.dropEffect = 'move';
   }
   columnaDestinoId.value = columnaId;
+  // Si el destino previo pertenecía a otra columna, resetearlo
+  if (tarjetaDestinoId.value) {
+    const cardDest = tarjetas.value.find((t) => t.id === tarjetaDestinoId.value);
+    if (cardDest && cardDest.columna_id !== columnaId) {
+      tarjetaDestinoId.value = null;
+    }
+  }
 };
 
 const onDragOverTarjeta = (tarjeta: TarjetaPipeline, event: DragEvent) => {
@@ -323,28 +350,29 @@ const onDragOverTarjeta = (tarjeta: TarjetaPipeline, event: DragEvent) => {
 };
 
 const onDragLeave = (_columnaId: string) => {
-  columnaDestinoId.value = null;
-  tarjetaDestinoId.value = null;
+  // Mantener destino suave
 };
 
 const onDropColumna = (columnaId: string, event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
   const arrastrada = tarjetaArrastrada.value;
   if (!arrastrada) return;
 
+  const targetColId = columnaId;
+
   if (tarjetaDestinoId.value) {
-    // Inserción en posición vertical específica
-    const cardsColumna = tarjetasPorColumna(columnaId);
+    const cardsColumna = tarjetasPorColumna(targetColId);
     let targetIdx = cardsColumna.findIndex((c) => c.id === tarjetaDestinoId.value);
     if (targetIdx !== -1) {
       if (posicionInsercion.value === 'despues') targetIdx += 1;
-      moverTarjetaAColumna(arrastrada, columnaId, targetIdx);
+      moverTarjetaAColumna(arrastrada, targetColId, targetIdx);
     } else {
-      moverTarjetaAColumna(arrastrada, columnaId);
+      moverTarjetaAColumna(arrastrada, targetColId);
     }
   } else {
     // Soltado al fondo de la columna
-    moverTarjetaAColumna(arrastrada, columnaId);
+    moverTarjetaAColumna(arrastrada, targetColId);
   }
 
   columnaDestinoId.value = null;
@@ -459,16 +487,15 @@ const eliminarPipelineActivo = async () => {
   try {
     await pipelineService.eliminarPipeline(pipelineActivoId.value);
     toastService.exito('Tablero eliminado.');
-    pipelineActivoId.value = 'pipeline-comercial';
-    await cargarDatos();
+    router.push('/pipeline');
   } catch (err: unknown) {
     toastService.error(err instanceof Error ? err.message : 'Error al eliminar el pipeline.');
   }
 };
 
 const onPipelineCreado = (nuevoId: string) => {
-  pipelineActivoId.value = nuevoId;
-  cargarDatos();
+  modalNuevoPipelineAbierto.value = false;
+  router.push(`/pipeline/${nuevoId}`);
 };
 
 const badgePrioridad = (prioridad?: string) => {
@@ -487,101 +514,121 @@ const badgePrioridad = (prioridad?: string) => {
 onMounted(() => {
   cargarDatos();
 });
+
+watch(
+  () => route.params.id,
+  (nuevoId) => {
+    if (nuevoId && nuevoId !== pipelineActivoId.value) {
+      pipelineActivoId.value = nuevoId as string;
+      cargarDatos();
+    }
+  }
+);
 </script>
 
 <template>
   <div class="space-y-4">
-    <!-- Encabezado Principal y Selector de Pipelines -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.07]">
-      <div>
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <div class="flex items-center gap-2">
-            <span class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <MapPin v-if="pipelineActivo?.tipo === 'visitas'" class="w-5 h-5" />
-              <Kanban v-else class="w-5 h-5" />
-            </span>
+    <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
+    <Teleport to="#header-portal-left">
+      <div class="flex items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
+        <!-- Retorno al Catálogo General de Pipelines -->
+        <router-link
+          to="/pipeline"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-white/[0.08] bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold transition shadow-sm group shrink-0"
+        >
+          <ArrowLeft class="w-3.5 h-3.5 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
+          <span class="hidden sm:inline">Todos los Tableros</span>
+        </router-link>
 
-            <!-- Selector de Tableros con diseño idéntico a la referencia -->
-            <AppSelect
-              :model-value="pipelineActivoId"
-              @update:model-value="(nuevoId) => cambiarPipeline(nuevoId as string)"
-              :options="opcionesPipelines"
-              min-width-class="min-w-[240px]"
-              trigger-class="text-sm font-semibold bg-zinc-900 border-white/[0.14] hover:border-white/[0.25] px-3.5 py-1.5"
-            />
-          </div>
+        <span class="text-zinc-700 hidden sm:inline">/</span>
 
-          <!-- Badge de Conteo -->
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            {{ tarjetas.length }} {{ pipelineActivo?.tipo === 'visitas' ? 'Visitas Registradas' : 'Elementos Activos' }}
+        <!-- Icono y Selector de Tablero Activo -->
+        <div class="flex items-center gap-2 min-w-0">
+          <span
+            class="p-1.5 rounded-lg border shrink-0"
+            :class="pipelineActivo?.tipo === 'visitas' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'"
+          >
+            <MapPin v-if="pipelineActivo?.tipo === 'visitas'" class="w-3.5 h-3.5" />
+            <Kanban v-else class="w-3.5 h-3.5" />
           </span>
 
-          <!-- Menú de Opciones del Tablero Activo -->
-          <div class="relative">
-            <button
-              @click="menuOpcionesPipelineAbierto = !menuOpcionesPipelineAbierto"
-              title="Configuración de este tablero"
-              class="p-1.5 rounded-lg border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition"
-            >
-              <Settings2 class="w-4 h-4" />
-            </button>
-
-            <div
-              v-if="menuOpcionesPipelineAbierto"
-              class="absolute left-0 mt-1.5 w-52 bg-zinc-900 border border-white/[0.1] rounded-xl shadow-xl z-30 p-1 text-xs"
-            >
-              <button
-                @click="abrirModalNuevaColumna"
-                :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
-                class="w-full text-left px-3 py-2 rounded-lg text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition disabled:opacity-40"
-              >
-                <Plus class="w-3.5 h-3.5 text-emerald-400" />
-                <span>+ Agregar Columna</span>
-              </button>
-              <button
-                @click="abrirEditarPipeline"
-                class="w-full text-left px-3 py-2 rounded-lg text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition"
-              >
-                <Edit3 class="w-3.5 h-3.5 text-zinc-400" />
-                <span>Editar Nombre / Descripción</span>
-              </button>
-              <button
-                v-if="!pipelineActivo?.es_predeterminado"
-                @click="eliminarPipelineActivo"
-                class="w-full text-left px-3 py-2 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
-              >
-                <Trash2 class="w-3.5 h-3.5" />
-                <span>Eliminar Tablero</span>
-              </button>
-            </div>
-          </div>
+          <AppSelect
+            :model-value="pipelineActivoId"
+            @update:model-value="(nuevoId) => cambiarPipeline(nuevoId as string)"
+            :options="opcionesPipelines"
+            min-width-class="min-w-[190px]"
+            trigger-class="text-xs font-semibold bg-zinc-900 border-white/[0.1] hover:border-white/[0.2] px-2.5 py-1"
+          />
         </div>
 
-        <p class="text-xs text-zinc-400 mt-1 max-w-2xl">
-          {{ pipelineActivo?.descripcion || 'Gestiona las etapas personalizadas y mueve tarjetas arrastrándolas entre columnas.' }}
-        </p>
+        <!-- Badge de Conteo Activo -->
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          {{ tarjetas.length }} {{ pipelineActivo?.tipo === 'visitas' ? 'Visitas' : 'Tarjetas' }}
+        </span>
+
+        <!-- Menú de Opciones del Tablero Activo -->
+        <div class="relative shrink-0">
+          <button
+            @click="menuOpcionesPipelineAbierto = !menuOpcionesPipelineAbierto"
+            title="Ajustes de este tablero"
+            class="p-1.5 rounded-lg border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition"
+          >
+            <Settings2 class="w-3.5 h-3.5" />
+          </button>
+
+          <div
+            v-if="menuOpcionesPipelineAbierto"
+            class="absolute left-0 mt-1.5 w-52 bg-zinc-950 border border-white/[0.1] rounded-xl shadow-xl z-50 p-1 text-xs"
+          >
+            <button
+              @click="abrirModalNuevaColumna"
+              :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
+              class="w-full text-left px-3 py-2 rounded-lg text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition disabled:opacity-40"
+            >
+              <Plus class="w-3.5 h-3.5 text-emerald-400" />
+              <span>+ Agregar Columna</span>
+            </button>
+            <button
+              @click="abrirEditarPipeline"
+              class="w-full text-left px-3 py-2 rounded-lg text-zinc-200 hover:bg-zinc-800 flex items-center gap-2 transition"
+            >
+              <Edit3 class="w-3.5 h-3.5 text-zinc-400" />
+              <span>Editar Nombre / Descripción</span>
+            </button>
+            <button
+              v-if="!pipelineActivo?.es_predeterminado"
+              @click="eliminarPipelineActivo"
+              class="w-full text-left px-3 py-2 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+              <span>Eliminar Tablero</span>
+            </button>
+          </div>
+        </div>
       </div>
+    </Teleport>
 
-      <!-- Acciones Principales -->
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- Botón Crear Nuevo Tablero -->
-        <button
-          @click="modalNuevoPipelineAbierto = true"
-          title="Crear un nuevo tablero o canvas personalizado"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16]"
-        >
-          <Layers class="w-3.5 h-3.5 text-emerald-400" />
-          <span>+ Nuevo Tablero</span>
-        </button>
-
-        <!-- Botón Programar Visitas / Nueva Tarjeta (Multi-cliente) -->
+    <!-- Teleport de Acciones del Tablero hacia la Barra Superior -->
+    <Teleport to="#header-portal-right">
+      <div class="flex items-center gap-2">
+        <!-- Botón Programar Visitas / Nueva Tarjeta -->
         <button
           @click="abrirModalNuevaTarjeta()"
-          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition active:scale-95 shadow-emerald-950/40"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-emerald-950/40"
         >
           <Plus class="w-3.5 h-3.5" />
           <span>{{ pipelineActivo?.tipo === 'visitas' ? '+ Programar Visitas' : '+ Nueva Tarjeta' }}</span>
+        </button>
+
+        <!-- Botón Añadir Columna Directo -->
+        <button
+          @click="abrirModalNuevaColumna"
+          :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40"
+        >
+          <Plus class="w-3.5 h-3.5 text-emerald-400" />
+          <span>+ Columna</span>
         </button>
 
         <!-- Actualizar -->
@@ -589,109 +636,12 @@ onMounted(() => {
           @click="cargarDatos"
           :disabled="cargando"
           title="Actualizar datos"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 p-2 rounded-xl border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
         >
           <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
         </button>
       </div>
-    </div>
-
-    <!-- CONSULTA DE PIPELINES: CARDS POR CADA TABLERO CON BARRA DE PROGRESO Y % -->
-    <div class="space-y-1.5">
-      <div class="flex items-center justify-between text-xs text-zinc-400 px-0.5">
-        <span class="font-semibold uppercase tracking-wider text-[11px] text-zinc-400 flex items-center gap-1.5">
-          <Layers class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Tableros Creados y Progreso de Objetivos</span>
-        </span>
-        <span class="text-[11px] text-zinc-500 hidden sm:inline">Selecciona cualquier tablero para consultar o gestionar sus tarjetas</span>
-      </div>
-
-      <div class="flex items-stretch gap-3 overflow-x-auto pb-1.5 kanban-scroll">
-        <!-- Card por cada Pipeline Creado -->
-        <div
-          v-for="pipe in resumenPipelines"
-          :key="pipe.id"
-          @click="cambiarPipeline(pipe.id)"
-          class="w-64 sm:w-72 shrink-0 saas-card p-3 rounded-xl border transition-all cursor-pointer select-none group flex flex-col justify-between"
-          :class="[
-            pipelineActivoId === pipe.id
-              ? 'ring-2 ring-emerald-500/50 bg-zinc-900 border-emerald-500/40 shadow-lg shadow-emerald-950/30'
-              : 'border-white/[0.07] bg-zinc-900/40 hover:bg-zinc-900/70 hover:border-white/[0.16]'
-          ]"
-        >
-          <div>
-            <!-- Cabecera de la Card: Icono, Nombre y Badge -->
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <div class="flex items-center gap-2 truncate">
-                <span
-                  class="p-1.5 rounded-lg shrink-0 border"
-                  :class="pipe.tipo === 'visitas' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'"
-                >
-                  <MapPin v-if="pipe.tipo === 'visitas'" class="w-3.5 h-3.5" />
-                  <Kanban v-else class="w-3.5 h-3.5" />
-                </span>
-                <span class="text-xs font-bold text-zinc-100 truncate group-hover:text-white" :title="pipe.nombre">
-                  {{ pipe.nombre }}
-                </span>
-              </div>
-
-              <!-- Indicador de Estado Activo o Cantidad -->
-              <span
-                v-if="pipelineActivoId === pipe.id"
-                class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0"
-              >
-                <span class="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>
-                Activo
-              </span>
-              <span
-                v-else
-                class="text-[10px] font-mono text-zinc-500 shrink-0"
-              >
-                {{ pipe.totalTarjetas }} elem.
-              </span>
-            </div>
-
-            <!-- Porcentaje y Barra de Progreso Elegante -->
-            <div class="space-y-1.5 my-2">
-              <div class="flex items-center justify-between text-[11px]">
-                <span class="text-zinc-400 text-[10px]">Progreso Global</span>
-                <span class="font-mono font-bold text-emerald-400 text-xs">{{ pipe.porcentaje }}%</span>
-              </div>
-              <div class="w-full bg-zinc-950 rounded-full h-1.5 overflow-hidden border border-white/[0.05]">
-                <div
-                  class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500"
-                  :style="{ width: `${pipe.porcentaje}%` }"
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Micro-desglose por estados en chips -->
-          <div class="flex items-center gap-2 text-[10px] font-mono text-zinc-400 pt-2 border-t border-white/[0.05]">
-            <span class="text-emerald-400 font-semibold">{{ pipe.completadas }} compl.</span>
-            <span class="text-zinc-600">•</span>
-            <span class="text-sky-400">{{ pipe.enProceso }} proc.</span>
-            <template v-if="pipe.bloqueadas > 0">
-              <span class="text-zinc-600">•</span>
-              <span class="text-rose-400 font-semibold">{{ pipe.bloqueadas }} bloq.</span>
-            </template>
-            <span class="text-zinc-600 ml-auto">•</span>
-            <span class="text-zinc-500">{{ pipe.totalTarjetas }} tot.</span>
-          </div>
-        </div>
-
-        <!-- Card Especial: + Nuevo Tablero -->
-        <button
-          @click="modalNuevoPipelineAbierto = true"
-          class="w-44 shrink-0 rounded-xl border border-dashed border-zinc-800 hover:border-emerald-500/40 bg-zinc-950/30 hover:bg-zinc-900/50 text-zinc-500 hover:text-emerald-400 flex flex-col items-center justify-center gap-2 transition text-xs font-medium cursor-pointer p-4 group"
-        >
-          <div class="w-8 h-8 rounded-full bg-zinc-800 group-hover:bg-emerald-500/10 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition">
-            <Plus class="w-4 h-4" />
-          </div>
-          <span>+ Nuevo Tablero</span>
-        </button>
-      </div>
-    </div>
+    </Teleport>
 
     <!-- Barra de Filtros en Tiempo Real -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/60 p-3 rounded-xl border border-white/[0.06] text-xs">
@@ -749,7 +699,7 @@ onMounted(() => {
       announce-text="Actualizando tablero..."
       class="rounded-xl overflow-hidden"
     >
-      <div class="flex gap-4 items-stretch overflow-x-auto pb-3.5 h-[calc(100vh-315px)] min-h-[460px] kanban-scroll">
+      <div class="flex gap-4 items-stretch overflow-x-auto pb-3.5 h-[calc(100vh-140px)] min-h-[580px] kanban-scroll">
         <!-- Columnas Dinámicas del Pipeline Activo -->
         <div
           v-for="(col, colIndex) in pipelineActivo?.columnas || []"
@@ -876,11 +826,15 @@ onMounted(() => {
           </div>
 
           <!-- Lista de Tarjetas con Soporte de Reordenamiento Vertical (Arriba/Abajo) -->
-          <div class="p-2.5 space-y-2.5 flex-1 min-h-0 overflow-y-auto overscroll-contain kanban-column-scroll">
+          <div
+            class="p-2.5 space-y-2.5 flex-1 min-h-0 overflow-y-auto overscroll-contain kanban-column-scroll"
+            @dragover="onDragOverColumna(col.id, $event)"
+            @drop="onDropColumna(col.id, $event)"
+          >
             <!-- Estado vacío por columna -->
             <div
               v-if="tarjetasPorColumna(col.id).length === 0"
-              class="text-center py-10 px-2 text-zinc-600 text-xs border border-dashed border-zinc-800/60 rounded-lg flex flex-col items-center justify-center"
+              class="text-center py-10 px-2 text-zinc-600 text-xs border border-dashed border-zinc-800/60 rounded-lg flex flex-col items-center justify-center pointer-events-none"
             >
               <Tag class="w-4 h-4 text-zinc-700 mb-1" />
               <span>Sin elementos en esta etapa</span>
@@ -893,6 +847,7 @@ onMounted(() => {
               draggable="true"
               @dragstart="onDragStart(tarjeta, $event)"
               @dragover="onDragOverTarjeta(tarjeta, $event)"
+              @drop.stop="onDropColumna(col.id, $event)"
               class="bg-zinc-900/70 p-3 rounded-xl border border-white/[0.07] hover:border-white/[0.18] hover:bg-zinc-900 transition-all duration-150 shadow-sm group cursor-grab active:cursor-grabbing relative"
               :class="[
                 tarjetaDestinoId === tarjeta.id

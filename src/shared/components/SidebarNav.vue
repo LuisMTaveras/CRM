@@ -55,7 +55,7 @@ const enlaces = [
         :to="enlace.ruta"
         :class="[
           'group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150',
-          route.path === enlace.ruta
+          route.path === enlace.ruta || (enlace.ruta !== '/' && route.path.startsWith(enlace.ruta))
             ? 'bg-zinc-800/80 text-zinc-100 border border-white/[0.08] shadow-sm'
             : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
         ]"
