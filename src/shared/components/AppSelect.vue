@@ -26,6 +26,7 @@ const props = withDefaults(
     triggerClass?: string;
     popupClass?: string;
     fullWidth?: boolean;
+    direction?: 'down' | 'up' | 'auto';
   }>(),
   {
     labelPrefix: '',
@@ -37,6 +38,7 @@ const props = withDefaults(
     triggerClass: '',
     popupClass: '',
     fullWidth: false,
+    direction: 'auto',
   }
 );
 
@@ -46,6 +48,7 @@ const emit = defineEmits<{
 }>();
 
 const abierto = ref(false);
+const abrirHaciaArriba = ref(false);
 const contenedorRef = ref<HTMLElement | null>(null);
 
 onClickOutside(contenedorRef, () => {
@@ -54,6 +57,18 @@ onClickOutside(contenedorRef, () => {
 
 const toggle = () => {
   if (props.disabled) return;
+  if (!abierto.value && contenedorRef.value) {
+    if (props.direction === 'up') {
+      abrirHaciaArriba.value = true;
+    } else if (props.direction === 'down') {
+      abrirHaciaArriba.value = false;
+    } else {
+      const rect = contenedorRef.value.getBoundingClientRect();
+      const espacioAbajo = window.innerHeight - rect.bottom;
+      const espacioArriba = rect.top;
+      abrirHaciaArriba.value = espacioAbajo < 270 && espacioArriba > 200;
+    }
+  }
   abierto.value = !abierto.value;
 };
 
