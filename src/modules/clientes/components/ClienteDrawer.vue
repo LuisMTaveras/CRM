@@ -29,6 +29,7 @@ import EditarClienteModal from './EditarClienteModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import SectorBadge from '@/shared/components/SectorBadge.vue';
 
 const opcionesEstadoCliente: Array<SelectOption<string>> = [
   { value: 'prospecto', label: 'Prospecto', dotColor: 'bg-amber-400' },
@@ -550,8 +551,9 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 <span class="font-mono font-medium text-zinc-800 dark:text-zinc-200">{{ cliente?.identificacion_fiscal || 'Sin RNC' }}</span>
               </div>
               <div class="bg-white dark:bg-zinc-950/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
-                <span class="text-zinc-500 block mb-0.5">Sector Económico</span>
-                <span class="font-medium text-zinc-800 dark:text-zinc-200">{{ cliente?.sector }}</span>
+                <span class="text-zinc-500 block mb-1">Sector Económico</span>
+                <SectorBadge v-if="cliente?.sector" :sector="cliente.sector" />
+                <span v-else class="text-zinc-400">—</span>
               </div>
               <div class="bg-white dark:bg-zinc-950/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
                 <span class="text-zinc-500 block mb-0.5">Responsable Comercial</span>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { 
   Building2, 
   CheckCircle2, 
@@ -12,18 +12,163 @@ import {
   MapPin, 
   FileText, 
   CreditCard,
-  Eye
+  Eye,
+  Layers,
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  Check
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { dialogService } from '@/core/dialog/dialog.service';
+import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import SectorBadge from '@/shared/components/SectorBadge.vue';
+import { sectoresService } from '@/modules/clientes/services/sectores.service';
+import { 
+  LISTA_ICONOS_DISPONIBLES, 
+  PALETA_COLORES_SECTOR, 
+  type SectorEconomico 
+} from '@/modules/clientes/types/sector.types';
 
-const pestanaActiva = ref<'empresa' | 'sistema'>('empresa');
+const pestanaActiva = ref<'empresa' | 'sistema' | 'sectores'>('empresa');
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
 const mensajeGuardado = ref(false);
 const guardando = ref(false);
+
+// Estado de gestión de sectores económicos
+const listaSectores = ref<SectorEconomico[]>(sectoresService.obtenerSectores());
+const modalSectorAbierto = ref(false);
+const sectorEditando = ref<SectorEconomico | null>(null);
+const busquedaIcono = ref('');
+
+const formSector = reactive({
+  nombre: '',
+  codigo: '',
+  icono: 'Cpu',
+  colorId: 'indigo',
+  descripcion: '',
+});
+
+const refrescarSectores = () => {
+  listaSectores.value = sectoresService.obtenerSectores();
+};
+
+const iconosFiltrados = computed(() => {
+  if (!busquedaIcono.value.trim()) return LISTA_ICONOS_DISPONIBLES;
+  const q = busquedaIcono.value.toLowerCase().trim();
+  return LISTA_ICONOS_DISPONIBLES.filter(
+    (i) => i.id.toLowerCase().includes(q) || i.label.toLowerCase().includes(q)
+  );
+});
+
+const abrirNuevoSector = () => {
+  sectorEditando.value = null;
+  formSector.nombre = '';
+  formSector.codigo = '';
+  formSector.icono = 'Cpu';
+  formSector.colorId = 'indigo';
+  formSector.descripcion = '';
+  busquedaIcono.value = '';
+  modalSectorAbierto.value = true;
+};
+
+const abrirEditarSector = (sec: SectorEconomico) => {
+  sectorEditando.value = sec;
+  formSector.nombre = sec.nombre;
+  formSector.codigo = sec.codigo;
+  formSector.icono = sec.icono;
+  
+  // Encontrar el colorId correspondiente
+  const paleta = PALETA_COLORES_SECTOR.find((p) => p.color === sec.color);
+  formSector.colorId = paleta?.id || 'indigo';
+  formSector.descripcion = sec.descripcion || '';
+  busquedaIcono.value = '';
+  modalSectorAbierto.value = true;
+};
+
+const guardarSectorModal = () => {
+  if (!formSector.nombre.trim()) {
+    toastService.error('El nombre del sector es obligatorio.');
+    return;
+  }
+  if (!formSector.codigo.trim()) {
+    toastService.error('El código del sector es obligatorio.');
+    return;
+  }
+
+  const paletaSeleccionada = PALETA_COLORES_SECTOR.find((p) => p.id === formSector.colorId) || PALETA_COLORES_SECTOR[0];
+
+  if (sectorEditando.value) {
+    sectoresService.actualizarSector(sectorEditando.value.id, {
+      nombre: formSector.nombre.trim(),
+      codigo: formSector.codigo.toUpperCase().trim(),
+      icono: formSector.icono,
+      color: paletaSeleccionada.color,
+      dotColor: paletaSeleccionada.dotColor,
+      descripcion: formSector.descripcion.trim(),
+    });
+    toastService.exito(`Sector "${formSector.nombre}" actualizado correctamente.`);
+  } else {
+    sectoresService.crearSector({
+      nombre: formSector.nombre.trim(),
+      codigo: formSector.codigo.toUpperCase().trim(),
+      icono: formSector.icono,
+      color: paletaSeleccionada.color,
+      dotColor: paletaSeleccionada.dotColor,
+      descripcion: formSector.descripcion.trim(),
+    });
+    toastService.exito(`Sector "${formSector.nombre}" creado exitosamente.`);
+  }
+
+  refrescarSectores();
+  modalSectorAbierto.value = false;
+};
+
+const alternarEstadoSector = (sec: SectorEconomico) => {
+  sectoresService.actualizarSector(sec.id, { activo: !sec.activo });
+  refrescarSectores();
+  toastService.info(`Sector "${sec.nombre}" ${!sec.activo ? 'activado' : 'desactivado'}.`);
+};
+
+const eliminarSector = async (sec: SectorEconomico) => {
+  const confirmado = await dialogService.confirmar({
+    titulo: 'ELIMINAR SECTOR ECONÓMICO',
+    subtitulo: `SECTOR: ${sec.nombre.toUpperCase()}`,
+    mensaje: `¿Está seguro de que desea eliminar el sector económico "${sec.nombre}"?`,
+    detalle: 'Los clientes existentes mantendrán su asignación, pero este sector ya no aparecerá como opción para nuevos registros.',
+    textoConfirmar: 'ELIMINAR SECTOR',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
+
+  sectoresService.eliminarSector(sec.id);
+  refrescarSectores();
+  toastService.exito(`Sector "${sec.nombre}" eliminado.`);
+};
+
+const restablecerSectores = async () => {
+  const confirmado = await dialogService.confirmar({
+    titulo: 'RESTABLECER CATÁLOGO DE SECTORES',
+    subtitulo: 'RESTAURAR SECTORES PREDETERMINADOS',
+    mensaje: '¿Desea restaurar el catálogo de sectores a la configuración inicial del sistema?',
+    detalle: 'Se reestablecerán los 10 sectores oficiales con sus iconos y paletas originales.',
+    textoConfirmar: 'RESTAURAR CATÁLOGO',
+    textoCancelar: 'CANCELAR',
+    tipo: 'advertencia',
+  });
+
+  if (!confirmado) return;
+
+  sectoresService.restablecerSectores();
+  refrescarSectores();
+  toastService.exito('Catálogo de sectores restablecido por defecto.');
+};
 
 const opcionesMoneda: Array<SelectOption<'DOP' | 'USD' | 'EUR'>> = [
   { value: 'DOP', label: 'DOP — Peso Dominicano (RD$)', badge: 'RD$' },
@@ -121,6 +266,19 @@ const restablecer = async () => {
         >
           <Server class="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
           <span>Servicios</span>
+        </button>
+        <button
+          type="button"
+          @click="pestanaActiva = 'sectores'"
+          :class="[
+            'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
+            pestanaActiva === 'sectores'
+              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-white/[0.08]'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+          ]"
+        >
+          <Layers class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+          <span>Sectores Económicos</span>
         </button>
       </div>
     </Teleport>
@@ -436,7 +594,7 @@ const restablecer = async () => {
     </div>
 
     <!-- PESTAÑA 2: SERVICIOS Y CONECTIVIDAD DEL SISTEMA -->
-    <div v-else class="space-y-6">
+    <div v-else-if="pestanaActiva === 'sistema'" class="space-y-6">
       <!-- Tarjeta de Estado de Conexión PostgreSQL -->
       <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
         <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -507,6 +665,294 @@ const restablecer = async () => {
         </div>
       </div>
       </div>
+
+      <!-- PESTAÑA 3: CATÁLOGO MAESTRO DE SECTORES ECONÓMICOS -->
+      <div v-else-if="pestanaActiva === 'sectores'" class="space-y-6">
+        <!-- Tarjeta de Encabezado y Acciones -->
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              <Layers class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Catálogo Maestro de Sectores Económicos & Simbología</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                {{ listaSectores.length }} Sectores Registrados
+              </span>
+            </div>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-2xl">
+              Configura las clasificaciones comerciales oficiales, asocia los iconos vectoriales de representación y estandariza los colores que distinguirán a las cuentas en el CRM, filtros y tableros.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              @click="restablecerSectores"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition"
+              title="Restaurar a los 10 sectores oficiales predeterminados"
+            >
+              <RotateCcw class="w-3.5 h-3.5" />
+              <span class="hidden sm:inline">Restablecer</span>
+            </button>
+            <button
+              type="button"
+              @click="abrirNuevoSector"
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition shadow-sm shadow-indigo-500/20"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              <span>Nuevo Sector Económico</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Cuadrícula de Sectores Económicos -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div
+            v-for="sec in listaSectores"
+            :key="sec.id"
+            class="bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex flex-col justify-between space-y-3.5 hover:border-zinc-300 dark:hover:border-zinc-700 transition shadow-sm"
+          >
+            <!-- Cabecera de la Tarjeta del Sector -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <!-- Icono oficial renderizado dinámicamente -->
+                <div :class="['p-2.5 rounded-xl border flex items-center justify-center shrink-0', sec.color]">
+                  <component :is="sectoresService.obtenerIconoComponente(sec.icono)" class="w-5 h-5" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate" :title="sec.nombre">
+                      {{ sec.nombre }}
+                    </h3>
+                  </div>
+                  <span class="font-mono text-[10px] text-zinc-400 uppercase tracking-wider block">
+                    CÓDIGO: {{ sec.codigo }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Estado Activo / Inactivo -->
+              <button
+                type="button"
+                @click="alternarEstadoSector(sec)"
+                :class="[
+                  'px-2 py-0.5 rounded text-[10px] font-medium border shrink-0 transition',
+                  sec.activo
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
+                    : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                ]"
+                :title="sec.activo ? 'Clic para desactivar sector' : 'Clic para activar sector'"
+              >
+                {{ sec.activo ? 'Activo' : 'Inactivo' }}
+              </button>
+            </div>
+
+            <!-- Descripción -->
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2">
+              {{ sec.descripcion || 'Sin descripción registrada para este sector económico.' }}
+            </p>
+
+            <!-- Vista Previa de la Insignia y Acciones -->
+            <div class="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+              <!-- Insignia como se verá en clientes -->
+              <SectorBadge :sector="sec.nombre" tamano="xs" />
+
+              <!-- Botones de Acción -->
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  @click="abrirEditarSector(sec)"
+                  class="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
+                  title="Editar sector e icono"
+                >
+                  <Edit2 class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  @click="eliminarSector(sec)"
+                  class="p-1.5 text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition"
+                  title="Eliminar sector"
+                >
+                  <Trash2 class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </FlickerlessSurface>
+
+    <!-- MODAL DE CREACIÓN / EDICIÓN DE SECTOR ECONÓMICO -->
+    <div v-if="modalSectorAbierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div @click="modalSectorAbierto = false" class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
+
+      <div class="relative bg-white dark:bg-[#0e0e12] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
+        <!-- Cabecera del Modal -->
+        <div class="px-5 py-4 border-b border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              <Layers class="w-4 h-4" />
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {{ sectorEditando ? 'Editar Sector Económico' : 'Nuevo Sector Económico' }}
+              </h3>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Define el nombre, icono representativo y paleta cromática oficial
+              </p>
+            </div>
+          </div>
+          <button
+            @click="modalSectorAbierto = false"
+            class="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+
+        <!-- Contenido con Scroll -->
+        <div class="p-5 overflow-y-auto space-y-4">
+          <!-- Nombre y Código -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">Nombre del Sector *</label>
+              <input
+                v-model="formSector.nombre"
+                type="text"
+                placeholder="Ej: Salud & Redes Médicas"
+                class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
+              />
+            </div>
+            <div>
+              <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">Código / Siglas *</label>
+              <input
+                v-model="formSector.codigo"
+                type="text"
+                maxlength="5"
+                placeholder="SAL"
+                class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono uppercase focus:outline-none focus:border-indigo-500 transition"
+              />
+            </div>
+          </div>
+
+          <!-- Selector Visual de Iconos Vectoriales -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-zinc-700 dark:text-zinc-300 font-medium">
+                Icono Oficial de Representación
+              </label>
+              <span class="text-[10px] text-zinc-400 font-mono">
+                Seleccionado: {{ formSector.icono }}
+              </span>
+            </div>
+
+            <div class="p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-2.5">
+              <!-- Filtro rápido de icono -->
+              <input
+                v-model="busquedaIcono"
+                type="text"
+                placeholder="Buscar icono por temática (médico, industria, finanzas...)"
+                class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md text-[11px] text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500"
+              />
+
+              <!-- Cuadrícula de iconos -->
+              <div class="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-40 overflow-y-auto p-1">
+                <button
+                  v-for="ico in iconosFiltrados"
+                  :key="ico.id"
+                  type="button"
+                  @click="formSector.icono = ico.id"
+                  :class="[
+                    'flex flex-col items-center justify-center p-2 rounded-lg border text-center transition group',
+                    formSector.icono === ico.id
+                      ? 'bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 ring-2 ring-indigo-500/20'
+                      : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  ]"
+                  :title="ico.label"
+                >
+                  <component :is="ico.componente" class="w-4 h-4 mb-1" />
+                  <span class="text-[9px] truncate w-full block font-mono">{{ ico.id }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selector de Paleta Cromática -->
+          <div>
+            <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1.5">
+              Paleta de Color y Distintivo
+            </label>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                v-for="pal in PALETA_COLORES_SECTOR"
+                :key="pal.id"
+                type="button"
+                @click="formSector.colorId = pal.id"
+                :class="[
+                  'flex items-center gap-2 p-2 rounded-lg border text-left transition',
+                  formSector.colorId === pal.id
+                    ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/5'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-zinc-400 dark:hover:border-zinc-600'
+                ]"
+              >
+                <span :class="['w-3 h-3 rounded-full shrink-0', pal.dotColor]"></span>
+                <span class="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 truncate">{{ pal.label }}</span>
+                <Check v-if="formSector.colorId === pal.id" class="w-3 h-3 text-indigo-500 ml-auto shrink-0" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Vista Previa en Vivo -->
+          <div class="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-1.5">
+            <span class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">
+              VISTA PREVIA EN VIVO
+            </span>
+            <div class="flex items-center gap-3">
+              <span
+                :class="[
+                  'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-medium',
+                  PALETA_COLORES_SECTOR.find((p) => p.id === formSector.colorId)?.color || 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'
+                ]"
+              >
+                <component :is="sectoresService.obtenerIconoComponente(formSector.icono)" class="w-3.5 h-3.5 shrink-0" />
+                <span>{{ formSector.nombre || 'Nombre del Sector' }}</span>
+              </span>
+              <span class="text-[10px] text-zinc-400">
+                Así se visualizará en la tabla de clientes, tableros y selectores.
+              </span>
+            </div>
+          </div>
+
+          <!-- Descripción -->
+          <div>
+            <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">Descripción / Alcance Comercial</label>
+            <textarea
+              v-model="formSector.descripcion"
+              rows="2"
+              placeholder="Detalla qué tipos de empresas o giros de negocio pertenecen a este sector..."
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition resize-none"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Pie del Modal -->
+        <div class="px-5 py-3 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-end gap-2.5">
+          <button
+            type="button"
+            @click="modalSectorAbierto = false"
+            class="px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium transition"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            @click="guardarSectorModal"
+            class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition flex items-center gap-1.5 shadow-sm shadow-indigo-500/20"
+          >
+            <Save class="w-3.5 h-3.5" />
+            <span>{{ sectorEditando ? 'Guardar Cambios' : 'Crear Sector' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

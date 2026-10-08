@@ -40,6 +40,7 @@ import NuevaTarjetaModal from '../components/NuevaTarjetaModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import SectorIcon from '@/shared/components/SectorIcon.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -914,7 +915,10 @@ watch(
               <!-- Responsable y Sector -->
               <div class="flex items-center justify-between text-[10px] text-zinc-500 mb-2">
                 <span class="truncate max-w-[110px]">{{ tarjeta.responsable }}</span>
-                <span class="truncate max-w-[90px]">{{ tarjeta.cliente_sector }}</span>
+                <span class="truncate max-w-[110px] inline-flex items-center gap-1">
+                  <SectorIcon :sector="tarjeta.cliente_sector" class="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+                  <span>{{ tarjeta.cliente_sector }}</span>
+                </span>
               </div>
 
               <!-- Monto y Fecha -->

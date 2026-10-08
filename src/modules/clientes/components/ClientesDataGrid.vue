@@ -28,6 +28,8 @@ import { exportarACSV } from '@/core/export/csv-export';
 import { clienteService } from '../services/cliente.service';
 import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import SectorBadge from '@/shared/components/SectorBadge.vue';
+import { sectoresService } from '../services/sectores.service';
 
 const props = defineProps<{
   clientes: Cliente[];
@@ -104,19 +106,9 @@ const opcionesEstados: Array<SelectOption<string>> = [
   { value: 'cerrado_perdido', label: 'Cerrado Perdido', dotColor: 'bg-rose-400' },
 ];
 
-const opcionesSectores: Array<SelectOption<string>> = [
-  { value: '', label: 'Todos los Sectores' },
-  { value: 'Tecnología', label: 'Tecnología' },
-  { value: 'Finanzas', label: 'Finanzas' },
-  { value: 'Logística', label: 'Logística' },
-  { value: 'Turismo', label: 'Turismo & Hotelería' },
-  { value: 'Salud', label: 'Salud' },
-  { value: 'Retail', label: 'Retail' },
-  { value: 'Manufactura', label: 'Manufactura' },
-  { value: 'Alimentos', label: 'Alimentos' },
-  { value: 'Comercio', label: 'Comercio Mayorista' },
-  { value: 'Educación', label: 'Educación' },
-];
+const opcionesSectores = computed<Array<SelectOption<string>>>(() => {
+  return sectoresService.obtenerOpcionesSelect(true, 'Todos los Sectores');
+});
 
 const opcionesTamanoPagina: Array<SelectOption<number>> = [
   { value: 10, label: '10' },
@@ -533,9 +525,9 @@ const exportarClientes = async () => {
                 </div>
               </td>
 
-              <!-- Sector -->
-              <td class="py-2.5 px-3.5 text-zinc-700 dark:text-zinc-300">
-                {{ cliente.sector }}
+              <!-- Sector con Icono Oficial -->
+              <td class="py-2.5 px-3.5 whitespace-nowrap">
+                <SectorBadge :sector="cliente.sector" />
               </td>
 
               <!-- Estado -->
