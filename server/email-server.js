@@ -4,10 +4,13 @@
  * 
  * Rutas:
  *   GET    /api/email/estado              → Health check
+ *   POST   /api/email/configuracion       → Guardar configuración persistente
+ *   GET    /api/email/configuracion       → Obtener configuración activa
  *   POST   /api/email/probar-conexion     → Test SMTP handshake
  *   POST   /api/email/probar-imap         → Test IMAP handshake
- *   GET    /api/email/carpetas            → Lista de carpetas con contadores
- *   GET    /api/email/mensajes            → Lista de correos paginados por carpeta
+ *   POST   /api/email/sincronizar         → Sincronizar correos reales vía IMAP
+ *   GET/POST /api/email/carpetas          → Lista de carpetas con contadores reales
+ *   GET/POST /api/email/mensajes          → Lista de correos paginados por carpeta
  *   GET    /api/email/mensajes/:id        → Detalle completo de un correo
  *   PATCH  /api/email/mensajes/:id        → Actualizar leido/destacado/mover carpeta
  *   POST   /api/email/responder           → Responder correo citando original y firma
@@ -20,6 +23,14 @@ import express from 'express';
 import cors from 'cors';
 import nodemailer from 'nodemailer';
 import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CONFIG_FILE = path.join(__dirname, 'email-config.json');
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -28,253 +39,396 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// ─── PERSISTENCIA DE CONFIGURACIÓN ──────────────────────────────────────────
+let configuracionActiva = null;
+
+function cargarConfiguracionServidor() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const data = fs.readFileSync(CONFIG_FILE, 'utf8');
+      configuracionActiva = JSON.parse(data);
+      console.log(`[CONFIG] Configuración cargada desde email-config.json para: ${configuracionActiva.usuarioSmtp || configuracionActiva.usuarioImap}`);
+    }
+  } catch (err) {
+    console.warn('[CONFIG] No se pudo leer email-config.json:', err.message);
+  }
+}
+cargarConfiguracionServidor();
+
+function guardarConfiguracionServidor(config) {
+  try {
+    configuracionActiva = { ...(configuracionActiva || {}), ...config };
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(configuracionActiva, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[CONFIG] Error al guardar email-config.json:', err.message);
+    return false;
+  }
+}
+
 // ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 app.get('/api/email/estado', (_req, res) => {
   res.json({
     ok: true,
     mensaje: 'Servidor de correo CRM activo (SMTP + IMAP)',
+    cuentaConfigurada: configuracionActiva?.usuarioImap || configuracionActiva?.usuarioSmtp || null,
+    totalCorreosEnMemoria: correosEnMemoria.length,
     timestamp: new Date().toISOString(),
   });
 });
 
-// ─── COMPROBACIÓN DE CONFIGURACIÓN DEMO / SANDBOX ────────────────────────────
+// ─── GUARDAR / OBTENER CONFIGURACIÓN ─────────────────────────────────────────
+app.post('/api/email/configuracion', (req, res) => {
+  const config = req.body;
+  if (!config) {
+    return res.status(400).json({ ok: false, error: 'Configuración vacía.' });
+  }
+  guardarConfiguracionServidor(config);
+  res.json({
+    ok: true,
+    mensaje: 'Configuración de correo guardada en el servidor exitosamente.',
+  });
+});
+
+app.get('/api/email/configuracion', (_req, res) => {
+  res.json({
+    ok: true,
+    configuracion: configuracionActiva
+      ? {
+          ...configuracionActiva,
+          contrasenaSmtp: configuracionActiva.contrasenaSmtp ? '••••••••••••' : '',
+          contrasenaImap: configuracionActiva.contrasenaImap ? '••••••••••••' : '',
+        }
+      : null,
+  });
+});
+
+// ─── COMPROBACIÓN DE CONFIGURACIÓN DEMO / VACÍA ──────────────────────────────
 function esConfiguracionDemo(config) {
   if (!config) return true;
   const s = (config.servidorSmtp || config.servidorImap || '').toLowerCase();
-  const c = config.contrasenaSmtp || config.contrasenaImap || '';
+  const c = (config.contrasenaSmtp || config.contrasenaImap || '').trim();
   return (
     s === 'simulacion' ||
     s.includes('empresa.com.do') ||
-    c === '••••••••••••' ||
-    c.trim() === ''
+    c === '' ||
+    c.includes('••') ||
+    c.includes('\u2022') ||
+    /^[\*\•\?\s]+$/.test(c)
   );
 }
 
-// ─── ALMACÉN EN MEMORIA DE CORREOS SANDBOX (12+ correos B2B realistas) ────────
-let correosSandbox = [
-  {
-    id: 'msg-001',
-    uid: 101,
-    carpeta: 'inbox',
-    de: { nombre: 'Cervecería Nacional Dominicana', correo: 'compras@cnd.com.do' },
-    para: [{ nombre: 'Departamento Comercial', correo: 'ventas@empresa.com.do' }],
-    cc: [{ nombre: 'Gerencia Financiera', correo: 'finanzas@cnd.com.do' }],
-    asunto: 'Revisión y Adenda al Contrato Marco de Suministros 2026-2027',
-    extracto: 'Estimados, hemos revisado los términos de la propuesta comercial que nos enviaron. Solicitamos una reunión este jueves...',
-    cuerpoTexto: `Estimado equipo comercial,
+function resolverConfigImap(req) {
+  const reqConfig = req.body?.imapConfig || req.body?.smtpConfig || req.body?.config;
+  if (reqConfig && reqConfig.servidorImap && reqConfig.usuarioImap) {
+    return reqConfig;
+  }
+  if (configuracionActiva && configuracionActiva.servidorImap && configuracionActiva.usuarioImap) {
+    return configuracionActiva;
+  }
+  if (process.env.IMAP_HOST && process.env.IMAP_USER) {
+    return {
+      servidorImap: process.env.IMAP_HOST,
+      puertoImap: parseInt(process.env.IMAP_PORT || '993'),
+      seguridadImap: process.env.IMAP_SECURE || 'ssl',
+      usuarioImap: process.env.IMAP_USER,
+      contrasenaImap: process.env.IMAP_PASS || '',
+    };
+  }
+  return null;
+}
 
-Hemos revisado detenidamente la propuesta remitida para la ampliación del contrato corporativo de suministros y licencias para el período 2026-2027.
+function resolverConfigSmtp(req) {
+  const reqConfig = req.body?.smtpConfig || req.body?.config;
+  if (reqConfig && reqConfig.servidorSmtp && reqConfig.usuarioSmtp) {
+    return reqConfig;
+  }
+  if (configuracionActiva && configuracionActiva.servidorSmtp && configuracionActiva.usuarioSmtp) {
+    return configuracionActiva;
+  }
+  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    return {
+      servidorSmtp: process.env.SMTP_HOST,
+      puertoSmtp: parseInt(process.env.SMTP_PORT || '587'),
+      seguridadSmtp: process.env.SMTP_SECURE || 'tls',
+      usuarioSmtp: process.env.SMTP_USER,
+      contrasenaSmtp: process.env.SMTP_PASS || '',
+      correoRemitente: process.env.SMTP_USER,
+    };
+  }
+  return null;
+}
 
-Adjunto encontrarán nuestras observaciones técnicas y las cláusulas que nos gustaría discutir en una sesión de alineación. ¿Tendrán disponibilidad este jueves a las 10:30 a. m. en nuestras oficinas corporativas o vía Teams?
+// ─── ALMACÉN EN MEMORIA DE CORREOS REALES (Sin correos hardcodeados) ─────────
+let correosEnMemoria = [];
 
-Quedamos atentos a su confirmación.
+// ─── BÚSQUEDA DE MAILBOX SEGÚN CARPETA ───────────────────────────────────────
+function mapearMailbox(list, carpetaId) {
+  if (carpetaId === 'inbox') {
+    const b = list.find((m) => m.path.toUpperCase() === 'INBOX' || m.name.toUpperCase() === 'INBOX');
+    return b ? b.path : 'INBOX';
+  }
+  if (carpetaId === 'enviados') {
+    const b = list.find(
+      (m) =>
+        m.specialUse === '\\Sent' ||
+        /sent|enviad/i.test(m.path) ||
+        /sent|enviad/i.test(m.name)
+    );
+    return b ? b.path : null;
+  }
+  if (carpetaId === 'borradores') {
+    const b = list.find(
+      (m) =>
+        m.specialUse === '\\Drafts' ||
+        /draft|borrador/i.test(m.path) ||
+        /draft|borrador/i.test(m.name)
+    );
+    return b ? b.path : null;
+  }
+  if (carpetaId === 'archivados') {
+    const b = list.find(
+      (m) =>
+        m.specialUse === '\\Archive' ||
+        /archiv/i.test(m.path) ||
+        /archiv/i.test(m.name)
+    );
+    return b ? b.path : null;
+  }
+  if (carpetaId === 'papelera') {
+    const b = list.find(
+      (m) =>
+        m.specialUse === '\\Trash' ||
+        /trash|papeler|eliminad|junk/i.test(m.path) ||
+        /trash|papeler|eliminad|junk/i.test(m.name)
+    );
+    return b ? b.path : null;
+  }
+  return 'INBOX';
+}
 
-Saludos cordiales,
-Ing. Marcos Tavárez
-Gerente de Compras & Abastecimiento Estratégico
-Cervecería Nacional Dominicana S.A.
-Tel: +1 (809) 535-5555 Ext. 2400`,
-    cuerpoHtml: `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">
-<p>Estimado equipo comercial,</p>
-<p>Hemos revisado detenidamente la propuesta remitida para la ampliación del contrato corporativo de suministros y licencias para el período 2026-2027.</p>
-<p>Adjunto encontrarán nuestras observaciones técnicas y las cláusulas que nos gustaría discutir en una sesión de alineación. ¿Tendrán disponibilidad este jueves a las 10:30 a. m. en nuestras oficinas corporativas o vía Teams?</p>
-<p>Quedamos atentos a su confirmación.</p>
-<br>
-<div style="border-top: 1px solid #e4e4e7; padding-top: 10px; color: #52525b; font-size: 12px;">
-<strong>Ing. Marcos Tavárez</strong><br>
-Gerente de Compras & Abastecimiento Estratégico<br>
-Cervecería Nacional Dominicana S.A.<br>
-Tel: +1 (809) 535-5555 Ext. 2400
-</div></div>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    leido: false,
-    destacado: true,
-    tieneAdjuntos: true,
-    adjuntos: [
-      { id: 'att-1', nombre: 'Observaciones_Contrato_Marco_CND.pdf', tamanoBytes: 145000, tipoContenido: 'application/pdf' },
-    ],
-    clienteNombreRelacionado: 'Cervecería Nacional Dominicana',
-  },
-  {
-    id: 'msg-002',
-    uid: 102,
-    carpeta: 'inbox',
-    de: { nombre: 'Banco BHD León', correo: 'licitaciones@bhd.com.do' },
-    para: [{ nombre: 'Departamento Comercial', correo: 'ventas@empresa.com.do' }],
-    asunto: 'Convocatoria a Licitación Privada No. BHD-IT-2026-042',
-    extracto: 'Nos complace invitar a su empresa a participar en el proceso de licitación para la modernización de infraestructura y software...',
-    cuerpoTexto: `A la atención de la Dirección Comercial:
+// ─── LÓGICA DE SINCRONIZACIÓN IMAP REAL ──────────────────────────────────────
+async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) {
+  if (!config || esConfiguracionDemo(config)) {
+    return {
+      exito: false,
+      mensaje: 'La cuenta no tiene credenciales IMAP válidas o está en modo simulación.',
+      sincronizados: 0,
+      modo: 'demo',
+    };
+  }
 
-Por medio de la presente, el Comité de Compras y Tecnología de Banco BHD extiende formal invitación a presentar propuesta técnico-económica para el pliego de condiciones No. BHD-IT-2026-042.
+  const client = new ImapFlow({
+    host: config.servidorImap,
+    port: parseInt(config.puertoImap || '993'),
+    secure: config.seguridadImap === 'ssl' || parseInt(config.puertoImap) === 993,
+    auth: {
+      user: config.usuarioImap,
+      pass: config.contrasenaImap,
+    },
+    logger: false,
+    tls: { rejectUnauthorized: false },
+  });
 
-La fecha límite de recepción de credenciales y ofertas preliminares está pautada para el próximo 25 de octubre a las 4:00 p. m.
+  const mensajesSincronizados = [];
 
-Agradecemos acusar recibo de este mensaje y solicitar el paquete de pliegos complementarios a través de nuestro portal de proveedores.
+  try {
+    await client.connect();
 
-Atentamente,
-Lic. Patricia Guzmán
-Oficial de Compras de Tecnología
-Banco BHD S.A.`,
-    cuerpoHtml: `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">
-<p>A la atención de la Dirección Comercial:</p>
-<p>Por medio de la presente, el Comité de Compras y Tecnología de Banco BHD extiende formal invitación a participar en la licitación para el pliego No. <strong>BHD-IT-2026-042</strong>.</p>
-<p>La fecha límite de recepción de credenciales y ofertas es el próximo 25 de octubre a las 4:00 p. m.</p>
-<br>
-<div style="border-top: 1px solid #e4e4e7; padding-top: 10px; color: #52525b; font-size: 12px;">
-<strong>Lic. Patricia Guzmán</strong><br>
-Oficial de Compras de Tecnología — Banco BHD
-</div></div>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    leido: false,
-    destacado: true,
-    tieneAdjuntos: true,
-    adjuntos: [
-      { id: 'att-2', nombre: 'Pliego_Condiciones_BHD-IT-2026-042.pdf', tamanoBytes: 320000, tipoContenido: 'application/pdf' },
-    ],
-    clienteNombreRelacionado: 'Banco BHD',
-  },
-  {
-    id: 'msg-003',
-    uid: 103,
-    carpeta: 'inbox',
-    de: { nombre: 'Grupo Ramos S.A.', correo: 'ordenes@gruporamos.com' },
-    para: [{ nombre: 'Departamento Comercial', correo: 'ventas@empresa.com.do' }],
-    asunto: 'Orden de Compra Aprobada No. OC-GR-88912 — Despacho Q4',
-    extracto: 'Confirmamos la emisión de la orden de compra No. OC-GR-88912 correspondiente a los servicios acordados para el último trimestre...',
-    cuerpoTexto: `Estimados señores,
+    const mailboxes = await client.list();
+    const mailboxTarget = mapearMailbox(mailboxes, carpetaId);
 
-Adjuntamos para su constancia y despacho la Orden de Compra aprobada por Contraloría:
-- Número OC: OC-GR-88912
-- Monto autorizado: DOP $2,450,000.00 + ITBIS
-- Término de crédito: 30 días contados contra factura con NCF de crédito fiscal.
+    if (!mailboxTarget) {
+      await client.logout();
+      return {
+        exito: true,
+        mensaje: `No se encontró carpeta remota para "${carpetaId}" en el servidor.`,
+        sincronizados: 0,
+      };
+    }
 
-Favor confirmar cronograma estimado de entrega e inicio de ejecución.
+    const lock = await client.getMailboxLock(mailboxTarget);
+    try {
+      const totalExistentes = client.mailbox.exists || 0;
+      if (totalExistentes > 0) {
+        const startSeq = Math.max(1, totalExistentes - limite + 1);
+        const range = `${startSeq}:${totalExistentes}`;
 
-Saludos,
-Depto. de Cuentas por Pagar & Órdenes
-Grupo Ramos S.A.`,
-    cuerpoHtml: `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">
-<p>Estimados señores,</p>
-<p>Adjuntamos para su constancia y despacho la Orden de Compra aprobada por Contraloría:</p>
-<ul>
-  <li><strong>Número OC:</strong> OC-GR-88912</li>
-  <li><strong>Monto autorizado:</strong> DOP $2,450,000.00 + ITBIS</li>
-  <li><strong>Condiciones:</strong> 30 días con NCF gubernamental/crédito fiscal</li>
-</ul>
-<p>Favor confirmar cronograma de entrega.</p>
-</div>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    leido: true,
-    destacado: false,
-    tieneAdjuntos: true,
-    adjuntos: [
-      { id: 'att-3', nombre: 'OC-GR-88912_Aprobada.pdf', tamanoBytes: 95000, tipoContenido: 'application/pdf' },
-    ],
-    clienteNombreRelacionado: 'Grupo Ramos',
-  },
-  {
-    id: 'msg-004',
-    uid: 104,
-    carpeta: 'inbox',
-    de: { nombre: 'Mercasid C. por A.', correo: 'contacto@mercasid.com.do' },
-    para: [{ nombre: 'Departamento Comercial', correo: 'ventas@empresa.com.do' }],
-    asunto: 'Solicitud de Demostración y Cotización de Módulo de Trazabilidad',
-    extracto: 'Buenas tardes. Nuestro equipo de logística y operaciones está evaluando soluciones para mejorar la trazabilidad de despachos...',
-    cuerpoTexto: `Buenas tardes,
+        for await (let msg of client.fetch(range, {
+          uid: true,
+          flags: true,
+          envelope: true,
+          source: true,
+        })) {
+          let parsed = null;
+          if (msg.source) {
+            try {
+              parsed = await simpleParser(msg.source);
+            } catch (pErr) {
+              console.warn('[MAILPARSER WARN]', pErr.message);
+            }
+          }
 
-Nuestro equipo de operaciones y centros de distribución desea coordinar una presentación técnica sobre las soluciones corporativas de su plataforma.
+          const deNombre = parsed?.from?.value?.[0]?.name || msg.envelope?.from?.[0]?.name || '';
+          const deCorreo = parsed?.from?.value?.[0]?.address || msg.envelope?.from?.[0]?.address || config.usuarioImap;
 
-Nos gustaría incluir a nuestros directores de logística en la sesión. ¿Tienen disponibilidad el próximo martes a las 2:30 p. m.?
+          const paraList = (parsed?.to?.value || msg.envelope?.to || []).map((p) => ({
+            nombre: p.name || p.address || '',
+            correo: p.address || '',
+          }));
 
-Agradecemos también remitir un tarifario referencial o brochure de servicios.
+          const ccList = (parsed?.cc?.value || msg.envelope?.cc || []).map((p) => ({
+            nombre: p.name || p.address || '',
+            correo: p.address || '',
+          }));
 
-Cordialmente,
-Lic. Ramón Valerio
-Director de Transformación Operativa
-Mercasid C. por A.`,
-    cuerpoHtml: `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">
-<p>Buenas tardes,</p>
-<p>Nuestro equipo de operaciones y centros de distribución desea coordinar una presentación técnica sobre las soluciones corporativas de su plataforma.</p>
-<p>¿Tienen disponibilidad el próximo martes a las 2:30 p. m.?</p>
-<br>
-<div style="color: #52525b; font-size: 12px;">
-<strong>Lic. Ramón Valerio</strong><br>
-Director de Transformación Operativa — Mercasid C. por A.
-</div></div>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
-    leido: true,
-    destacado: false,
-    tieneAdjuntos: false,
-    clienteNombreRelacionado: 'Mercasid',
-  },
-  {
-    id: 'msg-005',
-    uid: 105,
-    carpeta: 'inbox',
-    de: { nombre: 'Claro Dominicana', correo: 'cuentas.corporativas@claro.com.do' },
-    para: [{ nombre: 'Departamento Comercial', correo: 'ventas@empresa.com.do' }],
-    asunto: 'Actualización en Enlace Troncal y Facturación Mensual',
-    extracto: 'Estimado cliente corporativo, le notificamos que el reporte de tráfico y consumo correspondiente al ciclo vigente se encuentra disponible...',
-    cuerpoTexto: `Estimado cliente,
+          const asunto = parsed?.subject || msg.envelope?.subject || '(Sin asunto)';
+          const fecha = parsed?.date
+            ? parsed.date.toISOString()
+            : msg.envelope?.date
+            ? new Date(msg.envelope.date).toISOString()
+            : new Date().toISOString();
 
-Le informamos que la factura electrónica con NCF fiscal de su cuenta corporativa Claro se encuentra disponible para descarga.
+          const cuerpoTexto = parsed?.text || '';
+          const cuerpoHtml =
+            parsed?.html ||
+            (cuerpoTexto ? `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">${cuerpoTexto.replace(/\n/g, '<br>')}</div>` : '');
+          const extracto = (cuerpoTexto || '').replace(/\s+/g, ' ').trim().slice(0, 160) || asunto;
 
-Cualquier duda o ajuste favor comunicarse directamente con su oficial de cuenta asignado.
+          const leido = msg.flags ? msg.flags.has('\\Seen') : false;
+          const destacado = msg.flags ? msg.flags.has('\\Flagged') : false;
 
-Atentamente,
-Servicio al Cliente Corporativo Claro Dominicana`,
-    cuerpoHtml: `<p>Estimado cliente corporativo,</p><p>Le notificamos que el reporte mensual y NCF de su cuenta corporativa Claro se encuentra disponible para consulta y pago.</p>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
-    leido: true,
-    destacado: false,
-    tieneAdjuntos: false,
-    clienteNombreRelacionado: 'Claro Dominicana',
-  },
-  {
-    id: 'msg-006',
-    uid: 106,
-    carpeta: 'enviados',
-    de: { nombre: 'Camila Morales — Directora Comercial', correo: 'camila@crm.do' },
-    para: [{ nombre: 'Cervecería Nacional Dominicana', correo: 'compras@cnd.com.do' }],
-    asunto: 'Propuesta Comercial y Cotización Formal CRM B2B — CND',
-    extracto: 'Estimado Ing. Tavárez: Adjunto formalmente la propuesta económica revisada con los descuentos por volumen para el despliegue anual...',
-    cuerpoTexto: `Estimado Ing. Tavárez,
+          const adjuntos = (parsed?.attachments || []).map((att, idx) => ({
+            id: `att-${msg.uid}-${idx}`,
+            nombre: att.filename || `adjunto-${idx + 1}`,
+            tamanoBytes: att.size || att.content?.length || 0,
+            tipoContenido: att.contentType || 'application/octet-stream',
+            base64:
+              att.content && att.content.length < 2500000
+                ? `data:${att.contentType};base64,${att.content.toString('base64')}`
+                : undefined,
+          }));
 
-Es un placer saludarle. Tal como conversamos en la sesión preliminar, adjunto la propuesta económica formal No. COT-2026-091 debidamente ajustada con los términos de licenciamiento anual y soporte 24/7.
+          const mensajeMapeado = {
+            id: `msg-imap-${msg.uid}`,
+            uid: msg.uid,
+            carpeta: carpetaId,
+            de: { nombre: deNombre || deCorreo, correo: deCorreo },
+            para: paraList.length > 0 ? paraList : [{ nombre: config.usuarioImap, correo: config.usuarioImap }],
+            cc: ccList.length > 0 ? ccList : undefined,
+            asunto,
+            extracto,
+            cuerpoTexto,
+            cuerpoHtml,
+            fecha,
+            leido,
+            destacado,
+            tieneAdjuntos: adjuntos.length > 0,
+            adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
+          };
 
-Quedamos a su disposición para coordinar los detalles con el equipo legal y financiero.
+          mensajesSincronizados.push(mensajeMapeado);
+        }
+      }
+    } finally {
+      lock.release();
+    }
 
-Atentamente,
-Camila Morales
-Directora Comercial & CRM Admin
-DEVFORGE Dominicana SRL`,
-    cuerpoHtml: `<p>Estimado Ing. Tavárez,</p><p>Adjunto la propuesta económica formal No. COT-2026-091 ajustada con los términos acordados.</p>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    leido: true,
-    destacado: true,
-    tieneAdjuntos: true,
-    adjuntos: [
-      { id: 'att-sent-1', nombre: 'Propuesta_Formal_COT-2026-091.pdf', tamanoBytes: 215000, tipoContenido: 'application/pdf' },
-    ],
-  },
-  {
-    id: 'msg-007',
-    uid: 107,
-    carpeta: 'borradores',
-    de: { nombre: 'Camila Morales', correo: 'camila@crm.do' },
-    para: [{ nombre: 'Induveca S.A.', correo: 'adquisiciones@induveca.com.do' }],
-    asunto: 'Borrador: Solicitud de Reunión de Seguimiento de Proyecto Piloto',
-    extracto: 'Estimado equipo de Induveca: Escribo para dar seguimiento a los resultados obtenidos durante las dos semanas de prueba del piloto...',
-    cuerpoTexto: `Estimado equipo de Induveca:
+    await client.logout();
 
-Escribo para consultar los avances y comentarios del comité respecto a la prueba de concepto completada la semana anterior...`,
-    cuerpoHtml: `<p>Estimado equipo de Induveca: Escribo para consultar los avances de la prueba de concepto...</p>`,
-    fecha: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-    leido: true,
-    destacado: false,
-    tieneAdjuntos: false,
-  },
-];
+    // Actualizar almacén en memoria
+    for (const msg of mensajesSincronizados) {
+      const idx = correosEnMemoria.findIndex((c) => c.id === msg.id || c.uid === msg.uid);
+      if (idx >= 0) {
+        correosEnMemoria[idx] = { ...correosEnMemoria[idx], ...msg };
+      } else {
+        correosEnMemoria.unshift(msg);
+      }
+    }
+
+    correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    console.log(`[IMAP SYNC OK] ${mensajesSincronizados.length} correos sincronizados desde ${config.usuarioImap} (Carpeta: ${carpetaId})`);
+
+    return {
+      exito: true,
+      mensaje: `Sincronización completada exitosamente: ${mensajesSincronizados.length} correos obtenidos de ${config.usuarioImap}.`,
+      sincronizados: mensajesSincronizados.length,
+      carpeta: carpetaId,
+      modo: 'real',
+    };
+  } catch (err) {
+    try { await client.logout(); } catch {}
+    console.error('[IMAP SYNC ERROR]', err.message);
+    return {
+      exito: false,
+      mensaje: `Error al sincronizar vía IMAP: ${err.message}`,
+      error: err.message,
+      sincronizados: 0,
+      modo: 'error',
+    };
+  }
+}
+
+// ─── ENDPOINT SINCRONIZAR ────────────────────────────────────────────────────
+app.post('/api/email/sincronizar', async (req, res) => {
+  const config = resolverConfigImap(req);
+  const carpeta = (req.body?.carpeta || 'inbox').toLowerCase();
+  const limite = parseInt(req.body?.limite || '40');
+
+  if (!config) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'Faltan parámetros de configuración IMAP (servidorImap, usuarioImap, contrasenaImap).',
+      sincronizados: 0,
+    });
+  }
+
+  if (!esConfiguracionDemo(config)) {
+    guardarConfiguracionServidor(config);
+  }
+
+  const resultado = await sincronizarCorreosImap(config, carpeta, limite);
+
+  const carpetas = [
+    {
+      id: 'inbox',
+      nombre: 'Bandeja de entrada',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'inbox').length,
+      noLeidos: correosEnMemoria.filter((c) => c.carpeta === 'inbox' && !c.leido).length,
+    },
+    {
+      id: 'enviados',
+      nombre: 'Enviados',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'enviados').length,
+      noLeidos: 0,
+    },
+    {
+      id: 'borradores',
+      nombre: 'Borradores',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'borradores').length,
+      noLeidos: 0,
+    },
+    {
+      id: 'archivados',
+      nombre: 'Archivados',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'archivados').length,
+      noLeidos: 0,
+    },
+    {
+      id: 'papelera',
+      nombre: 'Papelera',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'papelera').length,
+      noLeidos: 0,
+    },
+  ];
+
+  res.json({
+    ...resultado,
+    carpetas,
+    totalEnMemoria: correosEnMemoria.length,
+  });
+});
 
 // ─── PROBAR CONEXIÓN SMTP ────────────────────────────────────────────────────
 app.post('/api/email/probar-conexion', async (req, res) => {
@@ -290,13 +444,12 @@ app.post('/api/email/probar-conexion', async (req, res) => {
   if (esConfiguracionDemo({ servidorSmtp, contrasenaSmtp })) {
     return res.json({
       exito: true,
-      mensaje: `Conexión SMTP simulada exitosa en puerto ${PORT}. Servidor listo en modo sandbox para pruebas y despachos locales.`,
+      mensaje: `Conexión SMTP simulada exitosa en puerto ${PORT}. Servidor listo en modo simulación.`,
       latenciaMs: 15,
       detalles: {
         smtpConectado: true,
         autenticacionAceptada: true,
         tlsHabilitado: seguridadSmtp !== 'ninguna',
-        imapConectado: true,
         modoSandbox: true,
       },
     });
@@ -319,6 +472,8 @@ app.post('/api/email/probar-conexion', async (req, res) => {
     await transporter.verify();
     const latencia = Date.now() - inicio;
 
+    guardarConfiguracionServidor({ servidorSmtp, puertoSmtp, seguridadSmtp, usuarioSmtp, contrasenaSmtp });
+
     return res.json({
       exito: true,
       mensaje: `Conexión SMTP exitosa con ${servidorSmtp}:${puertoSmtp} en ${latencia}ms. Autenticación aceptada para ${usuarioSmtp}.`,
@@ -327,7 +482,6 @@ app.post('/api/email/probar-conexion', async (req, res) => {
         smtpConectado: true,
         autenticacionAceptada: true,
         tlsHabilitado: seguridadSmtp !== 'ninguna',
-        imapConectado: true,
         modoSandbox: false,
       },
     });
@@ -343,7 +497,7 @@ app.post('/api/email/probar-conexion', async (req, res) => {
   }
 });
 
-// ─── PROBAR CONEXIÓN IMAP REAL (o sandbox) ───────────────────────────────────
+// ─── PROBAR CONEXIÓN IMAP ────────────────────────────────────────────────────
 app.post('/api/email/probar-imap', async (req, res) => {
   const { servidorImap, puertoImap, seguridadImap, usuarioImap, contrasenaImap } = req.body;
 
@@ -357,7 +511,7 @@ app.post('/api/email/probar-imap', async (req, res) => {
   if (esConfiguracionDemo({ servidorImap, contrasenaImap })) {
     return res.json({
       exito: true,
-      mensaje: `Conexión IMAP simulada exitosa. Bandeja de entrada activa en modo sandbox con sincronización local de correos.`,
+      mensaje: `Conexión IMAP simulada exitosa. Bandeja activa en modo simulación.`,
       latenciaMs: 18,
       detalles: {
         imapConectado: true,
@@ -383,9 +537,11 @@ app.post('/api/email/probar-imap', async (req, res) => {
     await client.logout();
     const latencia = Date.now() - inicio;
 
+    guardarConfiguracionServidor({ servidorImap, puertoImap, seguridadImap, usuarioImap, contrasenaImap });
+
     return res.json({
       exito: true,
-      mensaje: `Conexión IMAP exitosa con ${servidorImap}:${puertoImap} en ${latencia}ms. ${mailboxes.length} carpetas detectadas.`,
+      mensaje: `Conexión IMAP exitosa con ${servidorImap}:${puertoImap} en ${latencia}ms. ${mailboxes.length} carpetas detectadas en la cuenta ${usuarioImap}.`,
       latenciaMs: latencia,
       detalles: {
         imapConectado: true,
@@ -408,36 +564,36 @@ app.post('/api/email/probar-imap', async (req, res) => {
 });
 
 // ─── CARPETAS Y CONTADORES ───────────────────────────────────────────────────
-app.get('/api/email/carpetas', (_req, res) => {
+app.all(['/api/email/carpetas'], async (req, res) => {
   const carpetas = [
     {
       id: 'inbox',
       nombre: 'Bandeja de entrada',
-      total: correosSandbox.filter((c) => c.carpeta === 'inbox').length,
-      noLeidos: correosSandbox.filter((c) => c.carpeta === 'inbox' && !c.leido).length,
+      total: correosEnMemoria.filter((c) => c.carpeta === 'inbox').length,
+      noLeidos: correosEnMemoria.filter((c) => c.carpeta === 'inbox' && !c.leido).length,
     },
     {
       id: 'enviados',
       nombre: 'Enviados',
-      total: correosSandbox.filter((c) => c.carpeta === 'enviados').length,
+      total: correosEnMemoria.filter((c) => c.carpeta === 'enviados').length,
       noLeidos: 0,
     },
     {
       id: 'borradores',
       nombre: 'Borradores',
-      total: correosSandbox.filter((c) => c.carpeta === 'borradores').length,
+      total: correosEnMemoria.filter((c) => c.carpeta === 'borradores').length,
       noLeidos: 0,
     },
     {
       id: 'archivados',
       nombre: 'Archivados',
-      total: correosSandbox.filter((c) => c.carpeta === 'archivados').length,
+      total: correosEnMemoria.filter((c) => c.carpeta === 'archivados').length,
       noLeidos: 0,
     },
     {
       id: 'papelera',
       nombre: 'Papelera',
-      total: correosSandbox.filter((c) => c.carpeta === 'papelera').length,
+      total: correosEnMemoria.filter((c) => c.carpeta === 'papelera').length,
       noLeidos: 0,
     },
   ];
@@ -446,36 +602,48 @@ app.get('/api/email/carpetas', (_req, res) => {
     ok: true,
     carpetas,
     totalNoLeidos: carpetas.find((c) => c.id === 'inbox')?.noLeidos || 0,
+    totalCorreos: correosEnMemoria.length,
+    cuentaConfigurada: configuracionActiva?.usuarioImap || configuracionActiva?.usuarioSmtp || null,
   });
 });
 
 // ─── LISTAR MENSAJES PAGINADOS (Bandeja / Carpetas) ──────────────────────────
-app.get('/api/email/mensajes', async (req, res) => {
-  const carpeta = (req.query.carpeta || 'inbox').toLowerCase();
-  const pagina = parseInt(req.query.pagina || '1');
-  const limite = parseInt(req.query.limite || '20');
-  const busqueda = (req.query.busqueda || '').toLowerCase().trim();
+app.all(['/api/email/mensajes'], async (req, res) => {
+  const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
+  const carpeta = (params.carpeta || 'inbox').toLowerCase();
+  const pagina = parseInt(params.pagina || '1');
+  const limite = parseInt(params.limite || '20');
+  const busqueda = (params.busqueda || '').toLowerCase().trim();
 
-  // Filtrado de correos sandbox
-  let filtrados = correosSandbox.filter((c) => c.carpeta === carpeta);
+  // Si se solicita sincronización explícita o la memoria está vacía y hay credenciales válidas
+  const config = resolverConfigImap(req);
+  if (params.sincronizar === 'true' && config && !esConfiguracionDemo(config)) {
+    try {
+      await sincronizarCorreosImap(config, carpeta, Math.max(limite * 2, 40));
+    } catch (e) {
+      console.warn('[AUTO SYNC WARN]', e.message);
+    }
+  }
+
+  let filtrados = correosEnMemoria.filter((c) => c.carpeta === carpeta);
 
   if (busqueda) {
-    filtrados = filtrados.filter((c) =>
-      c.asunto.toLowerCase().includes(busqueda) ||
-      c.de.nombre.toLowerCase().includes(busqueda) ||
-      c.de.correo.toLowerCase().includes(busqueda) ||
-      c.extracto.toLowerCase().includes(busqueda)
+    filtrados = filtrados.filter(
+      (c) =>
+        c.asunto.toLowerCase().includes(busqueda) ||
+        (c.de?.nombre || '').toLowerCase().includes(busqueda) ||
+        (c.de?.correo || '').toLowerCase().includes(busqueda) ||
+        (c.extracto || '').toLowerCase().includes(busqueda)
     );
   }
 
-  // Ordenar por fecha descendente (más recientes primero)
   filtrados.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
   const total = filtrados.length;
   const totalPaginas = Math.ceil(total / limite) || 1;
   const inicio = (pagina - 1) * limite;
   const paginados = filtrados.slice(inicio, inicio + limite);
-  const noLeidos = correosSandbox.filter((c) => c.carpeta === carpeta && !c.leido).length;
+  const noLeidos = correosEnMemoria.filter((c) => c.carpeta === carpeta && !c.leido).length;
 
   res.json({
     ok: true,
@@ -491,13 +659,12 @@ app.get('/api/email/mensajes', async (req, res) => {
 // ─── OBTENER DETALLE DE MENSAJE ──────────────────────────────────────────────
 app.get('/api/email/mensajes/:id', (req, res) => {
   const { id } = req.params;
-  const mensaje = correosSandbox.find((c) => c.id === id || String(c.uid) === id);
+  const mensaje = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
 
   if (!mensaje) {
     return res.status(404).json({ ok: false, error: 'Mensaje de correo no encontrado.' });
   }
 
-  // Marcar automáticamente como leído al abrir
   mensaje.leido = true;
 
   res.json({
@@ -507,10 +674,10 @@ app.get('/api/email/mensajes/:id', (req, res) => {
 });
 
 // ─── ACTUALIZAR ESTADO DE MENSAJE (Leído, Destacado, Mover carpeta) ──────────
-app.patch('/api/email/mensajes/:id', (req, res) => {
+app.patch('/api/email/mensajes/:id', async (req, res) => {
   const { id } = req.params;
   const { leido, destacado, carpeta } = req.body;
-  const mensaje = correosSandbox.find((c) => c.id === id || String(c.uid) === id);
+  const mensaje = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
 
   if (!mensaje) {
     return res.status(404).json({ ok: false, error: 'Mensaje no encontrado.' });
@@ -520,6 +687,37 @@ app.patch('/api/email/mensajes/:id', (req, res) => {
   if (typeof destacado === 'boolean') mensaje.destacado = destacado;
   if (carpeta && ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'].includes(carpeta.toLowerCase())) {
     mensaje.carpeta = carpeta.toLowerCase();
+  }
+
+  // Si tiene UID y configuración IMAP real, sincronizar flag al servidor remoto
+  if (mensaje.uid && configuracionActiva && !esConfiguracionDemo(configuracionActiva)) {
+    try {
+      const client = new ImapFlow({
+        host: configuracionActiva.servidorImap,
+        port: parseInt(configuracionActiva.puertoImap || '993'),
+        secure: configuracionActiva.seguridadImap === 'ssl' || parseInt(configuracionActiva.puertoImap) === 993,
+        auth: { user: configuracionActiva.usuarioImap, pass: configuracionActiva.contrasenaImap },
+        logger: false,
+        tls: { rejectUnauthorized: false },
+      });
+      await client.connect();
+      const lock = await client.getMailboxLock('INBOX');
+      try {
+        if (typeof leido === 'boolean') {
+          if (leido) await client.messageFlagsAdd(mensaje.uid, ['\\Seen'], { uid: true });
+          else await client.messageFlagsRemove(mensaje.uid, ['\\Seen'], { uid: true });
+        }
+        if (typeof destacado === 'boolean') {
+          if (destacado) await client.messageFlagsAdd(mensaje.uid, ['\\Flagged'], { uid: true });
+          else await client.messageFlagsRemove(mensaje.uid, ['\\Flagged'], { uid: true });
+        }
+      } finally {
+        lock.release();
+      }
+      await client.logout();
+    } catch (flagErr) {
+      console.warn('[IMAP FLAG SYNC WARN]', flagErr.message);
+    }
   }
 
   res.json({
@@ -553,19 +751,16 @@ app.post('/api/email/responder', async (req, res) => {
     });
   }
 
-  // Componer el cuerpo HTML final con jerarquía limpia
+  const configSmtpUsar = smtpConfig || resolverConfigSmtp(req);
+
   let htmlFinal = `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">`;
-  
-  // 1. Contenido redactado por el usuario
   const parrafos = cuerpo.split('\n').map((l) => (l.trim() ? `<p>${l}</p>` : '<br>')).join('\n');
   htmlFinal += `${parrafos}`;
 
-  // 2. Firma del usuario (si está habilitada)
   if (incluirFirma && firmaHtml) {
     htmlFinal += `<div style="margin-top: 24px; padding-top: 14px; border-top: 1px solid #e4e4e7;">${firmaHtml}</div>`;
   }
 
-  // 3. Cita del mensaje original (si está habilitada)
   if (citarOriginal && mensajeOriginal) {
     const fechaTexto = mensajeOriginal.fecha ? new Date(mensajeOriginal.fecha).toLocaleString('es-DO') : 'anteriormente';
     const remitenteTexto = mensajeOriginal.de?.nombre || mensajeOriginal.de?.correo || 'el remitente';
@@ -575,7 +770,6 @@ app.post('/api/email/responder', async (req, res) => {
     </div>`;
   }
 
-  // 4. Pie de página institucional / Disclaimer legal (si está habilitado)
   if (incluirPie && pieHtml) {
     htmlFinal += `<div style="margin-top: 30px; padding-top: 12px; border-top: 1px dashed #d4d4d8; font-size: 11px; color: #71717a;">${pieHtml}</div>`;
   }
@@ -583,13 +777,12 @@ app.post('/api/email/responder', async (req, res) => {
   htmlFinal += `</div>`;
 
   const nuevoId = `msg-reply-${Date.now()}`;
-  const remitenteCorreo = smtpConfig?.correoRemitente || 'ventas@empresa.com.do';
-  const remitenteNombre = smtpConfig?.nombreRemitente || 'Departamento Comercial CRM';
+  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || 'ventas@empresa.com.do';
+  const remitenteNombre = configSmtpUsar?.nombreRemitente || 'Departamento Comercial CRM';
 
-  // Si no es demo y hay credenciales válidas, despachar vía Nodemailer real
-  if (smtpConfig && !esConfiguracionDemo(smtpConfig)) {
+  if (configSmtpUsar && !esConfiguracionDemo(configSmtpUsar)) {
     try {
-      const transporter = crearTransporter(smtpConfig);
+      const transporter = crearTransporter(configSmtpUsar);
       const info = await transporter.sendMail({
         from: `"${remitenteNombre}" <${remitenteCorreo}>`,
         to: destinatario,
@@ -606,10 +799,9 @@ app.post('/api/email/responder', async (req, res) => {
       return res.status(500).json({ exito: false, error: traducirErrorSmtp(err.code, err.message) });
     }
   } else {
-    console.log(`[SANDBOX RESPUESTA] Enviada a ${destinatario} | Asunto: "${asunto}"`);
+    console.log(`[SIMULACIÓN RESPUESTA] Enviada a ${destinatario} | Asunto: "${asunto}"`);
   }
 
-  // Registrar respuesta en la carpeta de Enviados
   const mensajeEnviado = {
     id: nuevoId,
     uid: Math.floor(Math.random() * 9000) + 1000,
@@ -628,13 +820,13 @@ app.post('/api/email/responder', async (req, res) => {
     tieneAdjuntos: false,
   };
 
-  correosSandbox.unshift(mensajeEnviado);
+  correosEnMemoria.unshift(mensajeEnviado);
 
   res.json({
     exito: true,
     mensajeId: nuevoId,
     mensajeEnviado,
-    mensaje: 'Respuesta despachada y guardada en Enviados exitosamente.',
+    mensaje: 'Respuesta enviada y guardada en Enviados exitosamente.',
   });
 });
 
@@ -660,6 +852,8 @@ app.post('/api/email/redactar', async (req, res) => {
     });
   }
 
+  const configSmtpUsar = smtpConfig || resolverConfigSmtp(req);
+
   let htmlFinal = `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">`;
   const parrafos = cuerpo.split('\n').map((l) => (l.trim() ? `<p>${l}</p>` : '<br>')).join('\n');
   htmlFinal += `${parrafos}`;
@@ -674,12 +868,12 @@ app.post('/api/email/redactar', async (req, res) => {
   htmlFinal += `</div>`;
 
   const nuevoId = `msg-new-${Date.now()}`;
-  const remitenteCorreo = smtpConfig?.correoRemitente || 'ventas@empresa.com.do';
-  const remitenteNombre = smtpConfig?.nombreRemitente || 'Departamento Comercial CRM';
+  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || 'ventas@empresa.com.do';
+  const remitenteNombre = configSmtpUsar?.nombreRemitente || 'Departamento Comercial CRM';
 
-  if (smtpConfig && !esConfiguracionDemo(smtpConfig)) {
+  if (configSmtpUsar && !esConfiguracionDemo(configSmtpUsar)) {
     try {
-      const transporter = crearTransporter(smtpConfig);
+      const transporter = crearTransporter(configSmtpUsar);
       await transporter.sendMail({
         from: `"${remitenteNombre}" <${remitenteCorreo}>`,
         to: destinatario,
@@ -711,7 +905,7 @@ app.post('/api/email/redactar', async (req, res) => {
     tieneAdjuntos: false,
   };
 
-  correosSandbox.unshift(mensajeEnviado);
+  correosEnMemoria.unshift(mensajeEnviado);
 
   res.json({
     exito: true,
@@ -724,23 +918,24 @@ app.post('/api/email/redactar', async (req, res) => {
 // ─── ENVIAR CORREO INDIVIDUAL CON ADJUNTO PDF ────────────────────────────────
 app.post('/api/email/enviar', async (req, res) => {
   const { smtpConfig, destinatario, asunto, cuerpo, adjuntoNombre, adjuntoBase64 } = req.body;
+  const config = smtpConfig || resolverConfigSmtp(req);
 
-  if (!smtpConfig?.servidorSmtp || !destinatario || !asunto) {
-    return res.status(400).json({ exito: false, error: 'Faltan campos obligatorios: smtpConfig, destinatario, asunto.' });
+  if (!config?.servidorSmtp || !destinatario || !asunto) {
+    return res.status(400).json({ exito: false, error: 'Faltan campos obligatorios: servidorSmtp, destinatario, asunto.' });
   }
 
-  if (esConfiguracionDemo(smtpConfig)) {
-    console.log(`[SMTP SANDBOX] Despacho simulado a: ${destinatario} | Asunto: "${asunto}" | Adjunto: "${adjuntoNombre}"`);
+  if (esConfiguracionDemo(config)) {
+    console.log(`[SMTP SIMULACIÓN] Despacho a: ${destinatario} | Asunto: "${asunto}" | Adjunto: "${adjuntoNombre}"`);
     return res.json({
       exito: true,
-      messageId: `<sandbox-${Date.now()}@crm-local>`,
-      modo: 'sandbox',
-      mensaje: 'Envío registrado exitosamente en entorno sandbox local.',
+      messageId: `<sim-${Date.now()}@crm-local>`,
+      modo: 'demo',
+      mensaje: 'Envío registrado exitosamente en modo simulación.',
     });
   }
 
   try {
-    const transporter = crearTransporter(smtpConfig);
+    const transporter = crearTransporter(config);
     const attachments = [];
     if (adjuntoBase64 && adjuntoNombre) {
       const base64Data = adjuntoBase64.includes(',') ? adjuntoBase64.split(',')[1] : adjuntoBase64;
@@ -748,9 +943,9 @@ app.post('/api/email/enviar', async (req, res) => {
     }
 
     const info = await transporter.sendMail({
-      from: `"${smtpConfig.nombreRemitente || 'CRM'}" <${smtpConfig.correoRemitente}>`,
+      from: `"${config.nombreRemitente || 'CRM'}" <${config.correoRemitente || config.usuarioSmtp}>`,
       to: destinatario,
-      replyTo: smtpConfig.correoRespuesta || undefined,
+      replyTo: config.correoRespuesta || undefined,
       subject: asunto,
       text: cuerpo,
       html: convertirTextoAHtml(cuerpo),
@@ -768,18 +963,19 @@ app.post('/api/email/enviar', async (req, res) => {
 // ─── ENVÍO MASIVO ─────────────────────────────────────────────────────────────
 app.post('/api/email/enviar-masivo', async (req, res) => {
   const { smtpConfig, correos } = req.body;
+  const config = smtpConfig || resolverConfigSmtp(req);
 
-  if (!smtpConfig?.servidorSmtp || !Array.isArray(correos) || correos.length === 0) {
+  if (!config?.servidorSmtp || !Array.isArray(correos) || correos.length === 0) {
     return res.status(400).json({ exito: false, error: 'Faltan campos: smtpConfig y array de correos.' });
   }
 
-  if (esConfiguracionDemo(smtpConfig)) {
-    console.log(`[SMTP MASIVO SANDBOX] Despacho de ${correos.length} correos en modo sandbox`);
+  if (esConfiguracionDemo(config)) {
+    console.log(`[SMTP MASIVO SIMULACIÓN] Despacho de ${correos.length} correos en modo simulación`);
     const resultados = correos.map((c) => ({
       destinatario: c.destinatario,
       exito: true,
-      messageId: `<sandbox-${Date.now()}-${Math.random().toString(36).substring(2, 6)}@crm-local>`,
-      modo: 'sandbox',
+      messageId: `<sim-${Date.now()}-${Math.random().toString(36).substring(2, 6)}@crm-local>`,
+      modo: 'demo',
     }));
     return res.json({
       exito: true,
@@ -787,11 +983,11 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
       exitosos: correos.length,
       fallidos: 0,
       resultados,
-      modo: 'sandbox',
+      modo: 'demo',
     });
   }
 
-  const transporter = crearTransporter(smtpConfig);
+  const transporter = crearTransporter(config);
   const resultados = [];
 
   for (const correo of correos) {
@@ -803,9 +999,9 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
         attachments.push({ filename: adjuntoNombre, content: base64Data, encoding: 'base64', contentType: 'application/pdf' });
       }
       const info = await transporter.sendMail({
-        from: `"${smtpConfig.nombreRemitente || 'CRM'}" <${smtpConfig.correoRemitente}>`,
+        from: `"${config.nombreRemitente || 'CRM'}" <${config.correoRemitente || config.usuarioSmtp}>`,
         to: destinatario,
-        replyTo: smtpConfig.correoRespuesta || undefined,
+        replyTo: config.correoRespuesta || undefined,
         subject: asunto,
         text: cuerpo,
         html: convertirTextoAHtml(cuerpo),
@@ -869,6 +1065,8 @@ function traducirErrorSmtp(code, mensaje) {
 app.listen(PORT, () => {
   console.log(`\n🚀 CRM Email Server activo en http://localhost:${PORT}`);
   console.log(`   GET   /api/email/estado          → Health check`);
+  console.log(`   POST  /api/email/configuracion   → Guardar configuración`);
+  console.log(`   POST  /api/email/sincronizar     → Sincronizar IMAP real`);
   console.log(`   GET   /api/email/carpetas        → Listar carpetas y contadores`);
   console.log(`   GET   /api/email/mensajes        → Bandeja y paginación`);
   console.log(`   POST  /api/email/responder       → Responder correo con firma y cita`);

@@ -13,12 +13,16 @@ const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/a
 
 class WebmailService {
   /**
-   * Obtiene la lista de carpetas disponibles y el conteo de correos no leídos
+   * Obtiene la lista de carpetas disponibles y el conteo de correos reales
    */
   async obtenerCarpetas(): Promise<CarpetaCorreo[]> {
+    const imapConfig = smtpService.obtenerConfiguracion();
     try {
       const resp = await fetch(`${API_BASE_URL}/carpetas`, {
-        signal: AbortSignal.timeout(5000),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imapConfig }),
+        signal: AbortSignal.timeout(8000),
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -27,17 +31,63 @@ class WebmailService {
         }
       }
     } catch {
-      // fallback
+      // fallback reactivo
     }
 
-    // Fallback reactivo si el servidor proxy tarda en responder
     return [
-      { id: 'inbox', nombre: 'Bandeja de entrada', total: 5, noLeidos: 2 },
-      { id: 'enviados', nombre: 'Enviados', total: 1, noLeidos: 0 },
-      { id: 'borradores', nombre: 'Borradores', total: 1, noLeidos: 0 },
+      { id: 'inbox', nombre: 'Bandeja de entrada', total: 0, noLeidos: 0 },
+      { id: 'enviados', nombre: 'Enviados', total: 0, noLeidos: 0 },
+      { id: 'borradores', nombre: 'Borradores', total: 0, noLeidos: 0 },
       { id: 'archivados', nombre: 'Archivados', total: 0, noLeidos: 0 },
       { id: 'papelera', nombre: 'Papelera', total: 0, noLeidos: 0 },
     ];
+  }
+
+  /**
+   * Sincroniza correos reales desde el servidor IMAP configurado
+   */
+  async sincronizar(
+    carpeta: CarpetaCorreoId = 'inbox',
+    limite: number = 35
+  ): Promise<{
+    exito: boolean;
+    mensaje: string;
+    sincronizados: number;
+    carpetas?: CarpetaCorreo[];
+    error?: string;
+  }> {
+    const imapConfig = smtpService.obtenerConfiguracion();
+    try {
+      const resp = await fetch(`${API_BASE_URL}/sincronizar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imapConfig,
+          carpeta,
+          limite,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (resp.ok) {
+        return await resp.json();
+      }
+
+      const errJson = await resp.json().catch(() => ({}));
+      return {
+        exito: false,
+        mensaje: errJson.mensaje || 'Error al conectar con el servidor IMAP para sincronizar.',
+        sincronizados: 0,
+        error: errJson.error,
+      };
+    } catch (err: any) {
+      return {
+        exito: false,
+        mensaje: `Error de sincronización: ${err.message || 'El servidor de correo no respondió a tiempo.'}`,
+        sincronizados: 0,
+        error: err?.message,
+      };
+    }
   }
 
   /**
@@ -47,20 +97,23 @@ class WebmailService {
     carpeta: CarpetaCorreoId = 'inbox',
     pagina: number = 1,
     limite: number = 20,
-    busqueda: string = ''
+    busqueda: string = '',
+    sincronizar: boolean = false
   ): Promise<RespuestaMensajesPaginada> {
+    const imapConfig = smtpService.obtenerConfiguracion();
     try {
-      const params = new URLSearchParams({
-        carpeta,
-        pagina: String(pagina),
-        limite: String(limite),
-      });
-      if (busqueda.trim()) {
-        params.set('busqueda', busqueda.trim());
-      }
-
-      const resp = await fetch(`${API_BASE_URL}/mensajes?${params.toString()}`, {
-        signal: AbortSignal.timeout(8000),
+      const resp = await fetch(`${API_BASE_URL}/mensajes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imapConfig,
+          carpeta,
+          pagina,
+          limite,
+          busqueda: busqueda.trim(),
+          sincronizar,
+        }),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (resp.ok) {
@@ -68,7 +121,7 @@ class WebmailService {
         return data;
       }
     } catch (err) {
-      console.warn('Servidor de mensajes no accesible directamente, usando caché:', err);
+      console.warn('Servidor de mensajes no accesible:', err);
     }
 
     return {

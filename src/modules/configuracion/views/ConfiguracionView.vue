@@ -73,14 +73,14 @@ const restablecer = async () => {
     <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
           <Building2 class="w-5 h-5" />
         </div>
         <div class="min-w-0">
-          <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+          <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
             Ajustes de Empresa & Sistema
           </h1>
-          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
             Personaliza la identidad corporativa que emite las propuestas, contratos y reportes
           </p>
         </div>
@@ -89,18 +89,18 @@ const restablecer = async () => {
 
     <!-- Teleport de Pestañas hacia la Barra Superior -->
     <Teleport to="#header-portal-right">
-      <div class="flex items-center bg-zinc-900/80 p-1 rounded-xl border border-white/[0.08]">
+      <div class="flex items-center bg-zinc-100 dark:bg-zinc-900/80 p-1 rounded-xl border border-zinc-200 dark:border-white/[0.08]">
         <button
           type="button"
           @click="pestanaActiva = 'empresa'"
           :class="[
             'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
             pestanaActiva === 'empresa'
-              ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-white/[0.08]'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-white/[0.08]'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
           ]"
         >
-          <Building2 class="w-3.5 h-3.5 text-emerald-400" />
+          <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           <span>Perfil Empresa</span>
         </button>
         <button
@@ -109,11 +109,11 @@ const restablecer = async () => {
           :class="[
             'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
             pestanaActiva === 'sistema'
-              ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-white/[0.08]'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-white/[0.08]'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
           ]"
         >
-          <Server class="w-3.5 h-3.5 text-sky-400" />
+          <Server class="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
           <span>Servicios</span>
         </button>
       </div>
@@ -124,29 +124,29 @@ const restablecer = async () => {
       :loading="guardando"
       :delay-ms="180"
       :preserve-height="true"
-      stream-color="#10b981"
+      stream-color="#4f46e5"
       announce-text="Guardando y sincronizando perfil corporativo..."
       class="rounded-xl overflow-hidden"
     >
       <!-- PESTAÑA 1: PERFIL DE LA EMPRESA (PROPIETARIA DEL CRM) -->
       <div v-if="pestanaActiva === 'empresa'" class="space-y-6">
       <!-- Tarjeta de Vista Previa del Membrete Institucional en Tiempo Real -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3 relative overflow-hidden">
-        <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-3 relative overflow-hidden">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800/80">
           <div class="flex items-center gap-2">
-            <Eye class="w-4 h-4 text-emerald-400" />
-            <span class="text-xs font-semibold text-zinc-200">
+            <Eye class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
               Vista Previa del Membrete Oficial (Encabezado de Documentos y PDF)
             </span>
           </div>
-          <span class="text-[10px] font-mono text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+          <span class="text-[10px] font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-950 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-800">
             Formato A4 Dominicano
           </span>
         </div>
 
         <!-- Render visual simulado del membrete -->
-        <div class="bg-white rounded-lg p-5 text-zinc-900 shadow-md border border-zinc-200 font-sans space-y-2">
-          <div class="h-1.5 bg-emerald-500 rounded-full w-full mb-3"></div>
+        <div class="bg-white rounded-lg p-5 text-zinc-900 shadow-sm border border-zinc-200 font-sans space-y-2">
+          <div class="h-1.5 bg-indigo-600 rounded-full w-full mb-3"></div>
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-base font-bold tracking-tight text-zinc-900 uppercase">
@@ -161,7 +161,7 @@ const restablecer = async () => {
               </p>
             </div>
             <div class="text-right shrink-0">
-              <span class="text-[11px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 block">
+              <span class="text-[11px] font-mono font-semibold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200 block">
                 {{ formulario.prefijoDocumentos || 'DOC' }}-002841
               </span>
               <span class="text-[10px] text-zinc-500 block mt-1">
@@ -170,7 +170,7 @@ const restablecer = async () => {
             </div>
           </div>
         </div>
-        <p class="text-[11px] text-zinc-400 italic">
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 italic">
           💡 Esta cabecera se genera automáticamente en todas las cotizaciones, propuestas comerciales y contratos PDF despachados vía correo.
         </p>
       </div>
@@ -178,64 +178,64 @@ const restablecer = async () => {
       <!-- Formulario de Configuración -->
       <form @submit.prevent="guardarCambios" class="space-y-6">
         <!-- Bloque 1: Identidad Legal y Razón Social -->
-        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-          <div class="flex items-center gap-2 pb-2 border-b border-zinc-800 text-xs font-semibold text-zinc-200">
-            <FileText class="w-4 h-4 text-emerald-400" />
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <FileText class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Datos Legales e Identificación Fiscal</span>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
-                Razón Social Oficial (Nombre Jurídico) <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                Razón Social Oficial (Nombre Jurídico) <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.razonSocial"
                 type="text"
                 required
                 placeholder="ej: MI EMPRESA DOMINICANA SRL"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
               <span class="text-[10px] text-zinc-500 mt-1 block">Aparece en contratos legales y pie de firma</span>
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
-                Nombre Comercial / Marca <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                Nombre Comercial / Marca <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.nombreComercial"
                 type="text"
                 required
                 placeholder="ej: MI MARCA B2B"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
               <span class="text-[10px] text-zinc-500 mt-1 block">Visible en la barra lateral del CRM y membrete</span>
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
-                RNC Dominicano / Identificación Fiscal <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                RNC Dominicano / Identificación Fiscal <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.identificacionFiscal"
                 type="text"
                 required
                 placeholder="ej: 1-32-45890-1"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 font-mono focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
               />
               <span class="text-[10px] text-zinc-500 mt-1 block">Registro Nacional de Contribuyentes oficial</span>
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 Actividad Comercial / Slogan Institucional
               </label>
               <input
                 v-model="formulario.sloganActividad"
                 type="text"
                 placeholder="ej: Soluciones de Software, Logística & Consultoría B2B"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
               <span class="text-[10px] text-zinc-500 mt-1 block">Subtítulo que acompaña al membrete</span>
             </div>
@@ -243,116 +243,116 @@ const restablecer = async () => {
         </div>
 
         <!-- Bloque 2: Contacto & Canales de Comunicación -->
-        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-          <div class="flex items-center gap-2 pb-2 border-b border-zinc-800 text-xs font-semibold text-zinc-200">
-            <Phone class="w-4 h-4 text-emerald-400" />
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <Phone class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Canales de Contacto Corporativo</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
-                Teléfono Principal / Central <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                Teléfono Principal / Central <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.telefono"
                 type="text"
                 required
                 placeholder="+1 (809) 555-0100"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 font-mono focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 WhatsApp Comercial
               </label>
               <input
                 v-model="formulario.whatsapp"
                 type="text"
                 placeholder="+1 (809) 555-0101"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 font-mono focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
-                Correo Institucional <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                Correo Institucional <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.correo"
                 type="email"
                 required
                 placeholder="contacto@miempresa.com.do"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 Sitio Web Corporativo
               </label>
               <input
                 v-model="formulario.sitioWeb"
                 type="text"
                 placeholder="www.miempresa.com.do"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
           </div>
         </div>
 
         <!-- Bloque 3: Ubicación Física y Sede -->
-        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-          <div class="flex items-center gap-2 pb-2 border-b border-zinc-800 text-xs font-semibold text-zinc-200">
-            <MapPin class="w-4 h-4 text-emerald-400" />
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <MapPin class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Ubicación y Sede Principal</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div class="sm:col-span-2">
-              <label class="block text-zinc-400 font-medium mb-1">
-                Dirección Física <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                Dirección Física <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.direccion"
                 type="text"
                 required
                 placeholder="Av. Winston Churchill, Torre Empresarial, Suite 802"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
-                Ciudad / Distrito <span class="text-rose-400">*</span>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
+                Ciudad / Distrito <span class="text-rose-500">*</span>
               </label>
               <input
                 v-model="formulario.ciudad"
                 type="text"
                 required
                 placeholder="Santo Domingo"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
           </div>
         </div>
 
         <!-- Bloque 4: Preferencias Comerciales y Formatos -->
-        <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-          <div class="flex items-center gap-2 pb-2 border-b border-zinc-800 text-xs font-semibold text-zinc-200">
-            <CreditCard class="w-4 h-4 text-emerald-400" />
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+          <div class="flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <CreditCard class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Moneda & Parámetros Documentales</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 Moneda Principal de Cotización
               </label>
               <select
                 v-model="formulario.monedaPrincipal"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               >
                 <option value="DOP">DOP — Peso Dominicano (RD$)</option>
                 <option value="USD">USD — Dólar Estadounidense ($)</option>
@@ -361,26 +361,26 @@ const restablecer = async () => {
             </div>
 
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 Prefijo de Documentos / Propuestas
               </label>
               <input
                 v-model="formulario.prefijoDocumentos"
                 type="text"
                 placeholder="DF-PROP o COT"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 font-mono uppercase focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 font-mono uppercase focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
 
             <div class="sm:col-span-3">
-              <label class="block text-zinc-400 font-medium mb-1">
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 Pie de Página Institucional (Documentos PDF)
               </label>
               <textarea
                 v-model="formulario.piePaginaOficial"
                 rows="2"
                 placeholder="Texto legal que se imprime al pie de cada página en los PDF despachados"
-                class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 text-xs focus:outline-none focus:border-zinc-600 transition resize-none"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 transition resize-none"
               ></textarea>
             </div>
           </div>
@@ -393,7 +393,7 @@ const restablecer = async () => {
               type="submit"
               :disabled="guardando"
               v-flickerless-saving="guardando"
-              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm shadow-emerald-950/40 border border-emerald-500/30 transition disabled:opacity-50 active:scale-[0.98]"
+              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-sm transition disabled:opacity-50 active:scale-[0.98]"
             >
               <Save class="w-4 h-4" />
               <span>{{ guardando ? 'Guardando en Base de Datos...' : 'Guardar Información de la Empresa' }}</span>
@@ -402,7 +402,7 @@ const restablecer = async () => {
             <button
               type="button"
               @click="restablecer"
-              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 text-xs font-medium transition"
             >
               <RotateCcw class="w-3.5 h-3.5" />
               <span>Restablecer</span>
@@ -420,9 +420,9 @@ const restablecer = async () => {
           >
             <div
               v-if="mensajeGuardado"
-              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             >
-              <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 class="w-4 h-4 text-emerald-500" />
               <span>¡Información de la empresa guardada y sincronizada con el CRM!</span>
             </div>
           </transition>
@@ -433,68 +433,68 @@ const restablecer = async () => {
     <!-- PESTAÑA 2: SERVICIOS Y CONECTIVIDAD DEL SISTEMA -->
     <div v-else class="space-y-6">
       <!-- Tarjeta de Estado de Conexión PostgreSQL -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
-          <div class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-            <Database class="w-4 h-4 text-emerald-400" />
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div class="flex items-center gap-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <Database class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Motor de Base de Datos PostgreSQL</span>
           </div>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <CheckCircle2 class="w-3 h-3" />
             Conectado
           </span>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-          <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/80">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
             <span class="text-zinc-500 text-[10px] block font-sans">HOST</span>
-            <span class="text-zinc-200">localhost</span>
+            <span class="text-zinc-800 dark:text-zinc-200">localhost</span>
           </div>
-          <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/80">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
             <span class="text-zinc-500 text-[10px] block font-sans">PUERTO</span>
-            <span class="text-zinc-200">5432</span>
+            <span class="text-zinc-800 dark:text-zinc-200">5432</span>
           </div>
-          <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/80">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
             <span class="text-zinc-500 text-[10px] block font-sans">BASE DE DATOS</span>
-            <span class="text-zinc-200">crm_db</span>
+            <span class="text-zinc-800 dark:text-zinc-200">crm_db</span>
           </div>
-          <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/80">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
             <span class="text-zinc-500 text-[10px] block font-sans">MODO OPERACIÓN</span>
-            <span class="text-emerald-400">PostgreSQL Mock / Live</span>
+            <span class="text-emerald-600 dark:text-emerald-400">PostgreSQL Mock / Live</span>
           </div>
         </div>
       </div>
 
       <!-- Tarjeta de Servidor de Correo Nodemailer -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
-          <div class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-            <Mail class="w-4 h-4 text-emerald-400" />
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div class="flex items-center gap-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <Mail class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Servidor de Correo Nodemailer (SMTP / IMAP)</span>
           </div>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
             Puerto 3002
           </span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div class="bg-zinc-950 p-3.5 rounded-lg border border-zinc-800 space-y-1">
-            <div class="font-medium text-zinc-200">Despacho Masivo & Generación de PDF</div>
-            <p class="text-[11px] text-zinc-400 leading-relaxed">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-1">
+            <div class="font-medium text-zinc-800 dark:text-zinc-200">Despacho Masivo & Generación de PDF</div>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
               Servidor backend dedicado con soporte de cola para envíos masivos, verificación de credenciales con handshake TLS real y conversión de documentos Word a PDF.
             </p>
           </div>
 
-          <div class="bg-zinc-950 p-3.5 rounded-lg border border-zinc-800 space-y-2 flex flex-col justify-between">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-2 flex flex-col justify-between">
             <div>
-              <div class="font-medium text-zinc-200">Protocolos Salientes y Entrantes</div>
-              <p class="text-[11px] text-zinc-400 leading-relaxed">
+              <div class="font-medium text-zinc-800 dark:text-zinc-200">Protocolos Salientes y Entrantes</div>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Puedes configurar el host SMTP, puerto, cifrado SSL/TLS, remitente corporativo y servidor IMAP directamente desde el módulo de Comunicaciones.
               </p>
             </div>
             <router-link
               to="/comunicaciones"
-              class="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium"
+              class="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium"
             >
               <span>Ir a Comunicaciones & Servidor SMTP →</span>
             </router-link>

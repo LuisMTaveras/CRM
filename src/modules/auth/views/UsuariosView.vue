@@ -37,13 +37,13 @@ const recargarUsuarios = async () => {
 const clasesBadgeRol = (rol: RolUsuario) => {
   switch (rol) {
     case 'admin':
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20';
     case 'gerente':
-      return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
     case 'ejecutivo':
-      return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+      return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20';
     case 'auditor':
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
   }
 };
 
@@ -57,19 +57,19 @@ onMounted(async () => {
     <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+        <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
           <Users class="w-5 h-5" />
         </div>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+            <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
               Usuarios, Roles y Control de Acceso (RBAC)
             </h1>
-            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
               Matriz Activa
             </span>
           </div>
-          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
             Administración de colaboradores, asignación de roles y matriz declarativa de permisos
           </p>
         </div>
@@ -78,29 +78,29 @@ onMounted(async () => {
 
     <!-- Teleport de Simulador hacia la Barra Superior -->
     <Teleport to="#header-portal-right">
-      <div class="flex items-center gap-2 bg-zinc-900/80 border border-white/[0.08] p-1.5 rounded-xl text-xs">
-        <span class="text-zinc-400 text-[11px] px-1 flex items-center gap-1 font-medium hidden sm:inline-flex">
-          <Sparkles class="w-3 h-3 text-emerald-400" />
+      <div class="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-white/[0.08] p-1.5 rounded-xl text-xs">
+        <span class="text-zinc-500 dark:text-zinc-400 text-[11px] px-1 flex items-center gap-1 font-medium hidden sm:inline-flex">
+          <Sparkles class="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
           Probar Rol:
         </span>
         <button
           @click="cambiarRolSimulado('admin')"
           :disabled="cargando"
-          :class="['px-2 py-0.5 rounded-lg text-[10px] font-mono transition', authStore.rol === 'admin' ? 'bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30' : 'text-zinc-400 hover:text-zinc-200']"
+          :class="['px-2 py-0.5 rounded-lg text-[10px] font-mono transition', authStore.rol === 'admin' ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-500/30' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200']"
         >
           Admin
         </button>
         <button
           @click="cambiarRolSimulado('ejecutivo')"
           :disabled="cargando"
-          :class="['px-2 py-0.5 rounded-lg text-[10px] font-mono transition', authStore.rol === 'ejecutivo' ? 'bg-sky-500/20 text-sky-300 font-semibold border border-sky-500/30' : 'text-zinc-400 hover:text-zinc-200']"
+          :class="['px-2 py-0.5 rounded-lg text-[10px] font-mono transition', authStore.rol === 'ejecutivo' ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 font-semibold border border-sky-500/30' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200']"
         >
           Ejecutivo
         </button>
         <button
           @click="cambiarRolSimulado('auditor')"
           :disabled="cargando"
-          :class="['px-2 py-0.5 rounded-lg text-[10px] font-mono transition', authStore.rol === 'auditor' ? 'bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30' : 'text-zinc-400 hover:text-zinc-200']"
+          :class="['px-2 py-0.5 rounded-lg text-[10px] font-mono transition', authStore.rol === 'auditor' ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/30' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200']"
         >
           Auditor
         </button>
@@ -108,9 +108,9 @@ onMounted(async () => {
           @click="recargarUsuarios"
           :disabled="cargando"
           title="Actualizar lista de usuarios"
-          class="p-1 rounded text-zinc-400 hover:text-zinc-200 transition ml-1"
+          class="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition ml-1"
         >
-          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-emerald-400' : '']" />
+          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
         </button>
       </div>
     </Teleport>
@@ -120,21 +120,21 @@ onMounted(async () => {
       :loading="cargando"
       :delay-ms="180"
       :preserve-height="true"
-      stream-color="#10b981"
+      stream-color="#4f46e5"
       announce-text="Actualizando directorio de colaboradores y permisos..."
       class="space-y-6 rounded-xl overflow-hidden"
     >
       <!-- Tabla de Usuarios Registrados -->
-      <div class="saas-card rounded-xl overflow-hidden text-xs border border-white/[0.08]">
-        <div class="p-3.5 border-b border-white/[0.07] bg-[#0c0c0e]/80 flex items-center justify-between">
-          <span class="font-semibold text-zinc-200">Equipo Comercial & Usuarios Activos</span>
-          <span class="font-mono text-zinc-400 text-[11px]">{{ usuarios.length }} colaboradores</span>
+      <div class="saas-card rounded-xl overflow-hidden text-xs border border-zinc-200 dark:border-white/[0.08]">
+        <div class="p-3.5 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0c0c0e]/80 flex items-center justify-between">
+          <span class="font-semibold text-zinc-800 dark:text-zinc-200">Equipo Comercial & Usuarios Activos</span>
+          <span class="font-mono text-zinc-500 dark:text-zinc-400 text-[11px]">{{ usuarios.length }} colaboradores</span>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="border-b border-white/[0.07] bg-[#09090b]/60 text-zinc-400 text-[11px] font-medium tracking-wider uppercase">
+              <tr class="border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-100/70 dark:bg-[#09090b]/60 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium tracking-wider uppercase">
                 <th class="py-3 px-3.5">Colaborador</th>
                 <th class="py-3 px-3.5">Correo Electrónico</th>
                 <th class="py-3 px-3.5">Cargo Comercial</th>
@@ -143,26 +143,26 @@ onMounted(async () => {
                 <th class="py-3 px-3.5">Último Acceso</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-white/[0.04]">
-              <tr v-for="user in usuarios" :key="user.id" class="hover:bg-zinc-800/30 transition">
+            <tbody class="divide-y divide-zinc-200 dark:divide-white/[0.04]">
+              <tr v-for="user in usuarios" :key="user.id" class="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition">
                 <!-- Colaborador con Avatar -->
-                <td class="py-2.5 px-3.5 flex items-center gap-2.5 font-medium text-zinc-200">
-                  <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-white/[0.08] flex items-center justify-center font-bold text-[10px] text-emerald-400 shadow-sm">
+                <td class="py-2.5 px-3.5 flex items-center gap-2.5 font-medium text-zinc-800 dark:text-zinc-200">
+                  <div class="w-7 h-7 rounded-lg bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-white/[0.08] flex items-center justify-center font-bold text-[10px] text-indigo-600 dark:text-indigo-400 shadow-sm">
                     {{ user.avatar }}
                   </div>
                   <span>{{ user.nombre }}</span>
-                  <span v-if="user.id === authStore.usuario?.id" class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 font-medium">
+                  <span v-if="user.id === authStore.usuario?.id" class="text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.2 rounded border border-indigo-500/20 font-medium">
                     Tú
                   </span>
                 </td>
 
                 <!-- Correo -->
-                <td class="py-2.5 px-3.5 text-zinc-300 font-mono text-[11px]">
+                <td class="py-2.5 px-3.5 text-zinc-600 dark:text-zinc-300 font-mono text-[11px]">
                   {{ user.email }}
                 </td>
 
                 <!-- Cargo -->
-                <td class="py-2.5 px-3.5 text-zinc-400">
+                <td class="py-2.5 px-3.5 text-zinc-500 dark:text-zinc-400">
                   {{ user.cargo }}
                 </td>
 
@@ -175,8 +175,8 @@ onMounted(async () => {
 
                 <!-- Estado -->
                 <td class="py-2.5 px-3.5">
-                  <span class="inline-flex items-center gap-1.5 text-emerald-400 text-[11px] font-medium">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     Activo
                   </span>
                 </td>
@@ -192,48 +192,48 @@ onMounted(async () => {
       </div>
 
       <!-- Matriz de Permisos Declarativa -->
-      <div class="saas-card rounded-xl overflow-hidden text-xs border border-white/[0.08]">
-        <div class="p-3.5 border-b border-white/[0.07] bg-[#0c0c0e]/80 flex items-center justify-between">
-          <div class="flex items-center gap-2 font-semibold text-zinc-200">
-            <Shield class="w-4 h-4 text-emerald-400" />
+      <div class="saas-card rounded-xl overflow-hidden text-xs border border-zinc-200 dark:border-white/[0.08]">
+        <div class="p-3.5 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0c0c0e]/80 flex items-center justify-between">
+          <div class="flex items-center gap-2 font-semibold text-zinc-800 dark:text-zinc-200">
+            <Shield class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Matriz de Permisos por Rol (RBAC Engine)</span>
           </div>
-          <span class="text-[11px] text-zinc-400 font-mono">Evaluador de capacidades activas</span>
+          <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">Evaluador de capacidades activas</span>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="border-b border-white/[0.07] bg-[#09090b]/60 text-zinc-400 text-[11px] font-medium tracking-wider uppercase">
+              <tr class="border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-100/70 dark:bg-[#09090b]/60 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium tracking-wider uppercase">
                 <th class="py-3 px-4 w-1/3">Módulo / Capacidad</th>
-                <th class="py-3 px-4 text-emerald-400">Director / Admin</th>
-                <th class="py-3 px-4 text-indigo-400">Gerente Cuentas</th>
-                <th class="py-3 px-4 text-sky-400">Ejecutivo Ventas</th>
-                <th class="py-3 px-4 text-amber-400">Auditor / BI</th>
+                <th class="py-3 px-4 text-indigo-600 dark:text-indigo-400">Director / Admin</th>
+                <th class="py-3 px-4 text-purple-600 dark:text-purple-400">Gerente Cuentas</th>
+                <th class="py-3 px-4 text-sky-600 dark:text-sky-400">Ejecutivo Ventas</th>
+                <th class="py-3 px-4 text-amber-600 dark:text-amber-400">Auditor / BI</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-white/[0.04] font-mono text-[11px]">
-              <tr v-for="(fila, idx) in matrizPermisos" :key="idx" class="hover:bg-zinc-800/20">
-                <td class="py-2.5 px-4 font-sans font-medium text-zinc-300">
+            <tbody class="divide-y divide-zinc-200 dark:divide-white/[0.04] font-mono text-[11px]">
+              <tr v-for="(fila, idx) in matrizPermisos" :key="idx" class="hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
+                <td class="py-2.5 px-4 font-sans font-medium text-zinc-800 dark:text-zinc-300">
                   {{ fila.entidad }}
                 </td>
-                <td class="py-2.5 px-4 text-emerald-400 font-medium">
-                  <Check v-if="fila.admin === true" class="w-4 h-4 text-emerald-400" />
+                <td class="py-2.5 px-4 text-indigo-600 dark:text-indigo-400 font-medium">
+                  <Check v-if="fila.admin === true" class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   <span v-else>{{ fila.admin }}</span>
                 </td>
-                <td class="py-2.5 px-4 text-zinc-300">
-                  <Check v-if="fila.gerente === true" class="w-4 h-4 text-emerald-400" />
-                  <X v-else-if="fila.gerente === false" class="w-4 h-4 text-zinc-600" />
+                <td class="py-2.5 px-4 text-zinc-700 dark:text-zinc-300">
+                  <Check v-if="fila.gerente === true" class="w-4 h-4 text-emerald-500" />
+                  <X v-else-if="fila.gerente === false" class="w-4 h-4 text-zinc-400 dark:text-zinc-600" />
                   <span v-else>{{ fila.gerente }}</span>
                 </td>
-                <td class="py-2.5 px-4 text-zinc-300">
-                  <Check v-if="fila.ejecutivo === true" class="w-4 h-4 text-emerald-400" />
-                  <X v-else-if="fila.ejecutivo === false" class="w-4 h-4 text-zinc-600" />
+                <td class="py-2.5 px-4 text-zinc-700 dark:text-zinc-300">
+                  <Check v-if="fila.ejecutivo === true" class="w-4 h-4 text-emerald-500" />
+                  <X v-else-if="fila.ejecutivo === false" class="w-4 h-4 text-zinc-400 dark:text-zinc-600" />
                   <span v-else>{{ fila.ejecutivo }}</span>
                 </td>
-                <td class="py-2.5 px-4 text-zinc-400">
-                  <Check v-if="fila.auditor === true" class="w-4 h-4 text-emerald-400" />
-                  <X v-else-if="fila.auditor === false" class="w-4 h-4 text-zinc-600" />
+                <td class="py-2.5 px-4 text-zinc-600 dark:text-zinc-400">
+                  <Check v-if="fila.auditor === true" class="w-4 h-4 text-emerald-500" />
+                  <X v-else-if="fila.auditor === false" class="w-4 h-4 text-zinc-400 dark:text-zinc-600" />
                   <span v-else>{{ fila.auditor }}</span>
                 </td>
               </tr>

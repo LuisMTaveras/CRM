@@ -94,6 +94,18 @@ class SmtpService {
     } catch {
       // Storage fallback
     }
+
+    // Notificar al backend de correo para persistencia remota
+    try {
+      const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email/configuracion`;
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.configMemoria),
+      }).catch(() => {});
+    } catch {
+      // Silencioso si el servidor backend está en proceso de arranque
+    }
   }
 
   aplicarPreset(proveedor: ProveedorPreset): ConfiguracionSMTP {

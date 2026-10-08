@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { webmailService } from '../services/webmail.service';
+import { smtpService } from '../services/smtp.service';
 import type { 
   CarpetaCorreo, 
   CarpetaCorreoId, 
@@ -27,7 +28,8 @@ import {
   Loader2, 
   Building2, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  X
 } from 'lucide-vue-next';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
 
@@ -37,6 +39,14 @@ const mensajes = ref<MensajeCorreo[]>([]);
 const mensajeSeleccionado = ref<MensajeCorreo | null>(null);
 
 const cargando = ref(true);
+const sincronizando = ref(false);
+const estadoSincronizacion = ref<{
+  exito: boolean;
+  mensaje: string;
+  sincronizados?: number;
+  hora?: string;
+} | null>(null);
+
 const busqueda = ref('');
 const pagina = ref(1);
 const limite = ref(15);
@@ -54,6 +64,12 @@ const incluirPieEnRespuesta = ref(true);
 const citarOriginalEnRespuesta = ref(true);
 const enviandoRespuesta = ref(false);
 const feedbackRespuesta = ref<{ exito: boolean; mensaje: string } | null>(null);
+
+const cuentaConfigurada = ref('');
+const actualizarCuentaConfigurada = () => {
+  const conf = smtpService.obtenerConfiguracion();
+  cuentaConfigurada.value = conf.usuarioImap || conf.usuarioSmtp || '';
+};
 
 const cargarCarpetas = async () => {
   carpetas.value = await webmailService.obtenerCarpetas();
@@ -76,6 +92,8 @@ const cargarMensajes = async () => {
       const encontrado = mensajes.value.find((m) => m.id === mensajeSeleccionado.value?.id);
       if (encontrado) {
         mensajeSeleccionado.value = encontrado;
+      } else {
+        mensajeSeleccionado.value = mensajes.value[0] || null;
       }
     } else if (mensajes.value.length > 0) {
       seleccionarMensaje(mensajes.value[0]);
@@ -84,6 +102,40 @@ const cargarMensajes = async () => {
     console.error('Error al cargar mensajes del webmail:', err);
   } finally {
     cargando.value = false;
+  }
+};
+
+const sincronizarCorreos = async (forzarSilencioso = false) => {
+  if (sincronizando.value) return;
+  sincronizando.value = true;
+  if (!forzarSilencioso) estadoSincronizacion.value = null;
+
+  try {
+    const res = await webmailService.sincronizar(carpetaActiva.value, 35);
+    if (res.exito) {
+      estadoSincronizacion.value = {
+        exito: true,
+        mensaje: res.mensaje,
+        sincronizados: res.sincronizados,
+        hora: new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }),
+      };
+      await cargarCarpetas();
+      await cargarMensajes();
+    } else {
+      estadoSincronizacion.value = {
+        exito: false,
+        mensaje: res.mensaje || res.error || 'Error al conectar con el servidor IMAP.',
+        sincronizados: 0,
+      };
+    }
+  } catch (err: any) {
+    estadoSincronizacion.value = {
+      exito: false,
+      mensaje: `Error de sincronización: ${err.message || 'Servidor no responde'}`,
+      sincronizados: 0,
+    };
+  } finally {
+    sincronizando.value = false;
   }
 };
 
@@ -156,7 +208,7 @@ const enviarRespuesta = async () => {
     if (res.exito) {
       feedbackRespuesta.value = {
         exito: true,
-        mensaje: 'Respuesta enviada y guardada en Enviados.',
+        mensaje: 'Respuesta enviada y registrada en Enviados con éxito.',
       };
       respuestaCuerpo.value = '';
       await cargarCarpetas();
@@ -190,13 +242,60 @@ watch(busqueda, () => {
 });
 
 onMounted(async () => {
+  actualizarCuentaConfigurada();
   await cargarCarpetas();
   await cargarMensajes();
+
+  // Si hay cuenta IMAP configurada, intentar sincronización inicial
+  const config = smtpService.obtenerConfiguracion();
+  const tieneCredencialesReales =
+    config.servidorImap &&
+    config.usuarioImap &&
+    config.contrasenaImap &&
+    config.contrasenaImap !== '••••••••••••' &&
+    config.contrasenaImap.trim() !== '' &&
+    !config.servidorImap.includes('empresa.com.do');
+
+  if (tieneCredencialesReales) {
+    sincronizarCorreos(true);
+  }
 });
 </script>
 
 <template>
   <div class="space-y-4 w-full">
+    <!-- Banner de feedback de sincronización -->
+    <div
+      v-if="estadoSincronizacion"
+      class="p-2.5 px-4 rounded-xl border text-xs flex items-center justify-between transition-all"
+      :class="estadoSincronizacion.exito ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/10 border-rose-500/25 text-rose-700 dark:text-rose-300'"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <CheckCircle2 v-if="estadoSincronizacion.exito" class="w-4 h-4 text-emerald-500 shrink-0" />
+        <AlertCircle v-else class="w-4 h-4 text-rose-500 shrink-0" />
+        <span class="truncate font-medium">{{ estadoSincronizacion.mensaje }}</span>
+        <span v-if="estadoSincronizacion.hora" class="text-[10px] opacity-75 font-mono">({{ estadoSincronizacion.hora }})</span>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button
+          v-if="!estadoSincronizacion.exito"
+          type="button"
+          @click="modalConfigAbierto = true"
+          class="text-[11px] underline font-semibold hover:opacity-80"
+        >
+          Revisar credenciales
+        </button>
+        <button
+          type="button"
+          @click="estadoSincronizacion = null"
+          class="p-1 hover:opacity-75 rounded"
+        >
+          <X class="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+
     <!-- Barra de Control Superior -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-white dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
       <!-- Búsqueda rápida -->
@@ -223,12 +322,13 @@ onMounted(async () => {
 
         <button
           type="button"
-          @click="() => { cargarCarpetas(); cargarMensajes(); }"
-          :disabled="cargando"
-          title="Actualizar bandeja"
-          class="p-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium transition disabled:opacity-50"
+          @click="() => sincronizarCorreos(false)"
+          :disabled="sincronizando || cargando"
+          title="Sincronizar correos desde el servidor IMAP configurado"
+          class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-xl text-xs font-semibold transition disabled:opacity-50"
         >
-          <RefreshCw :class="['w-4 h-4 text-zinc-500 dark:text-zinc-400', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
+          <RefreshCw :class="['w-3.5 h-3.5', sincronizando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
+          <span>{{ sincronizando ? 'Sincronizando...' : 'Sincronizar' }}</span>
         </button>
 
         <button
@@ -246,8 +346,8 @@ onMounted(async () => {
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[640px]">
       <!-- COLUMNA 1: Selector de Carpetas (2 columnas de 12) -->
       <div class="lg:col-span-2 bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex flex-col gap-1.5 h-fit shadow-sm">
-        <div class="px-3 py-2 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono">
-          Carpetas
+        <div class="px-3 py-2 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono flex items-center justify-between">
+          <span>Carpetas</span>
         </div>
 
         <button
@@ -267,6 +367,9 @@ onMounted(async () => {
             class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-600 text-white font-bold"
           >
             {{ carpetas.find(c => c.id === 'inbox')?.noLeidos }}
+          </span>
+          <span v-else class="text-[10px] text-zinc-400 font-mono">
+            {{ carpetas.find(c => c.id === 'inbox')?.total || 0 }}
           </span>
         </button>
 
@@ -316,6 +419,9 @@ onMounted(async () => {
             <Archive class="w-4 h-4 text-purple-500" />
             <span>Archivados</span>
           </span>
+          <span class="text-[10px] text-zinc-400 font-mono">
+            {{ carpetas.find(c => c.id === 'archivados')?.total || 0 }}
+          </span>
         </button>
 
         <button
@@ -330,7 +436,18 @@ onMounted(async () => {
             <Trash2 class="w-4 h-4 text-rose-500" />
             <span>Papelera</span>
           </span>
+          <span class="text-[10px] text-zinc-400 font-mono">
+            {{ carpetas.find(c => c.id === 'papelera')?.total || 0 }}
+          </span>
         </button>
+
+        <!-- Indicador de cuenta activa -->
+        <div v-if="cuentaConfigurada" class="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 text-[10px] text-zinc-400 px-2 space-y-1">
+          <div class="text-[9px] uppercase tracking-wider font-semibold text-zinc-500">Cuenta activa</div>
+          <div class="font-mono truncate text-zinc-600 dark:text-zinc-300 font-medium" :title="cuentaConfigurada">
+            {{ cuentaConfigurada }}
+          </div>
+        </div>
       </div>
 
       <!-- COLUMNA 2: Lista de Correos (4 columnas de 12) -->
@@ -368,12 +485,38 @@ onMounted(async () => {
         <div class="flex-1 overflow-y-auto divide-y divide-zinc-200/80 dark:divide-zinc-800/60">
           <div v-if="cargando && mensajes.length === 0" class="p-8 text-center text-zinc-500 text-xs">
             <Loader2 class="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-600 dark:text-indigo-400" />
-            <span>Cargando mensajes...</span>
+            <span>Consultando bandeja...</span>
           </div>
 
-          <div v-else-if="mensajes.length === 0" class="p-8 text-center text-zinc-400 text-xs">
-            <Mail class="w-6 h-6 mx-auto mb-2 opacity-40" />
-            <span>No hay correos en esta carpeta</span>
+          <!-- Estado Vacío Elegante (Sin datos falsos) -->
+          <div v-else-if="mensajes.length === 0" class="p-8 text-center text-zinc-400 dark:text-zinc-500 text-xs space-y-3">
+            <div class="p-3 w-12 h-12 mx-auto rounded-xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-center text-zinc-400">
+              <Mail class="w-6 h-6" />
+            </div>
+            <div>
+              <div class="font-semibold text-zinc-700 dark:text-zinc-200">No hay correos en esta carpeta</div>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs mx-auto leading-relaxed">
+                Bandeja al día. Pulsa "Sincronizar" para descargar nuevos mensajes del servidor o revisa tus credenciales en Firma & Servidores.
+              </p>
+            </div>
+            <div class="flex items-center justify-center gap-2 pt-1">
+              <button
+                type="button"
+                @click="() => sincronizarCorreos(false)"
+                :disabled="sincronizando"
+                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition flex items-center gap-1.5"
+              >
+                <RefreshCw :class="['w-3 h-3', sincronizando ? 'animate-spin' : '']" />
+                <span>Sincronizar ahora</span>
+              </button>
+              <button
+                type="button"
+                @click="modalConfigAbierto = true"
+                class="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium transition"
+              >
+                Configurar Servidor
+              </button>
+            </div>
           </div>
 
           <div
@@ -632,7 +775,7 @@ onMounted(async () => {
     <ConfiguracionFirmaYPieModal
       :abierto="modalConfigAbierto"
       @cerrar="modalConfigAbierto = false"
-      @guardado="() => { cargarCarpetas(); }"
+      @guardado="() => { actualizarCuentaConfigurada(); cargarCarpetas(); sincronizarCorreos(false); }"
     />
   </div>
 </template>

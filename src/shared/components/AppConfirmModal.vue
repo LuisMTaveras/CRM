@@ -31,15 +31,15 @@ const iconoCabecera = computed(() => {
 const estiloIconoBox = computed(() => {
   switch (estado.value.tipo) {
     case 'peligro':
-      return 'bg-rose-500/10 border-rose-500/25 text-rose-400';
+      return 'bg-rose-500/10 border-rose-500/25 text-rose-500 dark:text-rose-400';
     case 'advertencia':
-      return 'bg-amber-500/10 border-amber-500/25 text-amber-400';
+      return 'bg-amber-500/10 border-amber-500/25 text-amber-500 dark:text-amber-400';
     case 'exito':
-      return 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400';
+      return 'bg-emerald-500/10 border-emerald-500/25 text-emerald-500 dark:text-emerald-400';
     case 'primario':
-      return 'bg-sky-500/10 border-sky-500/25 text-sky-400';
+      return 'bg-indigo-500/10 border-indigo-500/25 text-indigo-600 dark:text-indigo-400';
     default:
-      return 'bg-zinc-800/80 border-white/[0.08] text-zinc-300';
+      return 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300';
   }
 });
 
@@ -52,7 +52,7 @@ const estiloBotonConfirmar = computed(() => {
     case 'exito':
       return 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500/40 shadow-emerald-950/50';
     case 'primario':
-      return 'bg-[#1e2b45] hover:bg-[#28385a] text-[#60a5fa] hover:text-white border-blue-500/40 shadow-blue-950/50';
+      return 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/40 shadow-indigo-950/30';
     default:
       return 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-white/[0.1] shadow-black/40';
   }
@@ -88,7 +88,7 @@ onUnmounted(() => {
     >
       <div
         v-if="estado.abierto"
-        class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none"
+        class="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none"
         @click.self="dialogService.cancelar()"
       >
         <transition
@@ -101,12 +101,12 @@ onUnmounted(() => {
         >
           <div
             v-if="estado.abierto"
-            class="relative w-full max-w-lg bg-[#0c0c0e] border border-white/[0.09] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            class="relative w-full max-w-lg bg-white dark:bg-[#0c0c0e] border border-zinc-200 dark:border-white/[0.09] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             role="dialog"
             aria-modal="true"
           >
             <!-- Cabecera de Alto Impacto con Icono, Título y Subtítulo en Mayúsculas -->
-            <div class="p-5 border-b border-white/[0.07] bg-[#0c0c0e] flex items-center justify-between gap-4">
+            <div class="p-5 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0c0c0e] flex items-center justify-between gap-4">
               <div class="flex items-center gap-3.5 min-w-0">
                 <div
                   :class="[
@@ -117,10 +117,10 @@ onUnmounted(() => {
                   <component :is="iconoCabecera" class="w-5 h-5" />
                 </div>
                 <div class="min-w-0">
-                  <h3 class="text-sm sm:text-base font-extrabold uppercase tracking-wide text-zinc-100 truncate">
+                  <h3 class="text-sm sm:text-base font-extrabold uppercase tracking-wide text-zinc-900 dark:text-zinc-100 truncate">
                     {{ estado.titulo }}
                   </h3>
-                  <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mt-0.5 truncate">
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
                     {{ estado.subtitulo || 'CONFIRMACIÓN DEL SISTEMA' }}
                   </p>
                 </div>
@@ -130,7 +130,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 @click="dialogService.cancelar()"
-                class="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-850 transition shrink-0"
+                class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shrink-0"
                 title="Cerrar modal"
               >
                 <X class="w-4 h-4" />
@@ -139,28 +139,28 @@ onUnmounted(() => {
 
             <!-- Cuerpo del Mensaje -->
             <div class="p-6 space-y-4">
-              <p class="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+              <p class="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {{ estado.mensaje }}
               </p>
 
               <!-- Detalle o Advertencia Adicional si existe -->
               <div
                 v-if="estado.detalle"
-                class="p-3.5 rounded-xl bg-zinc-900/60 border border-white/[0.06] text-xs text-zinc-400 flex items-start gap-2.5"
+                class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-white/[0.06] text-xs text-zinc-600 dark:text-zinc-400 flex items-start gap-2.5"
               >
-                <AlertOctagon class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <AlertOctagon class="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span class="leading-relaxed">{{ estado.detalle }}</span>
               </div>
             </div>
 
             <!-- Pie de Botones con Estilo Idéntico a la Referencia -->
-            <div class="p-4 border-t border-white/[0.06] bg-zinc-950/60 flex items-center justify-end gap-3">
+            <div class="p-4 border-t border-zinc-200 dark:border-white/[0.06] bg-zinc-50 dark:bg-zinc-950/60 flex items-center justify-end gap-3">
               <!-- Botón Cancelar -->
               <button
                 v-if="!estado.soloConfirmar"
                 type="button"
                 @click="dialogService.cancelar()"
-                class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-white/[0.08] text-xs font-bold uppercase tracking-wider transition active:scale-[0.98]"
+                class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white border border-zinc-300 dark:border-white/[0.08] text-xs font-bold uppercase tracking-wider transition active:scale-[0.98]"
               >
                 {{ estado.textoCancelar || 'CANCELAR' }}
               </button>
