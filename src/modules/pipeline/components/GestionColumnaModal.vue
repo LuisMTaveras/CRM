@@ -1,0 +1,223 @@
+<script setup lang="ts">
+import { ref, reactive, watch } from 'vue';
+import { X, Columns3, CheckCircle2, Loader2, AlertCircle } from 'lucide-vue-next';
+import { FlickerlessSurface } from '@flickerless/vue';
+import { pipelineService } from '../services/pipeline.service';
+import type { ColumnaPipeline } from '../types/pipeline.types';
+import { LIMITE_MAXIMO_COLUMNAS } from '../types/pipeline.types';
+import { toastService } from '@/core/notifications/toast.service';
+
+const props = defineProps<{
+  abierto: boolean;
+  pipelineId: string;
+  columnaAEditar?: ColumnaPipeline | null;
+  totalColumnasActuales?: number;
+}>();
+
+const emit = defineEmits<{
+  (e: 'cerrar'): void;
+  (e: 'guardada'): void;
+}>();
+
+const guardando = ref(false);
+const errorMensaje = ref('');
+
+const opcionesColor = [
+  { nombre: 'Esmeralda', color: 'border-emerald-500/40 text-emerald-400', bgBadge: 'bg-emerald-500/10 border-emerald-500/20', dotClass: 'bg-emerald-400' },
+  { nombre: 'Cielo', color: 'border-sky-500/40 text-sky-400', bgBadge: 'bg-sky-500/10 border-sky-500/20', dotClass: 'bg-sky-400' },
+  { nombre: 'Índigo', color: 'border-indigo-500/40 text-indigo-400', bgBadge: 'bg-indigo-500/10 border-indigo-500/20', dotClass: 'bg-indigo-400' },
+  { nombre: 'Ámbar', color: 'border-amber-500/40 text-amber-400', bgBadge: 'bg-amber-500/10 border-amber-500/20', dotClass: 'bg-amber-400' },
+  { nombre: 'Púrpura', color: 'border-purple-500/40 text-purple-400', bgBadge: 'bg-purple-500/10 border-purple-500/20', dotClass: 'bg-purple-400' },
+  { nombre: 'Rosa', color: 'border-rose-500/40 text-rose-400', bgBadge: 'bg-rose-500/10 border-rose-500/20', dotClass: 'bg-rose-400' },
+  { nombre: 'Zinc', color: 'border-zinc-500/40 text-zinc-300', bgBadge: 'bg-zinc-500/10 border-zinc-500/20', dotClass: 'bg-zinc-400' },
+];
+
+const formulario = reactive({
+  titulo: '',
+  color: opcionesColor[1].color,
+  bgBadge: opcionesColor[1].bgBadge,
+  es_completado: false,
+});
+
+watch(
+  () => props.columnaAEditar,
+  (col) => {
+    if (col) {
+      formulario.titulo = col.titulo;
+      formulario.color = col.color;
+      formulario.bgBadge = col.bgBadge;
+      formulario.es_completado = !!col.es_completado;
+    } else {
+      formulario.titulo = '';
+      formulario.color = opcionesColor[1].color;
+      formulario.bgBadge = opcionesColor[1].bgBadge;
+      formulario.es_completado = false;
+    }
+  },
+  { immediate: true }
+);
+
+const limiteAlcanzado = () => {
+  return !props.columnaAEditar && (props.totalColumnasActuales || 0) >= LIMITE_MAXIMO_COLUMNAS;
+};
+
+const guardar = async () => {
+  if (limiteAlcanzado()) {
+    errorMensaje.value = `Se ha alcanzado el límite máximo de ${LIMITE_MAXIMO_COLUMNAS} etapas por tablero.`;
+    return;
+  }
+  if (!formulario.titulo.trim()) {
+    errorMensaje.value = 'El título de la etapa o columna es obligatorio.';
+    return;
+  }
+
+  errorMensaje.value = '';
+  guardando.value = true;
+  try {
+    if (props.columnaAEditar) {
+      await pipelineService.actualizarColumna(props.pipelineId, props.columnaAEditar.id, {
+        titulo: formulario.titulo.trim(),
+        color: formulario.color,
+        bgBadge: formulario.bgBadge,
+        es_completado: formulario.es_completado,
+      });
+      toastService.exito(`Columna "${formulario.titulo}" actualizada.`);
+    } else {
+      await pipelineService.agregarColumna(props.pipelineId, {
+        titulo: formulario.titulo.trim(),
+        color: formulario.color,
+        bgBadge: formulario.bgBadge,
+        es_completado: formulario.es_completado,
+      });
+      toastService.exito(`Columna "${formulario.titulo}" agregada al tablero.`);
+    }
+    emit('guardada');
+    emit('cerrar');
+  } catch (err: unknown) {
+    errorMensaje.value = err instanceof Error ? err.message : 'Error al guardar la columna.';
+  } finally {
+    guardando.value = false;
+  }
+};
+</script>
+
+<template>
+  <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+    <div
+      class="bg-zinc-900 border border-white/[0.08] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-titulo-columna"
+    >
+      <!-- Cabecera -->
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.07] bg-zinc-950/60">
+        <div class="flex items-center gap-2">
+          <Columns3 class="w-4 h-4 text-emerald-400" />
+          <h2 id="modal-titulo-columna" class="text-xs font-semibold text-white tracking-tight">
+            {{ columnaAEditar ? 'Editar Columna / Etapa' : 'Nueva Columna / Etapa' }}
+          </h2>
+        </div>
+        <button
+          @click="emit('cerrar')"
+          class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition"
+          aria-label="Cerrar modal"
+        >
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- Contenido protegido por FlickerlessSurface -->
+      <FlickerlessSurface
+        :loading="false"
+        :delay-ms="80"
+        :preserve-height="true"
+        stream-color="#10b981"
+        class="p-5 space-y-4 text-xs"
+      >
+        <div v-if="errorMensaje" class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+          {{ errorMensaje }}
+        </div>
+
+        <div v-if="limiteAlcanzado()" class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+          <AlertCircle class="w-4 h-4 shrink-0" />
+          <span>Límite de {{ LIMITE_MAXIMO_COLUMNAS }} etapas alcanzado para este tablero. Para añadir una nueva, elimine o edite una existente.</span>
+        </div>
+
+        <div>
+          <label class="block font-medium text-zinc-300 mb-1.5">
+            Nombre de la Columna o Etapa <span class="text-rose-400">*</span>
+          </label>
+          <input
+            v-model="formulario.titulo"
+            type="text"
+            placeholder="Ejemplo: Visita Agendada, Documentación Enviada..."
+            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+          />
+        </div>
+
+        <div>
+          <label class="block font-medium text-zinc-300 mb-2">
+            Color Identificador de la Etapa
+          </label>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="(opt, idx) in opcionesColor"
+              :key="idx"
+              type="button"
+              @click="formulario.color = opt.color; formulario.bgBadge = opt.bgBadge"
+              :class="[
+                'p-2 rounded-lg border text-xs flex items-center gap-2 transition text-left',
+                formulario.color === opt.color
+                  ? 'border-white/[0.3] bg-zinc-800/80 text-white'
+                  : 'border-white/[0.06] bg-zinc-950/40 text-zinc-400 hover:text-zinc-200 hover:border-white/[0.12]'
+              ]"
+            >
+              <span :class="['w-2.5 h-2.5 rounded-full shrink-0', opt.dotClass]"></span>
+              <span class="truncate">{{ opt.nombre }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Marcar como Estado Completado (Regla: Solo 1 estado completado por tablero) -->
+        <div class="p-3 rounded-xl bg-zinc-950/60 border border-white/[0.06] space-y-2">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="formulario.es_completado"
+              class="mt-0.5 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 focus:outline-none"
+            />
+            <div>
+              <div class="font-medium text-zinc-200 flex items-center gap-1.5">
+                <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400" />
+                <span>Marcar como Estado Completado</span>
+              </div>
+              <p class="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                Solo puede haber un estado completado por tablero. Este estado determina el porcentaje de avance (métrica de completitud) del pipeline.
+              </p>
+            </div>
+          </label>
+        </div>
+      </FlickerlessSurface>
+
+      <!-- Pie -->
+      <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-white/[0.07] bg-zinc-950/60 text-xs">
+        <button
+          type="button"
+          @click="emit('cerrar')"
+          class="px-3.5 py-1.5 rounded-lg border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-medium transition"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="guardar"
+          :disabled="guardando || limiteAlcanzado()"
+          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition active:scale-95 disabled:opacity-50"
+        >
+          <Loader2 v-if="guardando" class="w-3.5 h-3.5 animate-spin" />
+          <span>{{ guardando ? 'Guardando...' : (columnaAEditar ? 'Guardar Cambios' : 'Crear Columna') }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
