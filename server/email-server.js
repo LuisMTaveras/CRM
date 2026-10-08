@@ -31,6 +31,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_FILE = path.join(__dirname, 'email-config.json');
+const EMPRESA_FILE = path.join(__dirname, 'empresa-config.json');
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -66,6 +67,33 @@ function guardarConfiguracionServidor(config) {
   }
 }
 
+// ─── PERSISTENCIA DE EMPRESA (BASE DE DATOS SERVIDOR) ──────────────────────
+let datosEmpresaActiva = null;
+
+function cargarEmpresaServidor() {
+  try {
+    if (fs.existsSync(EMPRESA_FILE)) {
+      const data = fs.readFileSync(EMPRESA_FILE, 'utf8');
+      datosEmpresaActiva = JSON.parse(data);
+      console.log(`[EMPRESA DB] Datos de empresa cargados: ${datosEmpresaActiva.razonSocial || datosEmpresaActiva.nombreComercial} (RNC: ${datosEmpresaActiva.identificacionFiscal})`);
+    }
+  } catch (err) {
+    console.warn('[EMPRESA DB] No se pudo leer empresa-config.json:', err.message);
+  }
+}
+cargarEmpresaServidor();
+
+function guardarEmpresaServidor(datos) {
+  try {
+    datosEmpresaActiva = { ...(datosEmpresaActiva || {}), ...datos, ultimaActualizacion: new Date().toISOString() };
+    fs.writeFileSync(EMPRESA_FILE, JSON.stringify(datosEmpresaActiva, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[EMPRESA DB] Error al guardar empresa-config.json:', err.message);
+    return false;
+  }
+}
+
 // ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 app.get('/api/email/estado', (_req, res) => {
   res.json({
@@ -77,7 +105,7 @@ app.get('/api/email/estado', (_req, res) => {
   });
 });
 
-// ─── GUARDAR / OBTENER CONFIGURACIÓN ─────────────────────────────────────────
+// ─── GUARDAR / OBTENER CONFIGURACIÓN CORREO ──────────────────────────────────
 app.post('/api/email/configuracion', (req, res) => {
   const config = req.body;
   if (!config) {
@@ -100,6 +128,28 @@ app.get('/api/email/configuracion', (_req, res) => {
           contrasenaImap: configuracionActiva.contrasenaImap ? '••••••••••••' : '',
         }
       : null,
+  });
+});
+
+// ─── OBTENER / ACTUALIZAR PERFIL DE EMPRESA (DB) ──────────────────────────────
+app.get(['/api/empresa', '/api/email/empresa'], (_req, res) => {
+  if (!datosEmpresaActiva) cargarEmpresaServidor();
+  res.json({
+    ok: true,
+    empresa: datosEmpresaActiva,
+  });
+});
+
+app.post(['/api/empresa', '/api/email/empresa'], (req, res) => {
+  const datos = req.body;
+  if (!datos || typeof datos !== 'object') {
+    return res.status(400).json({ ok: false, error: 'Datos de empresa inválidos.' });
+  }
+  const exito = guardarEmpresaServidor(datos);
+  res.json({
+    ok: exito,
+    empresa: datosEmpresaActiva,
+    mensaje: 'Perfil de empresa guardado exitosamente en base de datos.',
   });
 });
 

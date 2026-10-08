@@ -72,7 +72,7 @@ class FirmaPieService {
     return {
       ...FIRMA_POR_DEFECTO,
       ...preferenciasGuardadas,
-      // CAMPOS INMUTABLES POR EL USUARIO (Gobierno de Identidad de Marca):
+      // CAMPOS INMUTABLES POR EL USUARIO (Gobierno de Identidad de Marca desde la DB):
       empresa: datosEmpresa.razonSocial || datosEmpresa.nombreComercial || FIRMA_POR_DEFECTO.empresa,
       sitioWeb: datosEmpresa.sitioWeb || FIRMA_POR_DEFECTO.sitioWeb,
       telefono: datosEmpresa.telefono || FIRMA_POR_DEFECTO.telefono,
@@ -99,7 +99,7 @@ class FirmaPieService {
   }
 
   /**
-   * Obtiene la configuración del pie institucional protegiendo dirección y RNC
+   * Obtiene la configuración del pie institucional protegiendo dirección y RNC directamente desde la DB
    */
   obtenerPie(): ConfiguracionPiePagina {
     let pieGuardado: Partial<ConfiguracionPiePagina> = {};
@@ -114,12 +114,16 @@ class FirmaPieService {
     }
 
     const datosEmpresa = empresaService.obtenerDatos();
+    let direccionCompleta = datosEmpresa.direccion || '';
+    if (datosEmpresa.ciudad && !direccionCompleta.toLowerCase().includes(datosEmpresa.ciudad.toLowerCase())) {
+      direccionCompleta = direccionCompleta ? `${direccionCompleta}, ${datosEmpresa.ciudad}` : datosEmpresa.ciudad;
+    }
 
     return {
       ...PIE_POR_DEFECTO,
-      direccionFisica: datosEmpresa.direccion ? `${datosEmpresa.direccion}, ${datosEmpresa.ciudad}` : PIE_POR_DEFECTO.direccionFisica,
-      rncEmpresa: datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : PIE_POR_DEFECTO.rncEmpresa,
       ...pieGuardado,
+      direccionFisica: pieGuardado.direccionFisica || direccionCompleta || PIE_POR_DEFECTO.direccionFisica,
+      rncEmpresa: pieGuardado.rncEmpresa || (datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : PIE_POR_DEFECTO.rncEmpresa),
     };
   }
 

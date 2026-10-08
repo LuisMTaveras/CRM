@@ -136,37 +136,43 @@ class EmailService {
       }
     }
 
-    const nombreEjecutivo = usuarioActivo?.nombre || smtpConfig.nombreRemitente || 'Luis M. Taveras';
-    const correoEjecutivo = usuarioActivo?.email || smtpConfig.correoRemitente || 'luismiguel@alliance.do';
-    const cargoEjecutivo = usuarioActivo?.cargo || 'Team Leader TI Support';
-    const flotaEjecutivo = usuarioActivo?.telefonoFlota || datosEmpresa.telefono || '+1 (829) 708-4706';
-    const deptoEjecutivo = usuarioActivo?.departamento || 'Tecnología & Soporte';
+    const nombreEjecutivo = usuarioActivo?.nombre || smtpConfig.nombreRemitente || '';
+    const correoEjecutivo = usuarioActivo?.email || smtpConfig.correoRemitente || '';
+    const cargoEjecutivo = usuarioActivo?.cargo || '';
+    const flotaEjecutivo = usuarioActivo?.telefonoFlota || '';
+    const deptoEjecutivo = usuarioActivo?.departamento || '';
 
-    const nombreRemitenteEmpresa = datosEmpresa.razonSocial || 'Ingeniería de Software Alliance S.R.L.';
-    const correoRemitenteEmpresa = smtpConfig.correoRemitente || correoEjecutivo;
-    const telefonoRemitenteEmpresa = datosEmpresa.telefono || '+1 (809) 555-0100';
+    const nombreRemitenteEmpresa = datosEmpresa.razonSocial || datosEmpresa.nombreComercial || '';
+    const correoRemitenteEmpresa = smtpConfig.correoRemitente || correoEjecutivo || datosEmpresa.correo || '';
+    const telefonoRemitenteEmpresa = datosEmpresa.telefono || '';
+
+    // Dirección completa de la empresa asegurando consistencia con la DB
+    let direccionCompleta = datosEmpresa.direccion || '';
+    if (datosEmpresa.ciudad && !direccionCompleta.toLowerCase().includes(datosEmpresa.ciudad.toLowerCase())) {
+      direccionCompleta = direccionCompleta ? `${direccionCompleta}, ${datosEmpresa.ciudad}` : datosEmpresa.ciudad;
+    }
 
     return {
-      empresa: cliente.razon_social,
-      contacto_principal: contactoPrincipal?.nombre || 'Representante Legal',
-      cargo_contacto: contactoPrincipal?.cargo || 'Director General',
-      rnc: cliente.identificacion_fiscal || 'Sin RNC Registrado',
-      ciudad: cliente.ciudad || 'Santo Domingo',
-      monto: formatCurrency(cliente.valor_estimado || 0),
+      empresa: cliente.razon_social || '—',
+      contacto_principal: contactoPrincipal?.nombre || '—',
+      cargo_contacto: contactoPrincipal?.cargo || '—',
+      rnc: cliente.identificacion_fiscal || '—',
+      ciudad: cliente.ciudad || '—',
+      monto: cliente.valor_estimado ? formatCurrency(cliente.valor_estimado) : '—',
       fecha: formatDate(new Date().toISOString()),
-      empresa_remitente: nombreRemitenteEmpresa,
-      correo_remitente: correoRemitenteEmpresa,
-      telefono_remitente: telefonoRemitenteEmpresa,
-      ejecutivo: nombreEjecutivo,
-      correo_ejecutivo: correoEjecutivo,
-      telefono_ejecutivo: flotaEjecutivo,
-      cargo_ejecutivo: cargoEjecutivo,
-      departamento_ejecutivo: deptoEjecutivo,
-      flota_ejecutivo: flotaEjecutivo,
-      empresa_emisora: datosEmpresa.razonSocial,
-      rnc_empresa_emisora: datosEmpresa.identificacionFiscal,
-      web_empresa_emisora: datosEmpresa.sitioWeb,
-      direccion_empresa_emisora: `${datosEmpresa.direccion}, ${datosEmpresa.ciudad}`,
+      empresa_remitente: nombreRemitenteEmpresa || '—',
+      correo_remitente: correoRemitenteEmpresa || '—',
+      telefono_remitente: telefonoRemitenteEmpresa || '—',
+      ejecutivo: nombreEjecutivo || '—',
+      correo_ejecutivo: correoEjecutivo || '—',
+      telefono_ejecutivo: flotaEjecutivo || telefonoRemitenteEmpresa || '—',
+      cargo_ejecutivo: cargoEjecutivo || '—',
+      departamento_ejecutivo: deptoEjecutivo || '—',
+      flota_ejecutivo: flotaEjecutivo || '—',
+      empresa_emisora: datosEmpresa.razonSocial || datosEmpresa.nombreComercial || '—',
+      rnc_empresa_emisora: datosEmpresa.identificacionFiscal || '—',
+      web_empresa_emisora: datosEmpresa.sitioWeb || '—',
+      direccion_empresa_emisora: direccionCompleta || '—',
     };
   }
 
@@ -216,13 +222,10 @@ class EmailService {
       console.warn('[PDF] No se pudo generar PDF adjunto:', err);
     }
 
-    // Construir remitente final
-    const remitenteFinal =
-      smtpConfig.nombreRemitente && smtpConfig.correoRemitente
-        ? `${smtpConfig.nombreRemitente} <${smtpConfig.correoRemitente}>`
-        : datosEmpresa.razonSocial
-        ? `${datosEmpresa.razonSocial} <${smtpConfig.correoRemitente || 'ventas@empresa.com.do'}>`
-        : `${remitente?.nombre || 'Departamento Comercial'} <${remitente?.email || smtpConfig.correoRemitente || 'ventas@empresa.com.do'}>`;
+    // Construir remitente final desde configuración DB
+    const nombreRemitente = smtpConfig.nombreRemitente || datosEmpresa.nombreComercial || datosEmpresa.razonSocial || remitente?.nombre || '—';
+    const correoRemitente = smtpConfig.correoRemitente || remitente?.email || datosEmpresa.correo || '';
+    const remitenteFinal = correoRemitente ? `${nombreRemitente} <${correoRemitente}>` : nombreRemitente;
 
     // Intentar envío real vía API
     const servidorDisponible = await servidorEmailDisponible();

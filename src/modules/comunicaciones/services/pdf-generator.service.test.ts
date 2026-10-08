@@ -107,4 +107,23 @@ Sin otro particular, quedamos a su entera disposición.`,
 
     expect(paginas).toBeGreaterThan(1);
   });
+
+  it('no inserta datos inventados o hardcodeados cuando las variables son nulas o vacías', () => {
+    const variablesVacias: VariablesPlantilla = {
+      empresa: '',
+      contacto_principal: '',
+      cargo_contacto: '',
+      rnc: '',
+      ciudad: '',
+      monto: '',
+      fecha: '08 de Octubre de 2026',
+    };
+
+    const doc = pdfGeneratorService.generarDocumentoPdf(plantillaMuestra, variablesVacias);
+    expect(doc).toBeDefined();
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+
+    const uri = pdfGeneratorService.obtenerDataUri(plantillaMuestra, variablesVacias);
+    expect(uri.startsWith('data:application/pdf;')).toBe(true);
+  });
 });

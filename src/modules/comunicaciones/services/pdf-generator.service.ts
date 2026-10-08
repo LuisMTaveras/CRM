@@ -103,7 +103,8 @@ export class PdfGeneratorService {
 
     // ─── 2. ENCABEZADO Y MEMBRETE INSTITUCIONAL ────────────────────────────────
     // Monograma / Emblema corporativo geométrico
-    const monograma = this.obtenerInicialesMonograma(datosEmpresa.razonSocial || 'Alliance');
+    const razonSocial = datosEmpresa.razonSocial || datosEmpresa.nombreComercial || '—';
+    const monograma = this.obtenerInicialesMonograma(razonSocial);
     doc.setFillColor(...PALETTE.slate950);
     doc.roundedRect(margin, y, 14, 14, 2.5, 2.5, 'F');
     doc.setDrawColor(...PALETTE.primario);
@@ -115,13 +116,15 @@ export class PdfGeneratorService {
     doc.setTextColor(...PALETTE.blanco);
     doc.text(monograma, margin + 7, y + 9.5, { align: 'center' });
 
-    // Datos institucionales de la empresa emisora
-    const razonSocial = datosEmpresa.razonSocial || 'Ingeniería de Software Alliance S.R.L.';
-    const slogan = datosEmpresa.sloganActividad || 'Servicios y Consultoría B2B Especializada';
-    const rncEmisor = datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : 'RNC: 1-32-00000-0';
-    const direccionEmisor = `${datosEmpresa.direccion}, ${datosEmpresa.ciudad}`;
-    const webEmisor = datosEmpresa.sitioWeb || 'alliance.do';
-    const telEmisor = datosEmpresa.telefono || '+1 (809) 555-0100';
+    // Datos institucionales de la empresa emisora desde DB
+    const slogan = datosEmpresa.sloganActividad || '';
+    const rncEmisor = datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : '';
+    let direccionEmisor = datosEmpresa.direccion || '';
+    if (datosEmpresa.ciudad && !direccionEmisor.toLowerCase().includes(datosEmpresa.ciudad.toLowerCase())) {
+      direccionEmisor = direccionEmisor ? `${direccionEmisor}, ${datosEmpresa.ciudad}` : datosEmpresa.ciudad;
+    }
+    const webEmisor = datosEmpresa.sitioWeb ? `Portal: ${datosEmpresa.sitioWeb}` : '';
+    const telEmisor = datosEmpresa.telefono ? `Tel: ${datosEmpresa.telefono}` : '';
 
     const textoX = margin + 17;
     doc.setFont('helvetica', 'bold');
@@ -132,11 +135,16 @@ export class PdfGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text(slogan, textoX, y + 8);
-    doc.text(`${rncEmisor} • ${direccionEmisor}`, textoX, y + 11.5);
+    if (slogan) doc.text(slogan, textoX, y + 8);
+    
+    const infoFila2 = [rncEmisor, direccionEmisor].filter(Boolean).join(' • ');
+    if (infoFila2) doc.text(infoFila2, textoX, y + 11.5);
 
-    doc.setTextColor(...PALETTE.primario);
-    doc.text(`Tel: ${telEmisor} • Portal: ${webEmisor}`, textoX, y + 15);
+    const infoFila3 = [telEmisor, webEmisor].filter(Boolean).join(' • ');
+    if (infoFila3) {
+      doc.setTextColor(...PALETTE.primario);
+      doc.text(infoFila3, textoX, y + 15);
+    }
 
     // Caja de Registro y Seguimiento Documental (Esquina superior derecha)
     const boxRefW = 54;
@@ -180,7 +188,7 @@ export class PdfGeneratorService {
 
     // ─── 3. DOSIER COMPARATIVO: EMISOR VS. CLIENTE (SIDE-BY-SIDE) ──────────────
     const cardW = (contentWidth - 6) / 2; // 84 mm
-    const cardH = 28;
+    const cardH = 32;
 
     // Tarjeta Izquierda: Emisor Autorizado
     const emisorX = margin;
@@ -198,15 +206,20 @@ export class PdfGeneratorService {
     doc.setTextColor(...PALETTE.blanco);
     doc.text('EXPEDIDOR / EMISOR AUTORIZADO', emisorX + 4, y + 3.8);
 
+    const emisorContacto = [variables.flota_ejecutivo || telEmisor, variables.correo_ejecutivo]
+      .filter((x) => x && x !== '—')
+      .join(' • ');
+
     const emisorRows = [
       { label: 'Entidad:', val: razonSocial, bold: true },
-      { label: 'RNC Emisor:', val: rncEmisor.replace('RNC: ', '') },
-      { label: 'Atendido por:', val: variables.ejecutivo || 'Luis M. Taveras', bold: true },
-      { label: 'Cargo:', val: variables.cargo_ejecutivo || 'Team Leader TI Support' },
-      { label: 'Contacto:', val: `${variables.flota_ejecutivo || telEmisor} • ${variables.correo_ejecutivo || 'luismiguel@alliance.do'}`, color: PALETTE.primario },
+      { label: 'RNC Emisor:', val: datosEmpresa.identificacionFiscal || '—' },
+      { label: 'Dirección:', val: direccionEmisor || '—' },
+      { label: 'Atendido por:', val: variables.ejecutivo || '—', bold: true },
+      { label: 'Cargo:', val: variables.cargo_ejecutivo || '—' },
+      { label: 'Contacto:', val: emisorContacto || '—', color: PALETTE.primario },
     ];
 
-    let rowY = y + 9.5;
+    let rowY = y + 9.2;
     for (const r of emisorRows) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6);
@@ -218,7 +231,7 @@ export class PdfGeneratorService {
       doc.setTextColor(...(r.color || (r.bold ? PALETTE.slate950 : PALETTE.slate700)));
       const valCorto = doc.splitTextToSize(r.val, cardW - 25)[0] || r.val;
       doc.text(valCorto, emisorX + 22, rowY);
-      rowY += 4.2;
+      rowY += 3.7;
     }
 
     // Tarjeta Derecha: Destinatario / Cliente Receptor
@@ -238,14 +251,15 @@ export class PdfGeneratorService {
     doc.text('DESTINATARIO / EMPRESA CLIENTE', clienteX + 4, y + 3.8);
 
     const clienteRows = [
-      { label: 'Razón Social:', val: variables.empresa, bold: true },
-      { label: 'RNC / Registro:', val: variables.rnc || 'Consumidor Final / Sin RNC' },
-      { label: 'Atención a:', val: variables.contacto_principal || 'Representante Legal', bold: true },
-      { label: 'Cargo:', val: variables.cargo_contacto || 'Director / Gerente General' },
-      { label: 'Localidad:', val: `${variables.ciudad || 'Santo Domingo'}, Rep. Dom.` },
+      { label: 'Razón Social:', val: variables.empresa || '—', bold: true },
+      { label: 'RNC / Registro:', val: variables.rnc || '—' },
+      { label: 'Atención a:', val: variables.contacto_principal || '—', bold: true },
+      { label: 'Cargo:', val: variables.cargo_contacto || '—' },
+      { label: 'Localidad:', val: variables.ciudad || '—' },
+      { label: 'Valor Ref.:', val: variables.monto || '—' },
     ];
 
-    rowY = y + 9.5;
+    rowY = y + 9.2;
     for (const r of clienteRows) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6);
@@ -257,7 +271,7 @@ export class PdfGeneratorService {
       doc.setTextColor(...(r.bold ? PALETTE.slate950 : PALETTE.slate700));
       const valCorto = doc.splitTextToSize(r.val, cardW - 27)[0] || r.val;
       doc.text(valCorto, clienteX + 24, rowY);
-      rowY += 4.2;
+      rowY += 3.7;
     }
 
     y += cardH + 4;
@@ -469,8 +483,8 @@ export class PdfGeneratorService {
     doc.text('[ SELLO DIGITAL VERIFICADO ]', firma1X + 25, y + 9.5, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(4.5);
-    doc.setTextColor(...PALETTE.primario);
-    doc.text(`Hash: ALLIANCE-${hashVerificacion.slice(0, 8)}`, firma1X + 25, y + 12.2, { align: 'center' });
+    const prefijoSello = monograma || 'DOC';
+    doc.text(`Hash: ${prefijoSello}-${hashVerificacion.slice(0, 8)}`, firma1X + 25, y + 12.2, { align: 'center' });
 
     // Línea de firma
     doc.setDrawColor(...PALETTE.bordeMedio);
@@ -480,12 +494,12 @@ export class PdfGeneratorService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(...PALETTE.slate950);
-    doc.text(variables.ejecutivo || 'Luis M. Taveras', firma1X + 4, y + 20.8);
+    doc.text(variables.ejecutivo || '—', firma1X + 4, y + 20.8);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5.5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text(variables.cargo_ejecutivo || 'Team Leader TI Support', firma1X + 4, y + 23.5);
+    doc.text(variables.cargo_ejecutivo || '—', firma1X + 4, y + 23.5);
     doc.text(razonSocial, firma1X + 4, y + 26);
 
     // Columna de Firma 2: Empresa Cliente (Aceptación)
@@ -512,13 +526,13 @@ export class PdfGeneratorService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(...PALETTE.slate950);
-    doc.text(variables.contacto_principal || 'Representante Legal', firma2X + 4, y + 20.8);
+    doc.text(variables.contacto_principal || '—', firma2X + 4, y + 20.8);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5.5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text(variables.cargo_contacto || 'Director / Gerente General', firma2X + 4, y + 23.5);
-    doc.text(`Fecha de Firma: ______ / ______ / 2026`, firma2X + 4, y + 26);
+    doc.text(variables.cargo_contacto || '—', firma2X + 4, y + 23.5);
+    doc.text(variables.empresa || '—', firma2X + 4, y + 26);
 
     // ─── 7. PIE DE PÁGINA INSTITUCIONAL & ENCABEZADOS EN PÁGINAS SIGUIENTES ────
     const totalPages = doc.getNumberOfPages();
