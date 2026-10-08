@@ -9,7 +9,6 @@ import type { ConfiguracionSMTP } from '../types/smtp.types';
 import EnvioMasivoModal from '../components/EnvioMasivoModal.vue';
 import CargarDocumentoModal from '../components/CargarDocumentoModal.vue';
 import BandejaCorreo from '../components/BandejaCorreo.vue';
-import ConfiguracionFirmaYPieModal from '../components/ConfiguracionFirmaYPieModal.vue';
 import { 
   Mail, 
   FileText, 
@@ -25,8 +24,7 @@ import {
   Trash2, 
   RefreshCw,
   Sliders,
-  Inbox,
-  PenTool
+  Inbox
 } from 'lucide-vue-next';
 import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
@@ -42,7 +40,6 @@ const smtpConfig = ref<ConfiguracionSMTP>(smtpService.obtenerConfiguracion());
 const servidorEmailActivo = ref<boolean | null>(null);
 
 const modalEnvioAbierto = ref(false);
-const modalConfigAbierto = ref(false);
 const modalCargarDocumentoAbierto = ref(false);
 const cargando = ref(true);
 
@@ -93,11 +90,6 @@ const eliminarPlantillaPersonalizada = (id: string) => {
   plantillas.value = emailService.obtenerPlantillas();
 };
 
-const onConfigGuardada = () => {
-  smtpConfig.value = smtpService.obtenerConfiguracion();
-  verificarServidorEmail();
-};
-
 onMounted(() => {
   cargarDatos();
   verificarServidorEmail();
@@ -139,14 +131,14 @@ onMounted(() => {
     <!-- Teleport de Acciones hacia la Barra Superior -->
     <Teleport to="#header-portal-right">
       <div class="flex items-center gap-2">
-        <button
-          type="button"
-          @click="modalConfigAbierto = true"
-          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
+        <router-link
+          to="/configuracion?tab=correo"
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-white/[0.08] rounded-xl text-xs font-semibold shadow-sm transition"
+          title="Abrir Configuración General de Correo, Servidores y Firma"
         >
-          <Sliders class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Firma & Servidores</span>
-        </button>
+          <Sliders class="w-3.5 h-3.5 text-indigo-400" />
+          <span>Ajustes de Servidor</span>
+        </router-link>
 
         <button
           v-if="pestanaActiva === 'despacho'"
@@ -199,14 +191,14 @@ onMounted(() => {
         </button>
       </div>
 
-      <button
-        type="button"
-        @click="modalConfigAbierto = true"
-        class="text-xs text-zinc-400 hover:text-emerald-400 flex items-center gap-1.5 font-medium transition"
+      <router-link
+        to="/configuracion?tab=correo"
+        class="text-xs text-zinc-400 hover:text-indigo-400 flex items-center gap-1.5 font-medium transition"
+        title="Administrar Firma Institucional y Pie Legal en Configuración General"
       >
-        <PenTool class="w-3.5 h-3.5" />
-        <span>Configurar Firma & Pie de Página</span>
-      </button>
+        <Sliders class="w-3.5 h-3.5" />
+        <span>Ajustes de Correo & Firma →</span>
+      </router-link>
     </div>
 
     <!-- PESTAÑA 1: BANDEJA DE CORREO (WEBMAIL CLIENT) -->
@@ -513,12 +505,6 @@ onMounted(() => {
       :plantilla-inicial="plantillaSeleccionadaModal"
       @cerrar="modalEnvioAbierto = false"
       @completado="cargarDatos"
-    />
-
-    <ConfiguracionFirmaYPieModal
-      :abierto="modalConfigAbierto"
-      @cerrar="modalConfigAbierto = false"
-      @guardado="onConfigGuardada"
     />
 
     <CargarDocumentoModal

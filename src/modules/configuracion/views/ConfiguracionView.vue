@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch, computed } from 'vue';
+import { ref, reactive, watch, computed, onMounted } from 'vue';
 import { 
   Building2, 
   CheckCircle2, 
@@ -33,8 +33,11 @@ import {
   PALETA_COLORES_SECTOR, 
   type SectorEconomico 
 } from '@/modules/clientes/types/sector.types';
+import { useRoute } from 'vue-router';
+import ConfiguracionCorreoSection from '../components/ConfiguracionCorreoSection.vue';
 
-const pestanaActiva = ref<'empresa' | 'sistema' | 'sectores'>('empresa');
+const route = useRoute();
+const pestanaActiva = ref<'empresa' | 'correo' | 'sectores' | 'sistema'>('empresa');
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
 const mensajeGuardado = ref(false);
 const guardando = ref(false);
@@ -218,6 +221,16 @@ const restablecer = async () => {
     mensajeGuardado.value = false;
   }, 2500);
 };
+
+onMounted(() => {
+  if (route.query.tab === 'correo') {
+    pestanaActiva.value = 'correo';
+  } else if (route.query.tab === 'sectores') {
+    pestanaActiva.value = 'sectores';
+  } else if (route.query.tab === 'sistema') {
+    pestanaActiva.value = 'sistema';
+  }
+});
 </script>
 
 <template>
@@ -253,6 +266,19 @@ const restablecer = async () => {
         >
           <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           <span>Perfil Empresa</span>
+        </button>
+        <button
+          type="button"
+          @click="pestanaActiva = 'correo'"
+          :class="[
+            'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
+            pestanaActiva === 'correo'
+              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-white/[0.08]'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+          ]"
+        >
+          <Mail class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+          <span>Servidores & Correo</span>
         </button>
         <button
           type="button"
@@ -593,6 +619,11 @@ const restablecer = async () => {
       </form>
     </div>
 
+    <!-- PESTAÑA: SERVIDORES & CORREO -->
+    <div v-else-if="pestanaActiva === 'correo'">
+      <ConfiguracionCorreoSection />
+    </div>
+
     <!-- PESTAÑA 2: SERVICIOS Y CONECTIVIDAD DEL SISTEMA -->
     <div v-else-if="pestanaActiva === 'sistema'" class="space-y-6">
       <!-- Tarjeta de Estado de Conexión PostgreSQL -->
@@ -652,15 +683,16 @@ const restablecer = async () => {
             <div>
               <div class="font-medium text-zinc-800 dark:text-zinc-200">Protocolos Salientes y Entrantes</div>
               <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Puedes configurar el host SMTP, puerto, cifrado SSL/TLS, remitente corporativo y servidor IMAP directamente desde el módulo de Comunicaciones.
+                Puedes configurar el host SMTP, puerto, cifrado SSL/TLS, remitente corporativo y servidor IMAP directamente desde la pestaña de Servidores & Correo.
               </p>
             </div>
-            <router-link
-              to="/comunicaciones"
-              class="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium"
+            <button
+              type="button"
+              @click="pestanaActiva = 'correo'"
+              class="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold"
             >
-              <span>Ir a Comunicaciones & Servidor SMTP →</span>
-            </router-link>
+              <span>Configurar Servidor SMTP & IMAP →</span>
+            </button>
           </div>
         </div>
       </div>

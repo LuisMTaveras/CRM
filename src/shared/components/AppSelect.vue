@@ -64,9 +64,30 @@ const toggle = () => {
       abrirHaciaArriba.value = false;
     } else {
       const rect = contenedorRef.value.getBoundingClientRect();
-      const espacioAbajo = window.innerHeight - rect.bottom;
+      let espacioAbajo = window.innerHeight - rect.bottom;
+
+      // Detectar si está dentro de un contenedor con scroll que pueda recortar el menú desplegable
+      let el = contenedorRef.value.parentElement;
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el);
+        if (
+          style.overflowY === 'auto' ||
+          style.overflowY === 'scroll' ||
+          style.overflow === 'auto' ||
+          style.overflow === 'scroll' ||
+          style.overflowY === 'hidden'
+        ) {
+          const parentRect = el.getBoundingClientRect();
+          const espacioEnParent = parentRect.bottom - rect.bottom;
+          espacioAbajo = Math.min(espacioAbajo, espacioEnParent);
+          break;
+        }
+        el = el.parentElement;
+      }
+
       const espacioArriba = rect.top;
-      abrirHaciaArriba.value = espacioAbajo < 270 && espacioArriba > 200;
+      // Si el espacio inferior es menor a 260px y arriba hay suficiente espacio, abrir hacia arriba
+      abrirHaciaArriba.value = espacioAbajo < 260 && (espacioArriba > 160 || espacioArriba > espacioAbajo);
     }
   }
   abierto.value = !abierto.value;
@@ -144,7 +165,8 @@ const opcionSeleccionada = () => {
     <div
       v-if="abierto"
       :class="[
-        'absolute z-50 mt-1.5 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl p-1.5 shadow-2xl shadow-black/10 dark:shadow-black/90 space-y-0.5 text-xs focus:outline-none transition-all max-h-64 overflow-y-auto',
+        'absolute z-50 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl p-1.5 shadow-2xl shadow-black/10 dark:shadow-black/90 space-y-0.5 text-xs focus:outline-none transition-all max-h-64 overflow-y-auto',
+        abrirHaciaArriba ? 'bottom-full mb-1.5 origin-bottom' : 'top-full mt-1.5 origin-top',
         align === 'right' ? 'right-0' : 'left-0',
         fullWidth ? 'w-full' : minWidthClass,
         popupClass

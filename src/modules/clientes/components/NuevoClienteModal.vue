@@ -238,8 +238,8 @@ const guardar = async () => {
     <!-- Backdrop oscuro -->
     <div @click="emit('cerrar')" class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
 
-    <!-- Modal Card Ampliado (max-w-4xl) con Pasos Numerados -->
-    <div class="relative bg-white dark:bg-[#0e0e12] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
+    <!-- Modal Card Ampliado y Espacioso de Alta Densidad -->
+    <div class="relative bg-white dark:bg-[#0e0e12] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-5xl xl:max-w-6xl h-[88vh] max-h-[860px] min-h-[640px] flex flex-col z-10 overflow-hidden text-xs">
       
       <!-- Cabecera Principal del Modal -->
       <div class="px-6 py-4 border-b border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-between">
@@ -369,10 +369,10 @@ const guardar = async () => {
       </div>
 
       <!-- Contenido de los Pasos (Scrollable) -->
-      <form @submit.prevent="guardar" class="p-6 overflow-y-auto flex-1 space-y-6">
+      <form @submit.prevent="guardar" class="p-8 overflow-y-auto flex-1 space-y-6">
 
         <!-- ==================== PASO 1: IDENTIFICACIÓN & EMPRESA ==================== -->
-        <div v-show="pasoActual === 1" class="space-y-4">
+        <div v-show="pasoActual === 1" class="space-y-6 min-h-[460px] pb-36">
           <div class="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
             <h4 class="font-semibold text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
               <Building2 class="w-4 h-4 text-indigo-500" />
@@ -467,7 +467,7 @@ const guardar = async () => {
         </div>
 
         <!-- ==================== PASO 2: CLASIFICACIÓN & ASIGNACIÓN ==================== -->
-        <div v-show="pasoActual === 2" class="space-y-4">
+        <div v-show="pasoActual === 2" class="space-y-6 min-h-[460px] pb-36">
           <div class="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
             <h4 class="font-semibold text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
               <Briefcase class="w-4 h-4 text-indigo-500" />
@@ -570,7 +570,7 @@ const guardar = async () => {
         </div>
 
         <!-- ==================== PASO 3: CONTACTO & UBICACIÓN ==================== -->
-        <div v-show="pasoActual === 3" class="space-y-5">
+        <div v-show="pasoActual === 3" class="space-y-6 min-h-[460px] pb-36">
           <div class="pb-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
             <h4 class="font-semibold text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
               <MapPin class="w-4 h-4 text-indigo-500" />
@@ -706,7 +706,7 @@ const guardar = async () => {
       </form>
 
       <!-- Pie del Modal con Navegación por Pasos -->
-      <div class="px-6 py-4 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-between">
+      <div class="px-8 py-4.5 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-between shrink-0">
         <button
           type="button"
           @click="emit('cerrar')"
