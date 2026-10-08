@@ -170,19 +170,19 @@ onMounted(() => {
     <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+        <span class="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
           <FolderKanban class="w-5 h-5" />
         </span>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+            <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
               Consulta de Pipelines y Tableros
             </h1>
-            <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
               {{ metricasGlobales.totalTableros }} Disponibles
             </span>
           </div>
-          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
             Supervisa el avance de cada proceso operativo o comercial y haz clic en cualquier tablero para entrar al tablero de tarjetas.
           </p>
         </div>
@@ -194,7 +194,7 @@ onMounted(() => {
       <div class="flex items-center gap-2">
         <button
           @click="modalNuevoPipelineAbierto = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-emerald-950/40"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
         >
           <Plus class="w-3.5 h-3.5" />
           <span>+ Nuevo Tablero</span>
@@ -204,61 +204,61 @@ onMounted(() => {
           @click="cargarDatos"
           :disabled="cargando"
           title="Actualizar datos"
-          class="p-2 rounded-xl border border-white/[0.08] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition shadow-sm disabled:opacity-50"
+          class="p-2 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition shadow-sm disabled:opacity-50"
         >
-          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-emerald-400' : '']" />
+          <RefreshCw :class="['w-3.5 h-3.5', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
         </button>
       </div>
     </Teleport>
 
     <!-- Banner Resumen de Métricas Globales (KPIs de Alto Impacto) -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-      <div class="saas-card p-3.5 rounded-xl border border-white/[0.07] bg-zinc-900/50 flex items-center gap-3">
-        <span class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+      <div class="saas-card p-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.07] bg-white dark:bg-zinc-900/50 flex items-center gap-3 shadow-sm">
+        <span class="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
           <TrendingUp class="w-4 h-4" />
         </span>
         <div class="min-w-0">
-          <span class="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Progreso Global CRM</span>
+          <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider block">Progreso Global CRM</span>
           <div class="flex items-center gap-2">
-            <span class="text-lg font-bold font-mono text-emerald-400">{{ metricasGlobales.porcentajeGlobal }}%</span>
+            <span class="text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400">{{ metricasGlobales.porcentajeGlobal }}%</span>
             <span class="text-[11px] text-zinc-500 truncate">completado</span>
           </div>
         </div>
       </div>
 
-      <div class="saas-card p-3.5 rounded-xl border border-white/[0.07] bg-zinc-900/50 flex items-center gap-3">
-        <span class="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 shrink-0">
+      <div class="saas-card p-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.07] bg-white dark:bg-zinc-900/50 flex items-center gap-3 shadow-sm">
+        <span class="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 dark:text-sky-400 shrink-0">
           <Kanban class="w-4 h-4" />
         </span>
         <div class="min-w-0">
-          <span class="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Elementos Activos</span>
+          <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider block">Elementos Activos</span>
           <div class="flex items-center gap-2">
-            <span class="text-lg font-bold font-mono text-zinc-100">{{ metricasGlobales.totalTarjetas }}</span>
+            <span class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100">{{ metricasGlobales.totalTarjetas }}</span>
             <span class="text-[11px] text-zinc-500 truncate">en {{ metricasGlobales.totalTableros }} tableros</span>
           </div>
         </div>
       </div>
 
-      <div class="saas-card p-3.5 rounded-xl border border-white/[0.07] bg-zinc-900/50 flex items-center gap-3">
-        <span class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+      <div class="saas-card p-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.07] bg-white dark:bg-zinc-900/50 flex items-center gap-3 shadow-sm">
+        <span class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
           <CheckCircle2 class="w-4 h-4" />
         </span>
         <div class="min-w-0">
-          <span class="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Metas Alcanzadas</span>
+          <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider block">Metas Alcanzadas</span>
           <div class="flex items-center gap-2">
-            <span class="text-lg font-bold font-mono text-emerald-300">{{ metricasGlobales.totalCompletadas }}</span>
+            <span class="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-300">{{ metricasGlobales.totalCompletadas }}</span>
             <span class="text-[11px] text-zinc-500 truncate">tarjetas cerradas</span>
           </div>
         </div>
       </div>
 
-      <div class="saas-card p-3.5 rounded-xl border border-white/[0.07] bg-zinc-900/50 flex items-center gap-3">
-        <span class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+      <div class="saas-card p-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.07] bg-white dark:bg-zinc-900/50 flex items-center gap-3 shadow-sm">
+        <span class="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
           <CreditCard class="w-4 h-4" />
         </span>
         <div class="min-w-0">
-          <span class="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Volumen Económico</span>
-          <div class="text-base font-bold font-mono text-emerald-400 truncate">
+          <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider block">Volumen Económico</span>
+          <div class="text-base font-bold font-mono text-indigo-600 dark:text-indigo-400 truncate">
             {{ formatCurrency(metricasGlobales.totalVolumen) }}
           </div>
         </div>
@@ -266,7 +266,7 @@ onMounted(() => {
     </div>
 
     <!-- Barra de Filtros y Búsqueda -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/60 p-3 rounded-xl border border-white/[0.06] text-xs">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.06] text-xs shadow-sm">
       <!-- Filtros por Categoría -->
       <div class="flex items-center gap-1.5 flex-wrap">
         <button
@@ -274,8 +274,8 @@ onMounted(() => {
           :class="[
             'px-3 py-1.5 rounded-lg font-medium transition text-xs',
             filtroTipo === 'todos'
-              ? 'bg-zinc-800 text-white border border-white/[0.12] shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+              ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-300 dark:border-white/[0.12] shadow-sm'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
           ]"
         >
           Todos ({{ resumenPipelines.length }})
@@ -285,8 +285,8 @@ onMounted(() => {
           :class="[
             'px-3 py-1.5 rounded-lg font-medium transition text-xs flex items-center gap-1.5',
             filtroTipo === 'ventas'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+              ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
           ]"
         >
           <Kanban class="w-3.5 h-3.5" />
@@ -297,8 +297,8 @@ onMounted(() => {
           :class="[
             'px-3 py-1.5 rounded-lg font-medium transition text-xs flex items-center gap-1.5',
             filtroTipo === 'visitas'
-              ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+              ? 'bg-sky-500/20 text-sky-500 dark:text-sky-400 border border-sky-500/30'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
           ]"
         >
           <MapPin class="w-3.5 h-3.5" />
@@ -309,8 +309,8 @@ onMounted(() => {
           :class="[
             'px-3 py-1.5 rounded-lg font-medium transition text-xs flex items-center gap-1.5',
             filtroTipo === 'operaciones'
-              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+              ? 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
           ]"
         >
           <Layers class="w-3.5 h-3.5" />
@@ -320,12 +320,12 @@ onMounted(() => {
 
       <!-- Buscador -->
       <div class="relative min-w-[240px]">
-        <Search class="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
+        <Search class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-2.5" />
         <input
           v-model="busqueda"
           type="text"
           placeholder="Buscar tablero por nombre..."
-          class="w-full pl-8 pr-3 py-1.5 bg-zinc-950/80 border border-zinc-800 rounded-lg text-zinc-200 placeholder-zinc-500 text-xs focus:outline-none focus:border-emerald-500/50 transition"
+          class="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500 transition"
         />
       </div>
     </div>
@@ -335,7 +335,7 @@ onMounted(() => {
       :loading="cargando"
       :delay-ms="120"
       :preserve-height="true"
-      stream-color="#10b981"
+      stream-color="#4f46e5"
       class="rounded-xl overflow-hidden"
     >
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -344,10 +344,10 @@ onMounted(() => {
           v-for="pipe in pipelinesFiltrados"
           :key="pipe.id"
           @click="navegarATablero(pipe.id)"
-          class="saas-card rounded-2xl border border-white/[0.08] hover:border-emerald-500/40 bg-zinc-900/50 hover:bg-zinc-900/90 p-5 flex flex-col justify-between transition-all duration-200 shadow-md hover:shadow-xl hover:shadow-emerald-950/20 cursor-pointer group relative overflow-hidden"
+          class="saas-card rounded-2xl border border-zinc-200 dark:border-white/[0.08] hover:border-indigo-500/40 bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-900/90 p-5 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-xl hover:shadow-indigo-950/10 cursor-pointer group relative overflow-hidden"
         >
           <!-- Efecto de resplandor sutil en hover -->
-          <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.04] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
           <div>
             <!-- Cabecera de la Card -->
@@ -357,10 +357,10 @@ onMounted(() => {
                   :class="[
                     'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-inner',
                     pipe.tipo === 'visitas'
-                      ? 'bg-sky-500/10 border-sky-500/25 text-sky-400'
+                      ? 'bg-sky-500/10 border-sky-500/25 text-sky-500 dark:text-sky-400'
                       : pipe.tipo === 'operaciones'
-                      ? 'bg-amber-500/10 border-amber-500/25 text-amber-400'
-                      : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                      ? 'bg-amber-500/10 border-amber-500/25 text-amber-500 dark:text-amber-400'
+                      : 'bg-indigo-500/10 border-indigo-500/25 text-indigo-600 dark:text-indigo-400'
                   ]"
                 >
                   <MapPin v-if="pipe.tipo === 'visitas'" class="w-5 h-5" />
@@ -369,14 +369,14 @@ onMounted(() => {
                 </span>
 
                 <div class="min-w-0">
-                  <h3 class="text-sm font-bold text-zinc-100 truncate group-hover:text-emerald-300 transition" :title="pipe.nombre">
+                  <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition" :title="pipe.nombre">
                     {{ pipe.nombre }}
                   </h3>
                   <div class="flex items-center gap-2 mt-0.5">
-                    <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+                    <span class="text-[10px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       {{ pipe.tipo === 'visitas' ? 'Rutas de Visitas' : pipe.tipo === 'ventas' ? 'Embudo de Ventas' : 'Flujo Operativo' }}
                     </span>
-                    <span v-if="pipe.es_predeterminado" class="px-1.5 py-0.5 rounded text-[9px] bg-zinc-800 text-zinc-400 border border-white/[0.06]">
+                    <span v-if="pipe.es_predeterminado" class="px-1.5 py-0.5 rounded text-[9px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/[0.06]">
                       Predeterminado
                     </span>
                   </div>
@@ -388,7 +388,7 @@ onMounted(() => {
                 <button
                   type="button"
                   @click="toggleMenu(pipe.id, $event)"
-                  class="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition"
+                  class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                   title="Opciones del tablero"
                 >
                   <Settings2 class="w-4 h-4" />
@@ -396,12 +396,12 @@ onMounted(() => {
 
                 <div
                   v-if="menuOpcionesId === pipe.id"
-                  class="absolute right-0 mt-1.5 w-44 bg-zinc-950 border border-white/[0.1] rounded-xl shadow-xl z-20 p-1 text-xs"
+                  class="absolute right-0 mt-1.5 w-44 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.1] rounded-xl shadow-xl z-20 p-1 text-xs"
                 >
                   <button
                     type="button"
                     @click="abrirEditar(pipe, $event)"
-                    class="w-full text-left px-3 py-2 rounded-lg text-zinc-300 hover:bg-zinc-800 flex items-center gap-2 transition"
+                    class="w-full text-left px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 transition"
                   >
                     <Edit3 class="w-3.5 h-3.5 text-zinc-400" />
                     <span>Editar Detalles</span>
@@ -410,7 +410,7 @@ onMounted(() => {
                     v-if="!pipe.es_predeterminado"
                     type="button"
                     @click="eliminarTablero(pipe, $event)"
-                    class="w-full text-left px-3 py-2 rounded-lg text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
+                    class="w-full text-left px-3 py-2 rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition"
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                     <span>Eliminar Tablero</span>
@@ -420,19 +420,19 @@ onMounted(() => {
             </div>
 
             <!-- Descripción del Tablero -->
-            <p class="text-xs text-zinc-400 line-clamp-2 min-h-[32px] mb-4">
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 min-h-[32px] mb-4">
               {{ pipe.descripcion || 'Tablero dinámico con columnas personalizadas para gestión de tarjetas.' }}
             </p>
 
-            <!-- SECCIÓN DE PROGRESO CON BARRA Y PORCENTAJE (Petición clave del usuario) -->
-            <div class="p-3.5 rounded-xl bg-zinc-950/70 border border-white/[0.05] space-y-2 mb-4">
+            <!-- SECCIÓN DE PROGRESO CON BARRA Y PORCENTAJE -->
+            <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-white/[0.05] space-y-2 mb-4">
               <div class="flex items-center justify-between text-xs">
-                <div class="flex items-center gap-1.5 text-zinc-400 font-medium">
-                  <TrendingUp class="w-3.5 h-3.5 text-emerald-400" />
+                <div class="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 font-medium">
+                  <TrendingUp class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Progreso de Cumplimiento:</span>
                 </div>
                 <div class="flex items-baseline gap-1">
-                  <span class="text-base font-extrabold font-mono text-emerald-400">
+                  <span class="text-base font-extrabold font-mono text-indigo-600 dark:text-indigo-400">
                     {{ pipe.porcentaje }}%
                   </span>
                   <span class="text-[10px] text-zinc-500">completado</span>
@@ -440,28 +440,28 @@ onMounted(() => {
               </div>
 
               <!-- Barra de Progreso Lineal con Degradado -->
-              <div class="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-white/[0.04]">
+              <div class="w-full bg-zinc-200 dark:bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-300 dark:border-white/[0.04]">
                 <div
-                  class="h-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+                  class="h-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-400 rounded-full transition-all duration-500 ease-out"
                   :style="{ width: `${pipe.porcentaje}%` }"
                 ></div>
               </div>
 
               <!-- Micro-desglose por estado -->
-              <div class="grid grid-cols-4 gap-1 pt-1.5 text-center text-[10px] font-mono border-t border-white/[0.04]">
-                <div class="p-1 rounded bg-emerald-500/[0.08] text-emerald-400">
+              <div class="grid grid-cols-4 gap-1 pt-1.5 text-center text-[10px] font-mono border-t border-zinc-200 dark:border-white/[0.04]">
+                <div class="p-1 rounded bg-indigo-500/[0.1] text-indigo-600 dark:text-indigo-400">
                   <span class="block font-bold">{{ pipe.completadas }}</span>
                   <span class="text-[9px] text-zinc-500">Meta</span>
                 </div>
-                <div class="p-1 rounded bg-sky-500/[0.08] text-sky-400">
+                <div class="p-1 rounded bg-sky-500/[0.1] text-sky-600 dark:text-sky-400">
                   <span class="block font-bold">{{ pipe.enProceso }}</span>
                   <span class="text-[9px] text-zinc-500">En ruta</span>
                 </div>
-                <div :class="['p-1 rounded', pipe.bloqueadas > 0 ? 'bg-rose-500/15 text-rose-300 font-semibold' : 'bg-zinc-900 text-zinc-500']">
+                <div :class="['p-1 rounded', pipe.bloqueadas > 0 ? 'bg-rose-500/15 text-rose-500 dark:text-rose-300 font-semibold' : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500']">
                   <span class="block font-bold">{{ pipe.bloqueadas }}</span>
                   <span class="text-[9px]">Bloq.</span>
                 </div>
-                <div class="p-1 rounded bg-amber-500/[0.08] text-amber-400">
+                <div class="p-1 rounded bg-amber-500/[0.1] text-amber-600 dark:text-amber-400">
                   <span class="block font-bold">{{ pipe.pendientes }}</span>
                   <span class="text-[9px] text-zinc-500">Pend.</span>
                 </div>
@@ -470,21 +470,21 @@ onMounted(() => {
           </div>
 
           <!-- Pie de la Card: Metadatos y Botón de Acceso al Tablero -->
-          <div class="pt-2 border-t border-white/[0.06] space-y-3">
-            <div class="flex items-center justify-between text-xs text-zinc-400 font-mono">
+          <div class="pt-2 border-t border-zinc-200 dark:border-white/[0.06] space-y-3">
+            <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono">
               <span class="flex items-center gap-1.5">
-                <Tag class="w-3.5 h-3.5 text-zinc-500" />
-                <strong class="text-zinc-200">{{ pipe.totalTarjetas }}</strong> tarjetas en
-                <span class="text-zinc-400">{{ pipe.columnasCount }} etapas</span>
+                <Tag class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+                <strong class="text-zinc-800 dark:text-zinc-200">{{ pipe.totalTarjetas }}</strong> tarjetas en
+                <span class="text-zinc-500 dark:text-zinc-400">{{ pipe.columnasCount }} etapas</span>
               </span>
 
-              <span class="text-emerald-400 font-semibold font-mono text-xs">
+              <span class="text-indigo-600 dark:text-indigo-400 font-semibold font-mono text-xs">
                 {{ formatCurrency(pipe.montoTotal) }}
               </span>
             </div>
 
             <div
-              class="w-full py-2.5 px-3 rounded-xl bg-zinc-900 group-hover:bg-emerald-600 group-hover:text-white text-zinc-300 font-semibold text-xs flex items-center justify-between border border-white/[0.06] group-hover:border-emerald-500/30 transition-all duration-150"
+              class="w-full py-2.5 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-900 group-hover:bg-indigo-600 group-hover:text-white text-zinc-700 dark:text-zinc-300 font-semibold text-xs flex items-center justify-between border border-zinc-200 dark:border-white/[0.06] group-hover:border-indigo-500/30 transition-all duration-150"
             >
               <span>Abrir Tablero Kanban</span>
               <ArrowRight class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
@@ -495,20 +495,20 @@ onMounted(() => {
         <!-- Tarjeta Especial: + Crear Nuevo Tablero -->
         <div
           @click="modalNuevoPipelineAbierto = true"
-          class="rounded-2xl border-2 border-dashed border-zinc-800 hover:border-emerald-500/50 bg-zinc-950/40 hover:bg-zinc-900/50 p-8 flex flex-col items-center justify-center text-center gap-3 transition cursor-pointer group min-h-[360px]"
+          class="rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-800 hover:border-indigo-500/50 bg-zinc-50/50 dark:bg-zinc-950/40 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 p-8 flex flex-col items-center justify-center text-center gap-3 transition cursor-pointer group min-h-[360px]"
         >
-          <div class="w-14 h-14 rounded-2xl bg-zinc-900 group-hover:bg-emerald-500/10 border border-white/[0.06] group-hover:border-emerald-500/30 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition-all shadow-inner">
+          <div class="w-14 h-14 rounded-2xl bg-white dark:bg-zinc-900 group-hover:bg-indigo-500/10 border border-zinc-200 dark:border-white/[0.06] group-hover:border-indigo-500/30 flex items-center justify-center text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-all shadow-inner">
             <Plus class="w-7 h-7" />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-zinc-200 group-hover:text-emerald-400 transition">
+            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
               + Crear Nuevo Tablero
             </h3>
             <p class="text-xs text-zinc-500 max-w-xs mt-1 leading-relaxed">
               Diseña un nuevo flujo con plantillas prediseñadas para visitas técnicas, licitaciones o post-venta.
             </p>
           </div>
-          <span class="mt-2 px-3 py-1.5 rounded-lg bg-zinc-900 group-hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-white/[0.06] transition">
+          <span class="mt-2 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium border border-zinc-200 dark:border-white/[0.06] transition">
             Configurar Flujo
           </span>
         </div>
@@ -530,20 +530,20 @@ onMounted(() => {
         class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none"
         @click.self="modalEditarPipelineAbierto = false"
       >
-        <div class="relative w-full max-w-md bg-[#0c0c0e] border border-white/[0.09] rounded-2xl shadow-2xl p-6 space-y-4">
-          <div class="flex items-center justify-between border-b border-white/[0.07] pb-3">
+        <div class="relative w-full max-w-md bg-white dark:bg-[#0c0c0e] border border-zinc-200 dark:border-white/[0.09] rounded-2xl shadow-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-zinc-200 dark:border-white/[0.07] pb-3">
             <div class="flex items-center gap-2.5">
-              <span class="p-2 rounded-xl bg-zinc-900 border border-white/[0.08] text-zinc-200">
-                <Edit3 class="w-4 h-4 text-emerald-400" />
+              <span class="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] text-zinc-700 dark:text-zinc-200">
+                <Edit3 class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               </span>
               <div>
-                <h3 class="text-sm font-bold text-zinc-100 uppercase tracking-wide">Editar Tablero</h3>
-                <p class="text-[10px] text-zinc-400 font-semibold uppercase">Modificar título o propósito</p>
+                <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide">Editar Tablero</h3>
+                <p class="text-[10px] text-zinc-500 dark:text-zinc-400 font-semibold uppercase">Modificar título o propósito</p>
               </div>
             </div>
             <button
               @click="modalEditarPipelineAbierto = false"
-              class="p-1 rounded-lg text-zinc-500 hover:text-zinc-200 transition"
+              class="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition"
             >
               <X class="w-4 h-4" />
             </button>
@@ -551,33 +551,33 @@ onMounted(() => {
 
           <div class="space-y-3 text-xs">
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">Nombre del Tablero *</label>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Nombre del Tablero *</label>
               <input
                 v-model="nombreEditado"
                 type="text"
-                class="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-100 focus:outline-none focus:border-emerald-500/50"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500"
               />
             </div>
             <div>
-              <label class="block text-zinc-400 font-medium mb-1">Descripción</label>
+              <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Descripción</label>
               <textarea
                 v-model="descripcionEditada"
                 rows="3"
-                class="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-100 focus:outline-none focus:border-emerald-500/50 resize-none"
+                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 resize-none"
               ></textarea>
             </div>
           </div>
 
-          <div class="flex justify-end gap-2.5 pt-2 border-t border-white/[0.06]">
+          <div class="flex justify-end gap-2.5 pt-2 border-t border-zinc-200 dark:border-white/[0.06]">
             <button
               @click="modalEditarPipelineAbierto = false"
-              class="px-4 py-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white border border-white/[0.06] text-xs font-semibold uppercase"
+              class="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-white/[0.06] text-xs font-semibold uppercase"
             >
               Cancelar
             </button>
             <button
               @click="guardarEdicion"
-              class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold uppercase shadow-lg shadow-emerald-950/40"
+              class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold uppercase shadow-lg shadow-indigo-950/30"
             >
               Guardar Cambios
             </button>

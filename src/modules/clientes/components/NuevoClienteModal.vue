@@ -131,24 +131,24 @@ const guardar = async () => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop -->
-    <div @click="emit('cerrar')" class="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"></div>
+    <div @click="emit('cerrar')" class="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Card -->
-    <div class="relative bg-[#0e0e12] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col z-10 overflow-hidden text-xs">
+    <div class="relative bg-white dark:bg-[#0e0e12] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col z-10 overflow-hidden text-xs">
       <!-- Cabecera -->
-      <div class="px-5 py-4 border-b border-white/[0.07] bg-[#0a0a0d] flex items-center justify-between">
+      <div class="px-5 py-4 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-between">
         <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
             <Building2 class="w-4 h-4" />
           </div>
           <div>
-            <h3 class="text-sm font-semibold text-white tracking-tight">Registrar Nueva Cuenta Comercial</h3>
-            <p class="text-[11px] text-zinc-400">Incorporación de cliente B2B a la base de datos PostgreSQL</p>
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight">Registrar Nueva Cuenta Comercial</h3>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Incorporación de cliente B2B a la base de datos PostgreSQL</p>
           </div>
         </div>
         <button
           @click="emit('cerrar')"
-          class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 rounded-lg transition"
+          class="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg transition"
         >
           <X class="w-4 h-4" />
         </button>
@@ -302,14 +302,14 @@ const guardar = async () => {
 
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label class="text-zinc-300 font-medium">Valor Estimado del Pipeline *</label>
-              <span class="font-mono text-emerald-400 font-bold text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <label class="text-zinc-700 dark:text-zinc-300 font-medium">Valor Estimado del Pipeline *</label>
+              <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold text-[11px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                 {{ montoFormateado }}
               </span>
             </div>
 
             <div class="relative">
-              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-mono text-xs font-semibold">
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 font-mono text-xs font-semibold">
                 RD$
               </div>
               <input
@@ -317,86 +317,86 @@ const guardar = async () => {
                 type="number"
                 min="0"
                 step="500000"
-                class="w-full pl-12 pr-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition font-mono text-xs"
+                class="w-full pl-12 pr-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition font-mono text-xs"
               />
             </div>
             
             <!-- Botones de incremento rápido para agilizar la entrada de montos -->
             <div class="flex items-center gap-1.5 mt-2">
-              <span class="text-[10px] text-zinc-500">Incrementar:</span>
+              <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Incrementar:</span>
               <button
                 type="button"
                 @click="ajustarMonto(500000)"
-                class="px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700 transition"
+                class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded text-[10px] font-mono border border-zinc-200 dark:border-zinc-700 transition"
               >
                 + 500K
               </button>
               <button
                 type="button"
                 @click="ajustarMonto(1000000)"
-                class="px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700 transition"
+                class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded text-[10px] font-mono border border-zinc-200 dark:border-zinc-700 transition"
               >
                 + 1M
               </button>
               <button
                 type="button"
                 @click="ajustarMonto(5000000)"
-                class="px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-mono border border-zinc-700 transition"
+                class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded text-[10px] font-mono border border-zinc-200 dark:border-zinc-700 transition"
               >
                 + 5M
               </button>
             </div>
-            <span v-if="errores.valor_estimado" class="text-rose-400 text-[10px] mt-0.5 block">{{ errores.valor_estimado }}</span>
+            <span v-if="errores.valor_estimado" class="text-rose-500 text-[10px] mt-0.5 block">{{ errores.valor_estimado }}</span>
           </div>
         </div>
 
         <!-- Contacto Principal de la Empresa (Opcional) -->
-        <div class="pt-3 border-t border-zinc-800/80 space-y-3">
-          <div class="flex items-center gap-1.5 text-zinc-200 font-semibold text-xs">
-            <Users class="w-3.5 h-3.5 text-emerald-400" />
+        <div class="pt-3 border-t border-zinc-200 dark:border-zinc-800/80 space-y-3">
+          <div class="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200 font-semibold text-xs">
+            <Users class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Contacto Principal de la Empresa</span>
-            <span class="text-[10px] text-zinc-500 font-normal">(Opcional, se asociará a esta empresa)</span>
+            <span class="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">(Opcional, se asociará a esta empresa)</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label class="block text-zinc-400 text-[11px] mb-1">Nombre Completo del Contacto</label>
+              <label class="block text-zinc-500 dark:text-zinc-400 text-[11px] mb-1">Nombre Completo del Contacto</label>
               <input
                 v-model="formulario.contacto_nombre"
                 type="text"
                 placeholder="Ej: Lic. Roberto Méndez"
-                class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition placeholder-zinc-400 dark:placeholder-zinc-600"
               />
             </div>
             <div>
-              <label class="block text-zinc-400 text-[11px] mb-1">Cargo / Posición</label>
+              <label class="block text-zinc-500 dark:text-zinc-400 text-[11px] mb-1">Cargo / Posición</label>
               <input
                 v-model="formulario.contacto_cargo"
                 type="text"
                 placeholder="Ej: Director de Compras / Gerente General"
-                class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition placeholder-zinc-400 dark:placeholder-zinc-600"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label class="block text-zinc-400 text-[11px] mb-1">Correo Electrónico Directo</label>
+              <label class="block text-zinc-500 dark:text-zinc-400 text-[11px] mb-1">Correo Electrónico Directo</label>
               <input
                 v-model="formulario.contacto_email"
                 type="email"
                 placeholder="rmendez@empresa.com.do"
-                class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
+                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition placeholder-zinc-400 dark:placeholder-zinc-600"
               />
-              <span v-if="errores.contacto_email" class="text-rose-400 text-[10px] mt-0.5 block">{{ errores.contacto_email }}</span>
+              <span v-if="errores.contacto_email" class="text-rose-500 text-[10px] mt-0.5 block">{{ errores.contacto_email }}</span>
             </div>
             <div>
-              <label class="block text-zinc-400 text-[11px] mb-1">Teléfono Directo</label>
+              <label class="block text-zinc-500 dark:text-zinc-400 text-[11px] mb-1">Teléfono Directo</label>
               <input
                 v-model="formulario.contacto_telefono"
                 type="text"
                 placeholder="+1 (829) 555-0199"
-                class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition font-mono"
+                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition font-mono placeholder-zinc-400 dark:placeholder-zinc-600"
               />
             </div>
           </div>
@@ -404,11 +404,11 @@ const guardar = async () => {
       </form>
 
       <!-- Pie del Modal -->
-      <div class="px-5 py-3 border-t border-white/[0.07] bg-[#0a0a0d] flex items-center justify-end gap-2.5">
+      <div class="px-5 py-3 border-t border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0a0a0d] flex items-center justify-end gap-2.5">
         <button
           type="button"
           @click="emit('cerrar')"
-          class="px-3.5 py-1.5 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 rounded-lg transition font-medium border border-white/[0.08]"
+          class="px-3.5 py-1.5 bg-white dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg transition font-medium border border-zinc-300 dark:border-white/[0.08]"
         >
           Cancelar
         </button>
@@ -416,7 +416,7 @@ const guardar = async () => {
           type="button"
           @click="guardar"
           :disabled="guardando"
-          class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-emerald-950/40 border border-emerald-500/30 active:scale-[0.98]"
+          class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-indigo-950/40 border border-indigo-500/30 active:scale-[0.98]"
         >
           <Loader2 v-if="guardando" class="w-3.5 h-3.5 animate-spin" />
           <Plus v-else class="w-3.5 h-3.5 stroke-[2.5]" />

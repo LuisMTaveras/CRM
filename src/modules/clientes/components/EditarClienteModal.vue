@@ -101,30 +101,30 @@ const guardar = async () => {
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop oscuro -->
     <div
-      class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+      class="fixed inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-sm transition-opacity"
       @click="emit('cerrar')"
     ></div>
 
     <!-- Modal Card -->
     <div
-      class="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]"
+      class="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]"
     >
       <!-- Cabecera -->
-      <div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/80">
+      <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950/80">
         <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
             <Building2 class="w-4 h-4" />
           </div>
           <div>
-            <h2 class="text-sm font-bold text-zinc-100">Editar Datos del Cliente B2B</h2>
-            <p class="text-[11px] text-zinc-400">Actualizar información corporativa y parámetros comerciales</p>
+            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">Editar Datos del Cliente B2B</h2>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Actualizar información corporativa y parámetros comerciales</p>
           </div>
         </div>
 
         <button
           type="button"
           @click="emit('cerrar')"
-          class="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg transition"
+          class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 p-1 rounded-lg transition"
         >
           <X class="w-4 h-4" />
         </button>
@@ -134,7 +134,7 @@ const guardar = async () => {
       <form @submit.prevent="guardar" class="p-5 space-y-4 text-xs overflow-y-auto">
         <div
           v-if="errorMensaje"
-          class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs"
+          class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-300 text-xs"
         >
           {{ errorMensaje }}
         </div>
@@ -142,47 +142,47 @@ const guardar = async () => {
         <!-- Identidad Legal -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
               Razón Social <span class="text-rose-400">*</span>
             </label>
             <input
               v-model="formulario.razon_social"
               type="text"
               required
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
               Nombre Comercial
             </label>
             <input
               v-model="formulario.nombre_comercial"
               type="text"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
               Identificación Fiscal (RNC) <span class="text-rose-400">*</span>
             </label>
             <input
               v-model="formulario.identificacion_fiscal"
               type="text"
               required
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 font-mono focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Sector Económico</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Sector Económico</label>
             <select
               v-model="formulario.sector"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             >
               <option value="Tecnología">Tecnología & Cloud</option>
               <option value="Finanzas">Finanzas & Inversiones</option>
@@ -195,10 +195,10 @@ const guardar = async () => {
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Prioridad de Cuenta</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Prioridad de Cuenta</label>
             <select
               v-model="formulario.prioridad"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition uppercase"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition uppercase"
             >
               <option value="alta">Alta (Estratégica)</option>
               <option value="media">Media</option>
@@ -210,88 +210,88 @@ const guardar = async () => {
         <!-- Contacto y Ubicación -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Correo Electrónico</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Correo Electrónico</label>
             <input
               v-model="formulario.email"
               type="email"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Teléfono Principal</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Teléfono Principal</label>
             <input
               v-model="formulario.telefono"
               type="text"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 font-mono focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Dirección Física</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Dirección Física</label>
             <input
               v-model="formulario.direccion"
               type="text"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Ciudad</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Ciudad</label>
             <input
               v-model="formulario.ciudad"
               type="text"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Sitio Web</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Sitio Web</label>
             <input
               v-model="formulario.sitio_web"
               type="text"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Valor Estimado Cartera (RD$)</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Valor Estimado Cartera (RD$)</label>
             <input
               v-model.number="formulario.valor_estimado"
               type="number"
               min="0"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 font-mono focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
 
           <div>
-            <label class="block text-zinc-400 font-medium mb-1">Responsable Comercial</label>
+            <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Responsable Comercial</label>
             <input
               v-model="formulario.responsable"
               type="text"
               required
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-100 focus:outline-none focus:border-zinc-700 transition"
+              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
         </div>
 
         <!-- Botones de Acción -->
-        <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-800">
+        <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-200 dark:border-zinc-800">
           <button
             type="button"
             @click="emit('cerrar')"
-            class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium transition"
+            class="px-4 py-2 rounded-lg bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium transition border border-zinc-300 dark:border-zinc-700"
           >
             Cancelar
           </button>
           <button
             type="submit"
             :disabled="guardando"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm transition disabled:opacity-50"
           >
             <Loader2 v-if="guardando" class="w-4 h-4 animate-spin" />
             <Save v-else class="w-4 h-4" />
