@@ -7,7 +7,6 @@ import {
   ArrowDown, 
   ChevronLeft, 
   ChevronRight, 
-  ChevronDown,
   Building2, 
   Plus, 
   Eye, 
@@ -28,6 +27,7 @@ import type { ParametrosTabla } from '@/core/url-sync/url-state';
 import { exportarACSV } from '@/core/export/csv-export';
 import { clienteService } from '../services/cliente.service';
 import { toastService } from '@/core/notifications/toast.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const props = defineProps<{
   clientes: Cliente[];
@@ -95,19 +95,46 @@ const alternarOrden = (campo: string) => {
   }
 };
 
-const cambiarFiltroEstado = (evento: Event) => {
-  const valor = (evento.target as HTMLSelectElement).value;
-  emit('actualizarParametros', { estado: valor, pagina: 1 });
+const opcionesEstados: Array<SelectOption<string>> = [
+  { value: '', label: 'Todos los Estados' },
+  { value: 'prospecto', label: 'Prospecto', dotColor: 'bg-amber-400' },
+  { value: 'en_negociacion', label: 'En Negociación', dotColor: 'bg-indigo-400' },
+  { value: 'activo', label: 'Activo', dotColor: 'bg-emerald-400' },
+  { value: 'inactivo', label: 'Inactivo', dotColor: 'bg-zinc-400' },
+  { value: 'cerrado_perdido', label: 'Cerrado Perdido', dotColor: 'bg-rose-400' },
+];
+
+const opcionesSectores: Array<SelectOption<string>> = [
+  { value: '', label: 'Todos los Sectores' },
+  { value: 'Tecnología', label: 'Tecnología' },
+  { value: 'Finanzas', label: 'Finanzas' },
+  { value: 'Logística', label: 'Logística' },
+  { value: 'Turismo', label: 'Turismo & Hotelería' },
+  { value: 'Salud', label: 'Salud' },
+  { value: 'Retail', label: 'Retail' },
+  { value: 'Manufactura', label: 'Manufactura' },
+  { value: 'Alimentos', label: 'Alimentos' },
+  { value: 'Comercio', label: 'Comercio Mayorista' },
+  { value: 'Educación', label: 'Educación' },
+];
+
+const opcionesTamanoPagina: Array<SelectOption<number>> = [
+  { value: 10, label: '10' },
+  { value: 15, label: '15' },
+  { value: 25, label: '25' },
+  { value: 50, label: '50' },
+];
+
+const setFiltroEstado = (nuevo: string) => {
+  emit('actualizarParametros', { estado: nuevo, pagina: 1 });
 };
 
-const cambiarFiltroSector = (evento: Event) => {
-  const valor = (evento.target as HTMLSelectElement).value;
-  emit('actualizarParametros', { sector: valor, pagina: 1 });
+const setFiltroSector = (nuevo: string) => {
+  emit('actualizarParametros', { sector: nuevo, pagina: 1 });
 };
 
-const cambiarTamanoPagina = (evento: Event) => {
-  const nuevoTamano = parseInt((evento.target as HTMLSelectElement).value, 10);
-  emit('actualizarParametros', { tamanoPagina: nuevoTamano, pagina: 1 });
+const setTamanoPagina = (nuevo: number) => {
+  emit('actualizarParametros', { tamanoPagina: nuevo, pagina: 1 });
 };
 
 const irAPagina = (pagina: number) => {
@@ -264,42 +291,24 @@ const exportarClientes = async () => {
           </div>
         </div>
 
-        <!-- Filtro Estado con Chevron personalizado -->
-        <div class="relative">
-          <select
-            :value="parametros.estado || ''"
-            @change="cambiarFiltroEstado"
-            class="appearance-none bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-white/[0.08] text-zinc-800 dark:text-zinc-300 text-xs rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition cursor-pointer"
-          >
-            <option value="">Todos los Estados</option>
-            <option value="prospecto">Prospecto</option>
-            <option value="en_negociacion">En Negociación</option>
-            <option value="activo">Activo</option>
-            <option value="inactivo">Inactivo</option>
-            <option value="cerrado_perdido">Cerrado Perdido</option>
-          </select>
-          <ChevronDown class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
+        <!-- Filtro Estado con AppSelect -->
+        <AppSelect
+          :model-value="parametros.estado || ''"
+          @update:model-value="setFiltroEstado"
+          :options="opcionesEstados"
+          size="sm"
+          min-width-class="min-w-[170px]"
+        />
 
-        <!-- Filtro Sector con Chevron personalizado -->
-        <div class="relative hidden md:block">
-          <select
-            :value="parametros.sector || ''"
-            @change="cambiarFiltroSector"
-            class="appearance-none bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-white/[0.08] text-zinc-800 dark:text-zinc-300 text-xs rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition cursor-pointer"
-          >
-            <option value="">Todos los Sectores</option>
-            <option value="Tecnología">Tecnología</option>
-            <option value="Finanzas">Finanzas</option>
-            <option value="Logística">Logística</option>
-            <option value="Turismo">Turismo & Hotelería</option>
-            <option value="Salud">Salud</option>
-            <option value="Retail">Retail</option>
-            <option value="Manufactura">Manufactura</option>
-            <option value="Alimentos">Alimentos</option>
-            <option value="Comercio">Comercio Mayorista</option>
-          </select>
-          <ChevronDown class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <!-- Filtro Sector con AppSelect -->
+        <div class="hidden md:block">
+          <AppSelect
+            :model-value="parametros.sector || ''"
+            @update:model-value="setFiltroSector"
+            :options="opcionesSectores"
+            size="sm"
+            min-width-class="min-w-[185px]"
+          />
         </div>
 
         <!-- Limpiar Filtros -->
@@ -596,17 +605,14 @@ const exportarClientes = async () => {
         </span>
 
         <div class="flex items-center gap-1.5">
-          <span class="text-zinc-400 dark:text-zinc-500">Filas:</span>
-          <select
-            :value="parametros.tamanoPagina"
-            @change="cambiarTamanoPagina"
-            class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] text-zinc-800 dark:text-zinc-300 rounded-md px-2 py-0.5 text-xs focus:outline-none cursor-pointer"
-          >
-            <option :value="10">10</option>
-            <option :value="15">15</option>
-            <option :value="25">25</option>
-            <option :value="50">50</option>
-          </select>
+          <AppSelect
+            :model-value="parametros.tamanoPagina"
+            @update:model-value="setTamanoPagina"
+            :options="opcionesTamanoPagina"
+            size="sm"
+            label-prefix="Filas:"
+            min-width-class="min-w-[95px]"
+          />
         </div>
       </div>
 

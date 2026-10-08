@@ -28,6 +28,30 @@ import { clienteService } from '../services/cliente.service';
 import EditarClienteModal from './EditarClienteModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+
+const opcionesEstadoCliente: Array<SelectOption<string>> = [
+  { value: 'prospecto', label: 'Prospecto', dotColor: 'bg-amber-400' },
+  { value: 'en_negociacion', label: 'En Negociación', dotColor: 'bg-indigo-400' },
+  { value: 'activo', label: 'Activo', dotColor: 'bg-emerald-400' },
+  { value: 'inactivo', label: 'Inactivo', dotColor: 'bg-zinc-400' },
+  { value: 'cerrado_perdido', label: 'Cerrado Perdido', dotColor: 'bg-rose-400' },
+];
+
+const opcionesEtapaDeal: Array<SelectOption<string>> = [
+  { value: 'calificacion', label: 'Calificación' },
+  { value: 'propuesta', label: 'Propuesta Enviada' },
+  { value: 'negociacion', label: 'En Negociación' },
+  { value: 'ganada', label: 'Cerrada Ganada', dotColor: 'bg-emerald-400' },
+  { value: 'perdida', label: 'Cerrada Perdida', dotColor: 'bg-rose-400' },
+];
+
+const opcionesTipoActividad: Array<SelectOption<string>> = [
+  { value: 'llamada', label: 'Llamada Telefónica' },
+  { value: 'reunion', label: 'Reunión / Demostración' },
+  { value: 'correo', label: 'Correo Electrónico' },
+  { value: 'nota', label: 'Nota Interna' },
+];
 
 const props = defineProps<{
   abierto: boolean;
@@ -333,10 +357,9 @@ const eliminarActividad = async (actividadId: string) => {
   }
 };
 
-const cambiarEstado = (evento: Event) => {
-  const nuevo = (evento.target as HTMLSelectElement).value as EstadoCliente;
+const cambiarEstado = (nuevo: string) => {
   if (props.cliente) {
-    emit('cambiarEstado', props.cliente.id, nuevo);
+    emit('cambiarEstado', props.cliente.id, nuevo as EstadoCliente);
   }
 };
 
@@ -429,17 +452,13 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
           <div class="mt-4 flex items-center gap-3 pt-3 border-t border-zinc-200 dark:border-white/[0.06]">
             <span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Estado Comercial:</span>
             <Can I="update" an="Cliente">
-              <select
-                :value="cliente?.estado"
-                @change="cambiarEstado"
-                class="bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-white/[0.08] text-xs font-medium rounded-lg px-2.5 py-1 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="prospecto">Prospecto</option>
-                <option value="en_negociacion">En Negociación</option>
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-                <option value="cerrado_perdido">Cerrado Perdido</option>
-              </select>
+              <AppSelect
+                :model-value="cliente?.estado || 'prospecto'"
+                @update:model-value="cambiarEstado"
+                :options="opcionesEstadoCliente"
+                size="sm"
+                min-width-class="min-w-[160px]"
+              />
               <template #fallback>
                 <span class="capitalize px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium text-xs">
                   {{ cliente?.estado }}
@@ -851,16 +870,12 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 </div>
                 <div>
                   <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Etapa Inicial</label>
-                  <select
+                  <AppSelect
                     v-model="formularioOportunidad.etapa"
-                    class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 capitalize"
-                  >
-                    <option value="calificacion">Calificación</option>
-                    <option value="propuesta">Propuesta Enviada</option>
-                    <option value="negociacion">En Negociación</option>
-                    <option value="ganada">Cerrada Ganada</option>
-                    <option value="perdida">Cerrada Perdida</option>
-                  </select>
+                    :options="opcionesEtapaDeal"
+                    :full-width="true"
+                    size="sm"
+                  />
                 </div>
               </div>
 
@@ -936,18 +951,14 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
                   <div class="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-900">
                     <div class="flex items-center gap-1.5">
-                      <span>Etapa:</span>
-                      <select
-                        :value="deal.etapa"
-                        @change="(e) => cambiarEtapaDeal(deal, (e.target as HTMLSelectElement).value as any)"
-                        class="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-1.5 py-0.5 text-[10px] text-zinc-800 dark:text-zinc-200 capitalize cursor-pointer"
-                      >
-                        <option value="calificacion">Calificación</option>
-                        <option value="propuesta">Propuesta Enviada</option>
-                        <option value="negociacion">En Negociación</option>
-                        <option value="ganada">Cerrada Ganada</option>
-                        <option value="perdida">Cerrada Perdida</option>
-                      </select>
+                      <AppSelect
+                        :model-value="deal.etapa"
+                        @update:model-value="(nuevo) => cambiarEtapaDeal(deal, nuevo as any)"
+                        :options="opcionesEtapaDeal"
+                        size="sm"
+                        label-prefix="Etapa:"
+                        min-width-class="min-w-[170px]"
+                      />
                     </div>
 
                     <div class="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 font-mono text-[10px]">
@@ -1007,15 +1018,12 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
               <div class="grid grid-cols-2 gap-2.5">
                 <div>
                   <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Tipo de Actividad</label>
-                  <select
+                  <AppSelect
                     v-model="formularioActividad.tipo"
-                    class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 capitalize"
-                  >
-                    <option value="llamada">Llamada Telefónica</option>
-                    <option value="reunion">Reunión / Demostración</option>
-                    <option value="correo">Correo Electrónico</option>
-                    <option value="nota">Nota Interna</option>
-                  </select>
+                    :options="opcionesTipoActividad"
+                    :full-width="true"
+                    size="sm"
+                  />
                 </div>
 
                 <div>

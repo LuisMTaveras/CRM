@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { pipelineService } from '../services/pipeline.service';
 import type { EtapaOportunidad } from '../types/pipeline.types';
 import { toastService } from '@/core/notifications/toast.service';
 import { X, Briefcase, Plus, Loader2 } from 'lucide-vue-next';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const props = defineProps<{
   abierto: boolean;
@@ -67,6 +68,21 @@ const ajustarProbabilidad = () => {
       break;
   }
 };
+
+const opcionesClientes = computed<Array<SelectOption<string>>>(() => {
+  return clientesDisponibles.value.map((c) => ({
+    value: c.id,
+    label: c.nombre_comercial ? `${c.nombre_comercial} (${c.razon_social})` : c.razon_social,
+  }));
+});
+
+const opcionesEtapas: Array<SelectOption<EtapaOportunidad>> = [
+  { value: 'calificacion', label: 'Calificación', dotColor: 'bg-sky-400', colorClass: 'text-sky-300 font-medium' },
+  { value: 'propuesta', label: 'Propuesta Enviada', dotColor: 'bg-indigo-400', colorClass: 'text-indigo-300 font-medium' },
+  { value: 'negociacion', label: 'En Negociación', dotColor: 'bg-amber-400', colorClass: 'text-amber-300 font-medium' },
+  { value: 'ganada', label: 'Cerrada Ganada', dotColor: 'bg-emerald-400', colorClass: 'text-emerald-300 font-medium' },
+  { value: 'perdida', label: 'Cerrada Perdida', dotColor: 'bg-rose-400', colorClass: 'text-rose-300 font-medium' },
+];
 
 const guardarOportunidad = async () => {
   if (!formulario.cliente_id) {
@@ -156,21 +172,14 @@ onMounted(() => {
           <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
             Empresa / Cuenta Cliente <span class="text-rose-500">*</span>
           </label>
-          <select
-            v-model="formulario.cliente_id"
-            required
+          <AppSelect
+            :model-value="formulario.cliente_id"
+            @update:model-value="(nuevo) => formulario.cliente_id = nuevo as string"
+            :options="opcionesClientes"
+            :full-width="true"
             :disabled="cargandoClientes"
-            class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
-          >
-            <option value="" disabled>Seleccione una empresa de la cartera</option>
-            <option
-              v-for="c in clientesDisponibles"
-              :key="c.id"
-              :value="c.id"
-            >
-              {{ c.nombre_comercial || c.razon_social }}
-            </option>
-          </select>
+            placeholder="Seleccione una empresa de la cartera..."
+          />
         </div>
 
         <!-- Título del Deal -->
@@ -206,17 +215,12 @@ onMounted(() => {
             <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
               Etapa Inicial <span class="text-rose-500">*</span>
             </label>
-            <select
-              v-model="formulario.etapa"
-              @change="ajustarProbabilidad"
-              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition capitalize"
-            >
-              <option value="calificacion">Calificación</option>
-              <option value="propuesta">Propuesta Enviada</option>
-              <option value="negociacion">En Negociación</option>
-              <option value="ganada">Cerrada Ganada</option>
-              <option value="perdida">Cerrada Perdida</option>
-            </select>
+            <AppSelect
+              :model-value="formulario.etapa"
+              @update:model-value="(nuevo) => { formulario.etapa = nuevo as EtapaOportunidad; ajustarProbabilidad(); }"
+              :options="opcionesEtapas"
+              :full-width="true"
+            />
           </div>
         </div>
 

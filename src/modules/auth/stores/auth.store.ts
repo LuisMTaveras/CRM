@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { globalAbility } from '@/core/permissions/ability';
-import { authService, generarReglasPorRol, USUARIOS_CRM } from '../services/auth.service';
+import { authService, USUARIOS_CRM } from '../services/auth.service';
+import { rolesPermisosService } from '../services/roles-permisos.service';
 import type { CredencialesLogin, RolUsuario, Usuario } from '../types/auth.types';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -10,6 +11,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   const estaAutenticado = computed(() => !!token.value && !!usuario.value);
   const rol = computed(() => usuario.value?.rol || 'auditor');
+
+  const permisosEfectivos = computed<string[]>(() => {
+    if (!usuario.value) return [];
+    return rolesPermisosService.calcularPermisosEfectivos(usuario.value as Usuario);
+  });
+
+  const tienePermiso = (permisoId: string): boolean => {
+    if (!usuario.value) return false;
+    if (usuario.value.rol === 'admin') return true;
+    return permisosEfectivos.value.includes(permisoId);
+  };
 
   // Inicializar sesión desde almacenamiento local si existe
   const inicializarSesion = () => {
@@ -20,8 +32,13 @@ export const useAuthStore = defineStore('auth', () => {
         if (datos?.usuario && datos?.token) {
           usuario.value = datos.usuario;
           token.value = datos.token;
+          
+          // Reevaluar reglas con la configuración de roles actual
+          const permisos = rolesPermisosService.calcularPermisosEfectivos(datos.usuario as Usuario);
+          const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisos);
+
           globalAbility.setUser(datos.usuario);
-          globalAbility.updateRules(datos.reglas || generarReglasPorRol(datos.usuario.rol));
+          globalAbility.updateRules(reglas);
           return;
         }
       }
@@ -29,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Ignorar error de parseo
     }
 
-    // Por defecto: no autenticado hasta que ingrese credenciales válidas
+    // Por defecto: no autenticado
     usuario.value = null;
     token.value = null;
     globalAbility.setUser(null);
@@ -41,7 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
     usuario.value = sesion.usuario;
     token.value = sesion.token;
     
-    // Cargar permisos en el motor CASL (Blueprint 04)
+    // Cargar permisos en el motor CASL
     globalAbility.setUser(sesion.usuario);
     globalAbility.updateRules(sesion.reglas);
 
@@ -58,15 +75,23 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('crm_sesion_auth');
   };
 
-  // Simulador de escenarios y cambio rápido de rol (Blueprint 05)
+  // Simulador de escenarios y cambio rápido de rol
   const cambiarRolRapido = (nuevoRol: RolUsuario) => {
     const usuarioEjemplo = USUARIOS_CRM.find((u) => u.rol === nuevoRol) || USUARIOS_CRM[0];
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { contrasena, ...sinPass } = usuarioEjemplo;
     
-    usuario.value = sinPass;
+    const usuarioModificado = {
+      ...sinPass,
+      rol: nuevoRol,
+    };
+
+    usuario.value = usuarioModificado;
     token.value = `crm_jwt_${nuevoRol}_quick`;
-    const reglas = generarReglasPorRol(nuevoRol);
+    
+    const permisos = rolesPermisosService.calcularPermisosEfectivos(usuarioModificado as Usuario);
+    const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisos);
+
     globalAbility.setUser(usuario.value);
     globalAbility.updateRules(reglas);
 
@@ -76,8 +101,27 @@ export const useAuthStore = defineStore('auth', () => {
         usuario: usuario.value,
         token: token.value,
         reglas,
+        permisosEfectivos: permisos,
       })
     );
+  };
+
+  const actualizarPerfilActual = (cambios: Partial<Usuario>) => {
+    if (!usuario.value) return;
+    usuario.value = { ...usuario.value, ...cambios };
+    globalAbility.setUser(usuario.value);
+
+    const permisos = rolesPermisosService.calcularPermisosEfectivos(usuario.value as Usuario);
+    const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisos);
+    globalAbility.updateRules(reglas);
+
+    const sesion = {
+      usuario: usuario.value,
+      token: token.value,
+      reglas,
+      permisosEfectivos: permisos,
+    };
+    localStorage.setItem('crm_sesion_auth', JSON.stringify(sesion));
   };
 
   return {
@@ -85,22 +129,12 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     estaAutenticado,
     rol,
+    permisosEfectivos,
+    tienePermiso,
     inicializarSesion,
     iniciarSesion,
     cerrarSesion,
     cambiarRolRapido,
-    actualizarPerfilActual: (cambios: Partial<Usuario>) => {
-      if (!usuario.value) return;
-      usuario.value = { ...usuario.value, ...cambios };
-      globalAbility.setUser(usuario.value);
-      const reglas = generarReglasPorRol(usuario.value.rol);
-      globalAbility.updateRules(reglas);
-      const sesion = {
-        usuario: usuario.value,
-        token: token.value,
-        reglas,
-      };
-      localStorage.setItem('crm_sesion_auth', JSON.stringify(sesion));
-    },
+    actualizarPerfilActual,
   };
 });

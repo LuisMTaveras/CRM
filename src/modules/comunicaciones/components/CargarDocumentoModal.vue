@@ -6,6 +6,7 @@ import { empresaService } from '@/modules/configuracion/services/empresa.service
 import { pdfGeneratorService } from '../services/pdf-generator.service';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import type { PlantillaDocumento, CategoriaPlantilla } from '../types/comunicacion.types';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { 
   X, 
   UploadCloud, 
@@ -41,6 +42,13 @@ const asuntoEmail = ref('');
 const cuerpoEmail = ref('');
 const tituloDocumento = ref('');
 const contenidoDocumento = ref('');
+
+const opcionesCategoria: Array<SelectOption<CategoriaPlantilla>> = [
+  { value: 'propuesta', label: 'Propuesta', dotColor: 'bg-indigo-400' },
+  { value: 'legal', label: 'Legal / Contrato', dotColor: 'bg-amber-400' },
+  { value: 'comercial', label: 'Comercial', dotColor: 'bg-emerald-400' },
+  { value: 'cobranza', label: 'Cobranza', dotColor: 'bg-rose-400' },
+];
 
 // Vista previa
 const pestanaActiva = ref<'editor' | 'previa'>('editor');
@@ -285,15 +293,13 @@ const guardarPlantilla = (enviarInmediato = false) => {
             </div>
             <div>
               <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">Categoría</label>
-              <select
-                v-model="categoria"
-                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
-              >
-                <option value="propuesta">Propuesta</option>
-                <option value="legal">Legal / Contrato</option>
-                <option value="comercial">Comercial</option>
-                <option value="cobranza">Cobranza</option>
-              </select>
+              <AppSelect
+                :model-value="categoria"
+                @update:model-value="(nuevo) => categoria = nuevo as CategoriaPlantilla"
+                :options="opcionesCategoria"
+                :full-width="true"
+                size="sm"
+              />
             </div>
           </div>
 

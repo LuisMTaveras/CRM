@@ -4,6 +4,23 @@ import { X, Building2, Save, Loader2 } from 'lucide-vue-next';
 import type { Cliente, EstadoCliente, PrioridadCliente } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import { toastService } from '@/core/notifications/toast.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+
+const opcionesSector: Array<SelectOption<string>> = [
+  { value: 'Tecnología', label: 'Tecnología & Cloud' },
+  { value: 'Finanzas', label: 'Finanzas & Inversiones' },
+  { value: 'Salud', label: 'Salud & Redes Médicas' },
+  { value: 'Retail', label: 'Retail & Comercio' },
+  { value: 'Manufactura', label: 'Manufactura & Industria' },
+  { value: 'Logística', label: 'Logística & Aduanas' },
+  { value: 'Servicios', label: 'Servicios Profesionales' },
+];
+
+const opcionesPrioridad: Array<SelectOption<PrioridadCliente>> = [
+  { value: 'alta', label: 'Alta (Estratégica)', dotColor: 'bg-rose-400' },
+  { value: 'media', label: 'Media', dotColor: 'bg-amber-400' },
+  { value: 'baja', label: 'Baja', dotColor: 'bg-sky-400' },
+];
 
 const props = defineProps<{
   abierto: boolean;
@@ -180,30 +197,22 @@ const guardar = async () => {
 
           <div>
             <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Sector Económico</label>
-            <select
+            <AppSelect
               v-model="formulario.sector"
-              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
-            >
-              <option value="Tecnología">Tecnología & Cloud</option>
-              <option value="Finanzas">Finanzas & Inversiones</option>
-              <option value="Salud">Salud & Redes Médicas</option>
-              <option value="Retail">Retail & Comercio</option>
-              <option value="Manufactura">Manufactura & Industria</option>
-              <option value="Logística">Logística & Aduanas</option>
-              <option value="Servicios">Servicios Profesionales</option>
-            </select>
+              :options="opcionesSector"
+              :full-width="true"
+              size="md"
+            />
           </div>
 
           <div>
             <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">Prioridad de Cuenta</label>
-            <select
+            <AppSelect
               v-model="formulario.prioridad"
-              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition uppercase"
-            >
-              <option value="alta">Alta (Estratégica)</option>
-              <option value="media">Media</option>
-              <option value="baja">Baja</option>
-            </select>
+              :options="opcionesPrioridad"
+              :full-width="true"
+              size="md"
+            />
           </div>
         </div>
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
 import { smtpService, PRESETS_PROVEEDORES } from '../services/smtp.service';
-import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion } from '../types/smtp.types';
+import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion, TipoSeguridadSmtp } from '../types/smtp.types';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { 
   X, 
   Server, 
@@ -71,6 +72,28 @@ const guardar = () => {
     emit('cerrar');
   }, 900);
 };
+
+const opcionesPuertoSmtp: Array<SelectOption<number>> = [
+  { value: 587, label: '587 (STARTTLS Recomendado)', badge: 'Recomendado' },
+  { value: 465, label: '465 (SSL / TLS Directo)' },
+  { value: 25, label: '25 (Estándar Sin Cifrar)' },
+];
+
+const opcionesSeguridadSmtp: Array<SelectOption<TipoSeguridadSmtp>> = [
+  { value: 'tls', label: 'STARTTLS' },
+  { value: 'ssl', label: 'SSL / TLS' },
+  { value: 'ninguna', label: 'Sin cifrado' },
+];
+
+const opcionesPuertoImap: Array<SelectOption<number>> = [
+  { value: 993, label: '993 (SSL Seguro)' },
+  { value: 143, label: '143 (STARTTLS)' },
+];
+
+const opcionesSeguridadImap: Array<SelectOption<TipoSeguridadSmtp>> = [
+  { value: 'ssl', label: 'SSL / TLS' },
+  { value: 'tls', label: 'STARTTLS' },
+];
 </script>
 
 <template>
@@ -155,28 +178,26 @@ const guardar = () => {
             </div>
             <div>
               <label class="block text-zinc-600 dark:text-zinc-400 mb-1">Puerto SMTP</label>
-              <select
-                v-model.number="configForm.puertoSmtp"
-                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700/80 rounded text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-indigo-500"
-              >
-                <option :value="587">587 (STARTTLS Recomendado)</option>
-                <option :value="465">465 (SSL / TLS Directo)</option>
-                <option :value="25">25 (Estándar Sin Cifrar)</option>
-              </select>
+              <AppSelect
+                :model-value="configForm.puertoSmtp"
+                @update:model-value="(nuevo) => configForm.puertoSmtp = nuevo as number"
+                :options="opcionesPuertoSmtp"
+                :full-width="true"
+                size="sm"
+              />
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-zinc-600 dark:text-zinc-400 mb-1">Tipo de Cifrado</label>
-              <select
-                v-model="configForm.seguridadSmtp"
-                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700/80 rounded text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-indigo-500"
-              >
-                <option value="tls">STARTTLS</option>
-                <option value="ssl">SSL / TLS</option>
-                <option value="ninguna">Sin cifrado</option>
-              </select>
+              <AppSelect
+                :model-value="configForm.seguridadSmtp"
+                @update:model-value="(nuevo) => configForm.seguridadSmtp = nuevo as TipoSeguridadSmtp"
+                :options="opcionesSeguridadSmtp"
+                :full-width="true"
+                size="sm"
+              />
             </div>
             <div>
               <label class="block text-zinc-600 dark:text-zinc-400 mb-1">Usuario / Correo SMTP</label>
@@ -228,23 +249,23 @@ const guardar = () => {
             </div>
             <div>
               <label class="block text-zinc-600 dark:text-zinc-400 mb-1">Puerto IMAP</label>
-              <select
-                v-model.number="configForm.puertoImap"
-                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700/80 rounded text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-indigo-500"
-              >
-                <option :value="993">993 (SSL Seguro)</option>
-                <option :value="143">143 (STARTTLS)</option>
-              </select>
+              <AppSelect
+                :model-value="configForm.puertoImap"
+                @update:model-value="(nuevo) => configForm.puertoImap = nuevo as number"
+                :options="opcionesPuertoImap"
+                :full-width="true"
+                size="sm"
+              />
             </div>
             <div>
               <label class="block text-zinc-600 dark:text-zinc-400 mb-1">Cifrado IMAP</label>
-              <select
-                v-model="configForm.seguridadImap"
-                class="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700/80 rounded text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-indigo-500"
-              >
-                <option value="ssl">SSL / TLS</option>
-                <option value="tls">STARTTLS</option>
-              </select>
+              <AppSelect
+                :model-value="configForm.seguridadImap"
+                @update:model-value="(nuevo) => configForm.seguridadImap = nuevo as TipoSeguridadSmtp"
+                :options="opcionesSeguridadImap"
+                :full-width="true"
+                size="sm"
+              />
             </div>
           </div>
         </div>

@@ -223,9 +223,10 @@ onMounted(() => {
         :preserve-height="true"
         stream-color="#10b981"
         announce-text="Actualizando módulo de comunicaciones y plantillas..."
-        class="space-y-5 rounded-xl overflow-hidden"
+        class="w-full rounded-xl overflow-hidden"
       >
-        <!-- Banner de Advertencia si servidor local está inactivo -->
+        <div class="space-y-5">
+          <!-- Banner de Advertencia si servidor local está inactivo -->
         <div
           v-if="servidorEmailActivo === false"
           class="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3.5 flex items-start gap-3 text-xs"
@@ -499,6 +500,7 @@ onMounted(() => {
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       </FlickerlessSurface>
     </div>

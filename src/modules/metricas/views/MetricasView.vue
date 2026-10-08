@@ -134,17 +134,18 @@ onMounted(() => {
   </Teleport>
 
   <!-- Contenido Analítico con Flickerless -->
-  <div class="w-full space-y-4 pb-8">
+  <div class="w-full pb-6">
     <FlickerlessSurface
       :loading="cargando"
       :delay-ms="180"
       :preserve-height="true"
       stream-color="#4f46e5"
       announce-text="Actualizando datos analíticos de cartera..."
-      class="space-y-4 rounded-xl overflow-hidden"
+      class="w-full rounded-xl overflow-hidden"
     >
-      <!-- Indicadores Generales (4 Tarjetas KPI) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="space-y-4">
+        <!-- Indicadores Generales (4 Tarjetas KPI) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
           <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2 text-xs">
             <span class="font-medium text-zinc-500 dark:text-zinc-400">Tasa de Conversión B2B</span>
@@ -238,6 +239,7 @@ onMounted(() => {
       <GraficoEjecutivos
         :responsables="metricas.topResponsables"
       />
+      </div>
     </FlickerlessSurface>
   </div>
 </template>

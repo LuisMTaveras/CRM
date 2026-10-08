@@ -1,5 +1,6 @@
 import type { Rule } from '@/core/permissions/ability';
 import type { CredencialesLogin, RolUsuario, SesionAuth, Usuario } from '../types/auth.types';
+import { rolesPermisosService } from './roles-permisos.service';
 
 const CLAVE_STORAGE_USUARIOS = 'crm_directorio_usuarios';
 
@@ -31,6 +32,7 @@ export const USUARIOS_CRM: Usuario[] = [
     avatar: 'IS',
     activo: true,
     ultimoAcceso: '2026-10-05T14:15:00Z',
+    permisosExtras: ['clientes:exportar'], // Ejemplo de override directo
   },
   {
     id: 'usr-3',
@@ -91,36 +93,25 @@ export const USUARIOS_CRM: Usuario[] = [
 ];
 
 export function generarReglasPorRol(rol: RolUsuario): Rule[] {
-  switch (rol) {
-    case 'admin':
-      return [
-        { action: 'manage', subject: 'all' },
-      ];
-    case 'gerente':
-      return [
-        { action: ['read', 'create', 'update'], subject: 'Cliente' },
-        { action: ['read', 'create', 'update', 'delete'], subject: 'Oportunidad' },
-        { action: ['read', 'create', 'update'], subject: 'Actividad' },
-        { action: 'read', subject: 'Metricas' },
-        { action: 'read', subject: 'Usuario' },
-      ];
-    case 'ejecutivo':
-      return [
-        { action: ['read', 'create', 'update'], subject: 'Cliente' },
-        { action: ['read', 'create', 'update'], subject: 'Oportunidad' },
-        { action: ['read', 'create', 'update'], subject: 'Actividad' },
-        { action: 'read', subject: 'Metricas' },
-      ];
-    case 'auditor':
-      return [
-        { action: 'read', subject: 'Cliente' },
-        { action: 'read', subject: 'Oportunidad' },
-        { action: 'read', subject: 'Actividad' },
-        { action: 'read', subject: 'Metricas' },
-      ];
-    default:
-      return [];
-  }
+  const usuarioTemp: Usuario = {
+    id: 'temp',
+    nombre: 'Temp',
+    email: 'temp@crm.local',
+    contrasena: '',
+    rol,
+    rolNombre: rol,
+    cargo: '',
+    avatar: '',
+    activo: true,
+    ultimoAcceso: '',
+  };
+  const permisos = rolesPermisosService.calcularPermisosEfectivos(usuarioTemp);
+  return rolesPermisosService.convertirPermisosAReglasCASL(permisos);
+}
+
+export function generarReglasParaUsuario(usuario: Usuario): Rule[] {
+  const permisos = rolesPermisosService.calcularPermisosEfectivos(usuario);
+  return rolesPermisosService.convertirPermisosAReglasCASL(permisos);
 }
 
 class AuthService {
@@ -148,7 +139,7 @@ class AuthService {
   }
 
   async login(credenciales: CredencialesLogin): Promise<SesionAuth> {
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     const emailLimpio = (credenciales.email || '').toLowerCase().trim();
     const directorio = this.cargarUsuariosPersistidos();
@@ -168,25 +159,50 @@ class AuthService {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { contrasena, ...usuarioSinContrasena } = usuario;
-    const reglas = generarReglasPorRol(usuario.rol);
+    const permisosEfectivos = rolesPermisosService.calcularPermisosEfectivos(usuario);
+    const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisosEfectivos);
     
     const sesion: SesionAuth = {
       usuario: { ...usuarioSinContrasena, ultimoAcceso: new Date().toISOString() },
       token: `crm_jwt_${usuario.id}_${Date.now()}`,
       reglas,
+      permisosEfectivos,
     };
 
     return sesion;
   }
 
   async obtenerUsuarios(): Promise<Usuario[]> {
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     return this.cargarUsuariosPersistidos();
   }
 
   async obtenerUsuarioPorId(id: string): Promise<Usuario | null> {
     const usuarios = this.cargarUsuariosPersistidos();
     return usuarios.find((u) => u.id === id) || null;
+  }
+
+  async crearUsuario(datos: Omit<Usuario, 'id' | 'avatar' | 'ultimoAcceso'>): Promise<Usuario> {
+    const lista = this.cargarUsuariosPersistidos();
+    const id = `usr-${Date.now().toString(36)}`;
+    const avatar = datos.nombre
+      .split(' ')
+      .slice(0, 2)
+      .map((p) => p.charAt(0).toUpperCase())
+      .join('');
+
+    const nuevoUsuario: Usuario = {
+      ...datos,
+      id,
+      avatar: avatar || 'US',
+      ultimoAcceso: new Date().toISOString(),
+      permisosExtras: datos.permisosExtras || [],
+      permisosRevocados: datos.permisosRevocados || [],
+    };
+
+    lista.push(nuevoUsuario);
+    this.guardarUsuariosPersistidos(lista);
+    return nuevoUsuario;
   }
 
   async actualizarUsuario(id: string, cambios: Partial<Usuario>): Promise<Usuario> {
@@ -199,11 +215,23 @@ class AuthService {
     const usuarioActualizado: Usuario = {
       ...lista[idx],
       ...cambios,
+      permisosExtras: cambios.permisosExtras !== undefined ? cambios.permisosExtras : lista[idx].permisosExtras,
+      permisosRevocados: cambios.permisosRevocados !== undefined ? cambios.permisosRevocados : lista[idx].permisosRevocados,
     };
 
     lista[idx] = usuarioActualizado;
     this.guardarUsuariosPersistidos(lista);
     return usuarioActualizado;
+  }
+
+  async eliminarUsuario(id: string): Promise<boolean> {
+    const lista = this.cargarUsuariosPersistidos();
+    if (id === 'usr-1') {
+      throw new Error('No es posible eliminar al Administrador principal del sistema.');
+    }
+    const filtrados = lista.filter((u) => u.id !== id);
+    this.guardarUsuariosPersistidos(filtrados);
+    return true;
   }
 }
 

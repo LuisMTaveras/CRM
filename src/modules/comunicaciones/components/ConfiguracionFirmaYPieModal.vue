@@ -4,7 +4,8 @@ import { firmaPieService, FIRMA_POR_DEFECTO, PIE_POR_DEFECTO } from '../services
 import { smtpService, PRESETS_PROVEEDORES } from '../services/smtp.service';
 import { webmailService } from '../services/webmail.service';
 import type { ConfiguracionFirma, ConfiguracionPiePagina } from '../types/webmail.types';
-import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion } from '../types/smtp.types';
+import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion, TipoSeguridadSmtp } from '../types/smtp.types';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { 
   X, 
   PenTool, 
@@ -47,6 +48,18 @@ const probandoImap = ref(false);
 const resultadoSmtp = ref<ResultadoPruebaConexion | null>(null);
 const resultadoImap = ref<{ exito: boolean; mensaje: string; latenciaMs?: number } | null>(null);
 const mensajeGuardado = ref(false);
+
+const opcionesSeguridadSmtp: Array<SelectOption<TipoSeguridadSmtp>> = [
+  { value: 'tls', label: 'STARTTLS (587)' },
+  { value: 'ssl', label: 'SSL / TLS (465)' },
+  { value: 'ninguna', label: 'Sin cifrado (25)' },
+];
+
+const opcionesSeguridadImap: Array<SelectOption<TipoSeguridadSmtp>> = [
+  { value: 'ssl', label: 'SSL / TLS (993)' },
+  { value: 'tls', label: 'STARTTLS (143)' },
+  { value: 'ninguna', label: 'Sin cifrado (143)' },
+];
 
 watch(
   () => props.abierto,
@@ -557,14 +570,12 @@ const guardarTodo = () => {
 
               <div>
                 <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Seguridad Saliente</label>
-                <select
-                  v-model="formSmtp.seguridadSmtp"
-                  class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="tls">STARTTLS (587)</option>
-                  <option value="ssl">SSL / TLS (465)</option>
-                  <option value="ninguna">Sin cifrado (25)</option>
-                </select>
+                <AppSelect
+                  :model-value="formSmtp.seguridadSmtp"
+                  @update:model-value="(nuevo) => formSmtp.seguridadSmtp = nuevo as TipoSeguridadSmtp"
+                  :options="opcionesSeguridadSmtp"
+                  :full-width="true"
+                />
               </div>
 
               <div>
@@ -645,14 +656,12 @@ const guardarTodo = () => {
 
               <div>
                 <label class="block text-zinc-600 dark:text-zinc-400 mb-1 font-medium">Seguridad Entrante</label>
-                <select
-                  v-model="formSmtp.seguridadImap"
-                  class="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-sky-500"
-                >
-                  <option value="ssl">SSL / TLS (993)</option>
-                  <option value="tls">STARTTLS (143)</option>
-                  <option value="ninguna">Sin cifrado (143)</option>
-                </select>
+                <AppSelect
+                  :model-value="formSmtp.seguridadImap"
+                  @update:model-value="(nuevo) => formSmtp.seguridadImap = nuevo as TipoSeguridadSmtp"
+                  :options="opcionesSeguridadImap"
+                  :full-width="true"
+                />
               </div>
 
               <div>

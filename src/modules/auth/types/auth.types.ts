@@ -1,6 +1,6 @@
 import type { Rule } from '@/core/permissions/ability';
 
-export type RolUsuario = 'admin' | 'gerente' | 'ejecutivo' | 'auditor';
+export type RolUsuario = 'admin' | 'gerente' | 'ejecutivo' | 'auditor' | string;
 
 export interface Usuario {
   id: string;
@@ -15,6 +15,9 @@ export interface Usuario {
   activo: boolean;
   ultimoAcceso: string;
   contrasena: string;
+  // Personalización granular de permisos por usuario (Overrides)
+  permisosExtras?: string[];
+  permisosRevocados?: string[];
 }
 
 export interface CredencialesLogin {
@@ -27,4 +30,5 @@ export interface SesionAuth {
   usuario: Omit<Usuario, 'contrasena'>;
   token: string;
   reglas: Rule[];
+  permisosEfectivos?: string[];
 }

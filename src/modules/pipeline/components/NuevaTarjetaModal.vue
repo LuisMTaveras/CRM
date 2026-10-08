@@ -83,6 +83,13 @@ const opcionesPrioridad: Array<SelectOption<'alta' | 'media' | 'baja'>> = [
   { value: 'baja', label: 'Prioridad Baja', dotColor: 'bg-sky-400', colorClass: 'text-sky-300 font-medium' },
 ];
 
+const opcionesClientesIndividuales = computed<Array<SelectOption<string>>>(() => {
+  return clientesDisponibles.value.map((cli) => ({
+    value: cli.id,
+    label: cli.nombre_comercial ? `${cli.nombre_comercial} (${cli.razon_social})` : cli.razon_social,
+  }));
+});
+
 const clientesFiltrados = computed(() => {
   if (!busquedaCliente.value.trim()) return clientesDisponibles.value;
   const q = busquedaCliente.value.toLowerCase().trim();
@@ -374,19 +381,13 @@ onMounted(() => {
 
           <!-- MODO CLIENTE INDIVIDUAL -->
           <div v-else class="space-y-1">
-            <select
-              v-model="formulario.cliente_id_individual"
-              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500/50 transition"
-            >
-              <option value="" disabled>Seleccione un cliente...</option>
-              <option
-                v-for="cli in clientesDisponibles"
-                :key="cli.id"
-                :value="cli.id"
-              >
-                {{ cli.nombre_comercial ? `${cli.nombre_comercial} (${cli.razon_social})` : cli.razon_social }}
-              </option>
-            </select>
+            <AppSelect
+              :model-value="formulario.cliente_id_individual"
+              @update:model-value="(nuevo) => formulario.cliente_id_individual = nuevo as string"
+              :options="opcionesClientesIndividuales"
+              :full-width="true"
+              placeholder="Seleccione un cliente..."
+            />
           </div>
         </div>
 

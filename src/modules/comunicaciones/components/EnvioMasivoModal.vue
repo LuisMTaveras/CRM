@@ -22,6 +22,7 @@ import {
 } from 'lucide-vue-next';
 import { documentParserService } from '../services/document-parser.service';
 import { toastService } from '@/core/notifications/toast.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const props = defineProps<{
   abierto: boolean;
@@ -113,6 +114,14 @@ const plantillaActual = computed(() => {
 
 const clientesParaEnvioEfectivo = computed(() => {
   return props.clientes.filter((c) => clientesSeleccionadosIds.value.includes(c.id));
+});
+
+const opcionesClientePreview = computed<Array<SelectOption<number>>>(() => {
+  const lista = clientesParaEnvioEfectivo.value.length > 0 ? clientesParaEnvioEfectivo.value : props.clientes;
+  return lista.map((cli, idx) => ({
+    value: idx,
+    label: `${cli.razon_social} (${cli.codigo})`,
+  }));
 });
 
 const todosSeleccionados = computed(() => {
@@ -584,18 +593,13 @@ const cerrarModal = () => {
           <div class="flex items-center justify-between bg-white dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">
             <div class="flex items-center gap-3">
               <span class="text-zinc-600 dark:text-zinc-400 font-medium">Ver documento de muestra para:</span>
-              <select
-                v-model="clientePreviewIndex"
-                class="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-indigo-500"
-              >
-                <option
-                  v-for="(cli, idx) in clientesParaEnvioEfectivo"
-                  :key="cli.id"
-                  :value="idx"
-                >
-                  {{ cli.razon_social }} ({{ cli.codigo }})
-                </option>
-              </select>
+              <AppSelect
+                :model-value="clientePreviewIndex"
+                @update:model-value="(idx) => clientePreviewIndex = idx as number"
+                :options="opcionesClientePreview"
+                size="sm"
+                min-width-class="min-w-[220px]"
+              />
             </div>
 
             <button

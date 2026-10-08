@@ -5,6 +5,42 @@ import { ClienteSchema, type NuevoClienteInput } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import { formatCurrency } from '@/core/formatters/formatters';
 import { toastService } from '@/core/notifications/toast.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+
+const opcionesSector: Array<SelectOption<string>> = [
+  { value: 'Tecnología', label: 'Tecnología' },
+  { value: 'Finanzas', label: 'Finanzas' },
+  { value: 'Logística', label: 'Logística' },
+  { value: 'Turismo', label: 'Turismo & Hotelería' },
+  { value: 'Salud', label: 'Salud' },
+  { value: 'Retail', label: 'Retail' },
+  { value: 'Manufactura', label: 'Manufactura' },
+  { value: 'Alimentos', label: 'Alimentos' },
+  { value: 'Comercio', label: 'Comercio Mayorista' },
+];
+
+const opcionesEstado: Array<SelectOption<string>> = [
+  { value: 'prospecto', label: 'Prospecto', dotColor: 'bg-amber-400' },
+  { value: 'en_negociacion', label: 'En Negociación', dotColor: 'bg-indigo-400' },
+  { value: 'activo', label: 'Activo', dotColor: 'bg-emerald-400' },
+];
+
+const opcionesPrioridad: Array<SelectOption<string>> = [
+  { value: 'alta', label: 'Alta', dotColor: 'bg-rose-400' },
+  { value: 'media', label: 'Media', dotColor: 'bg-amber-400' },
+  { value: 'baja', label: 'Baja', dotColor: 'bg-sky-400' },
+];
+
+const opcionesResponsables: Array<SelectOption<string>> = [
+  { value: 'Camila Morales', label: 'Camila Morales' },
+  { value: 'Ignacio Silva', label: 'Ignacio Silva' },
+  { value: 'Felipe Guzmán', label: 'Felipe Guzmán' },
+  { value: 'Roberto Méndez', label: 'Roberto Méndez' },
+  { value: 'Valentina Castillo', label: 'Valentina Castillo' },
+  { value: 'Marcos Almonte', label: 'Marcos Almonte' },
+  { value: 'Daniela Rosario', label: 'Daniela Rosario' },
+  { value: 'Laura Peña', label: 'Laura Peña' },
+];
 
 defineProps<{
   abierto: boolean;
@@ -195,20 +231,12 @@ const guardar = async () => {
 
           <div>
             <label class="block text-zinc-300 font-medium mb-1">Sector Empresarial *</label>
-            <select
+            <AppSelect
               v-model="formulario.sector"
-              class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
-            >
-              <option value="Tecnología">Tecnología</option>
-              <option value="Finanzas">Finanzas</option>
-              <option value="Logística">Logística</option>
-              <option value="Turismo">Turismo & Hotelería</option>
-              <option value="Salud">Salud</option>
-              <option value="Retail">Retail</option>
-              <option value="Manufactura">Manufactura</option>
-              <option value="Alimentos">Alimentos</option>
-              <option value="Comercio">Comercio Mayorista</option>
-            </select>
+              :options="opcionesSector"
+              :full-width="true"
+              size="sm"
+            />
           </div>
         </div>
 
@@ -216,43 +244,32 @@ const guardar = async () => {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>
             <label class="block text-zinc-300 font-medium mb-1">Estado Inicial</label>
-            <select
+            <AppSelect
               v-model="formulario.estado"
-              class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
-            >
-              <option value="prospecto">Prospecto</option>
-              <option value="en_negociacion">En Negociación</option>
-              <option value="activo">Activo</option>
-            </select>
+              :options="opcionesEstado"
+              :full-width="true"
+              size="sm"
+            />
           </div>
 
           <div>
             <label class="block text-zinc-300 font-medium mb-1">Prioridad</label>
-            <select
+            <AppSelect
               v-model="formulario.prioridad"
-              class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
-            >
-              <option value="alta">Alta</option>
-              <option value="media">Media</option>
-              <option value="baja">Baja</option>
-            </select>
+              :options="opcionesPrioridad"
+              :full-width="true"
+              size="sm"
+            />
           </div>
 
           <div>
             <label class="block text-zinc-300 font-medium mb-1">Responsable Comercial *</label>
-            <select
+            <AppSelect
               v-model="formulario.responsable"
-              class="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-md text-zinc-100 focus:outline-none focus:border-zinc-600 transition"
-            >
-              <option value="Camila Morales">Camila Morales</option>
-              <option value="Ignacio Silva">Ignacio Silva</option>
-              <option value="Felipe Guzmán">Felipe Guzmán</option>
-              <option value="Roberto Méndez">Roberto Méndez</option>
-              <option value="Valentina Castillo">Valentina Castillo</option>
-              <option value="Marcos Almonte">Marcos Almonte</option>
-              <option value="Daniela Rosario">Daniela Rosario</option>
-              <option value="Laura Peña">Laura Peña</option>
-            </select>
+              :options="opcionesResponsables"
+              :full-width="true"
+              size="sm"
+            />
           </div>
         </div>
 

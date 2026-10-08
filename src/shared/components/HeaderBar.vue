@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
+import { rolesPermisosService } from '@/modules/auth/services/roles-permisos.service';
 import { themeService } from '@/core/theme/theme.service';
-import { LogOut, ChevronDown, Sparkles, User, Sun, Moon } from 'lucide-vue-next';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { LogOut, ChevronDown, User, Sun, Moon } from 'lucide-vue-next';
 import type { RolUsuario } from '@/modules/auth/types/auth.types';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const menuUsuarioAbierto = ref(false);
+
+const opcionesRoles = computed<Array<SelectOption<string>>>(() => {
+  return rolesPermisosService.obtenerRoles().map((r) => ({
+    value: r.id,
+    label: r.nombre,
+  }));
+});
 
 const cambiarRol = (rol: RolUsuario) => {
   authStore.cambiarRolRapido(rol);
@@ -26,7 +35,7 @@ const cerrarSesion = () => {
 </script>
 
 <template>
-  <header class="h-16 border-b border-zinc-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none z-30 relative transition-colors duration-200">
+  <header class="h-14 border-b border-zinc-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none z-30 relative transition-colors duration-200">
     <!-- Portal Izquierdo: Título, Icono, Badge y Contexto de la Pantalla Activa -->
     <div id="header-portal-left" class="flex items-center gap-3 min-w-0 flex-1 mr-4"></div>
 
@@ -48,20 +57,17 @@ const cerrarSesion = () => {
         <Moon v-else class="w-4 h-4 text-indigo-600 transition-transform -rotate-12 hover:rotate-0" />
       </button>
 
-      <!-- Selector Rápido de Rol Activo -->
-      <div class="hidden sm:flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs shadow-sm">
-        <Sparkles class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-        <span class="text-[11px] text-zinc-500 dark:text-zinc-400">Rol:</span>
-        <select
-          :value="authStore.rol"
-          @change="(e) => cambiarRol((e.target as HTMLSelectElement).value as RolUsuario)"
-          class="bg-transparent text-zinc-800 dark:text-zinc-200 font-medium text-xs focus:outline-none cursor-pointer pr-1"
-        >
-          <option value="admin" class="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">Administrador</option>
-          <option value="gerente" class="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">Gerente de Cuentas</option>
-          <option value="ejecutivo" class="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">Ejecutivo Comercial</option>
-          <option value="auditor" class="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200">Auditor (Solo Lectura)</option>
-        </select>
+      <!-- Selector Rápido de Rol Activo con AppSelect -->
+      <div class="hidden sm:flex items-center gap-1.5">
+        <AppSelect
+          :model-value="authStore.rol"
+          @update:model-value="(nuevo) => cambiarRol(nuevo as RolUsuario)"
+          :options="opcionesRoles"
+          size="sm"
+          label-prefix="Rol:"
+          align="right"
+          min-width-class="min-w-[210px]"
+        />
       </div>
 
       <div class="h-4 w-px bg-zinc-200 dark:bg-white/[0.08]"></div>

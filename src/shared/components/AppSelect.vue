@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends string | number">
+<script setup lang="ts" generic="T extends string | number | boolean">
 import { ref, type Component } from 'vue';
 import { ChevronDown, Check } from 'lucide-vue-next';
 import { onClickOutside } from '@vueuse/core';
@@ -24,6 +24,8 @@ const props = withDefaults(
     align?: 'left' | 'right';
     minWidthClass?: string;
     triggerClass?: string;
+    popupClass?: string;
+    fullWidth?: boolean;
   }>(),
   {
     labelPrefix: '',
@@ -33,6 +35,8 @@ const props = withDefaults(
     align: 'left',
     minWidthClass: 'min-w-[170px]',
     triggerClass: '',
+    popupClass: '',
+    fullWidth: false,
   }
 );
 
@@ -60,23 +64,30 @@ const seleccionar = (opcion: SelectOption<T>) => {
 };
 
 const opcionSeleccionada = () => {
-  return props.options.find((o) => o.value === props.modelValue);
+  return props.options.find((o) => o.value === props.modelValue) || null;
 };
 </script>
 
 <template>
-  <div ref="contenedorRef" class="relative inline-block text-left">
+  <div
+    ref="contenedorRef"
+    :class="[
+      'relative text-left',
+      fullWidth ? 'w-full block' : 'inline-block'
+    ]"
+  >
     <!-- Botón Disparador (Trigger) con diseño adaptativo -->
     <button
       type="button"
       @click="toggle"
       :disabled="disabled"
       :class="[
-        'flex items-center justify-between gap-2.5 rounded-xl border bg-white dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-100 transition shadow-sm font-medium focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed',
+        'flex items-center justify-between gap-2.5 rounded-xl border bg-white dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-100 transition shadow-sm font-medium focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed select-none',
         abierto
           ? 'border-indigo-500 ring-2 ring-indigo-500/20'
           : 'border-zinc-300 dark:border-zinc-700/80 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/80',
         size === 'sm' ? 'px-2.5 py-1 text-[11px]' : size === 'lg' ? 'px-4 py-2.5 text-sm' : 'px-3 py-1.5 text-xs',
+        fullWidth ? 'w-full' : '',
         triggerClass
       ]"
       :aria-expanded="abierto"
@@ -114,13 +125,14 @@ const opcionSeleccionada = () => {
       />
     </button>
 
-    <!-- Menú Desplegable Flotante (Popup) adaptativo -->
+    <!-- Menú Desplegable Flotante (Popup) adaptativo con scroll interno para listas largas -->
     <div
       v-if="abierto"
       :class="[
-        'absolute z-50 mt-1.5 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl p-1.5 shadow-2xl shadow-black/10 dark:shadow-black/90 space-y-0.5 text-xs focus:outline-none transition-all',
+        'absolute z-50 mt-1.5 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl p-1.5 shadow-2xl shadow-black/10 dark:shadow-black/90 space-y-0.5 text-xs focus:outline-none transition-all max-h-64 overflow-y-auto',
         align === 'right' ? 'right-0' : 'left-0',
-        minWidthClass
+        fullWidth ? 'w-full' : minWidthClass,
+        popupClass
       ]"
       role="listbox"
     >

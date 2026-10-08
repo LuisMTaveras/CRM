@@ -18,11 +18,18 @@ import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { dialogService } from '@/core/dialog/dialog.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const pestanaActiva = ref<'empresa' | 'sistema'>('empresa');
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
 const mensajeGuardado = ref(false);
 const guardando = ref(false);
+
+const opcionesMoneda: Array<SelectOption<'DOP' | 'USD' | 'EUR'>> = [
+  { value: 'DOP', label: 'DOP — Peso Dominicano (RD$)', badge: 'RD$' },
+  { value: 'USD', label: 'USD — Dólar Estadounidense ($)', badge: '$' },
+  { value: 'EUR', label: 'EUR — Euro (€)', badge: '€' },
+];
 
 // Sincronizar si cambia externamente
 watch(
@@ -350,14 +357,12 @@ const restablecer = async () => {
               <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
                 Moneda Principal de Cotización
               </label>
-              <select
-                v-model="formulario.monedaPrincipal"
-                class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
-              >
-                <option value="DOP">DOP — Peso Dominicano (RD$)</option>
-                <option value="USD">USD — Dólar Estadounidense ($)</option>
-                <option value="EUR">EUR — Euro (€)</option>
-              </select>
+              <AppSelect
+                :model-value="formulario.monedaPrincipal"
+                @update:model-value="(nuevo) => formulario.monedaPrincipal = nuevo as 'DOP' | 'USD' | 'EUR'"
+                :options="opcionesMoneda"
+                :full-width="true"
+              />
             </div>
 
             <div>
