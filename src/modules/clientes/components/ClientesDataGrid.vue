@@ -21,7 +21,8 @@ import {
 import { computed } from 'vue';
 import { FlickerlessSurface } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
-import { formatearMoneda, formatearFecha, obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
+import { obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
+import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import type { ParametrosTabla } from '@/core/url-sync/url-state';
 import { exportarACSV } from '@/core/export/csv-export';
@@ -219,17 +220,17 @@ const exportarClientes = async () => {
       [
         { clave: 'codigo', titulo: 'Código' },
         { clave: 'razon_social', titulo: 'Razón Social' },
-        { clave: 'nombre_comercial', titulo: 'Nombre Comercial', formateador: (v) => v || '—' },
-        { clave: 'identificacion_fiscal', titulo: 'RNC / Identificación', formateador: (v) => v || '—' },
+        { clave: 'nombre_comercial', titulo: 'Nombre Comercial', formateador: (_v, c) => c.nombre_comercial || '—' },
+        { clave: 'identificacion_fiscal', titulo: 'RNC / Identificación', formateador: (_v, c) => c.identificacion_fiscal || '—' },
         { clave: 'sector', titulo: 'Sector Económico' },
-        { clave: 'estado', titulo: 'Estado', formateador: (v) => etiquetaEstado(v) },
-        { clave: 'prioridad', titulo: 'Prioridad', formateador: (v) => (v ? String(v).toUpperCase() : '—') },
-        { clave: 'email', titulo: 'Correo Corporativo', formateador: (v) => v || '—' },
-        { clave: 'telefono', titulo: 'Teléfono', formateador: (v) => v || '—' },
-        { clave: 'ciudad', titulo: 'Ciudad', formateador: (v) => v || '—' },
+        { clave: 'estado', titulo: 'Estado', formateador: (_v, c) => etiquetaEstado(c.estado) },
+        { clave: 'prioridad', titulo: 'Prioridad', formateador: (_v, c) => (c.prioridad ? c.prioridad.toUpperCase() : '—') },
+        { clave: 'email', titulo: 'Correo Corporativo', formateador: (_v, c) => c.email || '—' },
+        { clave: 'telefono', titulo: 'Teléfono', formateador: (_v, c) => formatPhoneNumber(c.telefono) },
+        { clave: 'ciudad', titulo: 'Ciudad', formateador: (_v, c) => c.ciudad || '—' },
         { clave: 'responsable', titulo: 'Responsable Comercial' },
-        { clave: 'valor_estimado', titulo: 'Valor Estimado (RD$)', formateador: (v) => String(v || 0) },
-        { clave: 'creado_en', titulo: 'Fecha de Registro', formateador: (v) => formatearFecha(v) },
+        { clave: 'valor_estimado', titulo: 'Valor Estimado (RD$)', formateador: (_v, c) => String(c.valor_estimado ?? 0) },
+        { clave: 'creado_en', titulo: 'Fecha de Registro', formateador: (_v, c) => formatDate(c.creado_en) },
       ],
       'cartera_clientes_crm'
     );
@@ -555,7 +556,7 @@ const exportarClientes = async () => {
 
               <!-- Valor Estimado -->
               <td class="py-2.5 px-3.5 text-right font-mono font-medium text-xs text-zinc-100 tabular-nums">
-                {{ formatearMoneda(cliente.valor_estimado) }}
+                {{ formatCurrency(cliente.valor_estimado) }}
               </td>
 
               <!-- Responsable -->
@@ -565,7 +566,7 @@ const exportarClientes = async () => {
 
               <!-- Último Contacto -->
               <td class="py-2.5 px-3.5 font-mono text-[11px] text-zinc-400 tabular-nums">
-                {{ formatearFecha(cliente.ultimo_contacto || cliente.creado_en) }}
+                {{ formatDate(cliente.ultimo_contacto || cliente.creado_en) }}
               </td>
 
               <!-- Acciones -->

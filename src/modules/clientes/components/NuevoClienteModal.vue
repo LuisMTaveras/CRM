@@ -3,7 +3,7 @@ import { ref, reactive, computed } from 'vue';
 import { X, Building2, Plus, Loader2, Users } from 'lucide-vue-next';
 import { ClienteSchema, type NuevoClienteInput } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
-import { formatearMoneda } from '@/core/lib/utils';
+import { formatCurrency } from '@/core/formatters/formatters';
 
 defineProps<{
   abierto: boolean;
@@ -70,7 +70,7 @@ const manejarInputTelefono = (e: Event) => {
 
 // Formateo visual del monto en pesos dominicanos (RD$)
 const montoFormateado = computed(() => {
-  return formatearMoneda(formulario.valor_estimado || 0);
+  return formatCurrency(formulario.valor_estimado || 0);
 });
 
 // Botones de incremento rápido de monto para agilidad comercial

@@ -1,7 +1,7 @@
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import type { Usuario } from '@/modules/auth/types/auth.types';
-import { formatearMoneda, formatearFecha } from '@/core/lib/utils';
+import { formatCurrency, formatDate } from '@/core/formatters/formatters';
 import { PLANTILLAS_PREDEFINIDAS } from './plantillas.mock';
 import { pdfGeneratorService } from './pdf-generator.service';
 import { smtpService } from './smtp.service';
@@ -133,8 +133,8 @@ class EmailService {
       cargo_contacto: contactoPrincipal?.cargo || 'Director General',
       rnc: cliente.identificacion_fiscal || 'Sin RNC',
       ciudad: cliente.ciudad || 'Santo Domingo',
-      monto: formatearMoneda(cliente.valor_estimado || 0),
-      fecha: formatearFecha(new Date().toISOString()),
+      monto: formatCurrency(cliente.valor_estimado || 0),
+      fecha: formatDate(new Date().toISOString()),
       empresa_remitente: nombreRemitenteEmpresa,
       correo_remitente: correoRemitenteEmpresa,
       telefono_remitente: telefonoRemitenteEmpresa,

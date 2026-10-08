@@ -49,7 +49,7 @@ class MetricasService {
       'bg-amber-500',
       'bg-purple-500',
       'bg-rose-500',
-      'bg-teal-500',
+      'bg-zinc-400',
     ];
 
     const distribucionSectores: SectorMetrica[] = Array.from(sectoresMap.entries())

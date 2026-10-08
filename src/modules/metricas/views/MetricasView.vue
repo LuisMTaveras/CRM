@@ -12,7 +12,7 @@ import {
   ArrowUpRight,
   TrendingUp
 } from 'lucide-vue-next';
-import { formatearMoneda } from '@/core/lib/utils';
+import { formatCurrency } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { metricasService } from '../services/metricas.service';
 import type { MetricasComerciales } from '../types/metricas.types';
@@ -164,7 +164,7 @@ onMounted(() => {
           </div>
           <div>
             <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1.5">
-              {{ formatearMoneda(metricas.ticketPromedio) }}
+              {{ formatCurrency(metricas.ticketPromedio) }}
             </div>
             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/50 text-zinc-400">
               Monto medio por contrato
@@ -181,7 +181,7 @@ onMounted(() => {
           </div>
           <div>
             <div class="text-2xl font-semibold tracking-tight text-white font-mono tabular-nums mb-1.5">
-              {{ formatearMoneda(metricas.totalPipelineActivo) }}
+              {{ formatCurrency(metricas.totalPipelineActivo) }}
             </div>
             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
               {{ metricas.totalOportunidades }} oportunidades activas
@@ -234,7 +234,7 @@ onMounted(() => {
                 </span>
                 <div class="flex items-center gap-3 font-mono text-[11px]">
                   <span class="text-zinc-400">{{ etapa.cantidad }} tratos</span>
-                  <span class="text-zinc-200 font-semibold">{{ formatearMoneda(etapa.monto) }}</span>
+                  <span class="text-zinc-200 font-semibold">{{ formatCurrency(etapa.monto) }}</span>
                 </div>
               </div>
               <div class="w-full bg-zinc-950/80 h-2 rounded-full overflow-hidden border border-white/[0.06]">
@@ -268,7 +268,7 @@ onMounted(() => {
               <div class="flex justify-between items-center text-zinc-300 font-medium">
                 <span>{{ sec.sector }} ({{ sec.cantidad }} empresas)</span>
                 <span class="font-mono text-zinc-400">
-                  {{ sec.porcentaje }}% • {{ formatearMoneda(sec.montoTotal) }}
+                  {{ sec.porcentaje }}% • {{ formatCurrency(sec.montoTotal) }}
                 </span>
               </div>
               <div class="w-full bg-zinc-950/80 h-2 rounded-full overflow-hidden border border-white/[0.06]">
@@ -324,7 +324,7 @@ onMounted(() => {
                   </span>
                 </td>
                 <td class="py-3 px-4 text-right font-semibold text-zinc-100">
-                  {{ formatearMoneda(resp.monto) }}
+                  {{ formatCurrency(resp.monto) }}
                 </td>
               </tr>
             </tbody>

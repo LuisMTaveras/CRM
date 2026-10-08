@@ -14,7 +14,7 @@ import {
   Trash2,
   Tag
 } from 'lucide-vue-next';
-import { formatearMoneda, formatearFecha } from '@/core/lib/utils';
+import { formatCurrency, formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { pipelineService } from '../services/pipeline.service';
 import type { OportunidadConCliente, EtapaOportunidad } from '../types/pipeline.types';
@@ -72,7 +72,7 @@ const cambiarEtapa = async (trato: OportunidadConCliente, nuevaEtapa: EtapaOport
     toastService.exito(`Oportunidad "${trato.titulo}" movida a ${obtenerTituloEtapa(nuevaEtapa)}`);
     // Recargar para sincronizar probabilidades y estados
     cargarDatos();
-  } catch (err: unknown) {
+  } catch {
     toastService.error('No se pudo mover la etapa de la oportunidad.');
   }
 };
@@ -198,7 +198,7 @@ onMounted(() => {
       <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-white/[0.05]">
         <span class="text-zinc-500 font-medium">Volumen Total en Embudo:</span>
         <span class="font-mono font-semibold text-emerald-400 text-sm">
-          {{ formatearMoneda(totalGeneralPipeline) }}
+          {{ formatCurrency(totalGeneralPipeline) }}
         </span>
       </div>
     </div>
@@ -242,7 +242,7 @@ onMounted(() => {
           <!-- Total Acumulado por Etapa -->
           <div class="px-3.5 py-2 bg-[#09090b]/40 border-b border-white/[0.05] text-[11px] font-mono text-zinc-400 flex justify-between">
             <span>Subtotal:</span>
-            <span class="text-zinc-200 font-semibold">{{ formatearMoneda(totalPorColumna(col.clave)) }}</span>
+            <span class="text-zinc-200 font-semibold">{{ formatCurrency(totalPorColumna(col.clave)) }}</span>
           </div>
 
           <!-- Lista de Tarjetas del Deal -->
@@ -287,11 +287,11 @@ onMounted(() => {
               <!-- Monto y Fecha Cierre -->
               <div class="flex items-center justify-between pt-2 border-t border-white/[0.05] text-xs">
                 <span class="font-mono font-semibold text-zinc-100 tabular-nums">
-                  {{ formatearMoneda(trato.monto) }}
+                  {{ formatCurrency(trato.monto) }}
                 </span>
                 <span class="text-[10px] text-zinc-500 flex items-center gap-1 font-mono">
                   <Calendar class="w-3 h-3" />
-                  {{ formatearFecha(trato.fecha_cierre_estimada) }}
+                  {{ formatDate(trato.fecha_cierre_estimada) }}
                 </span>
               </div>
 

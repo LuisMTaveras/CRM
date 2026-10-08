@@ -6,10 +6,10 @@
 export interface ColumnaCSV<T> {
   clave: keyof T | string;
   titulo: string;
-  formateador?: (valor: any, registro: T) => string;
+  formateador?: (valor: unknown, registro: T) => string;
 }
 
-export function exportarACSV<T extends Record<string, any>>(
+export function exportarACSV<T extends object>(
   datos: T[],
   columnas: ColumnaCSV<T>[],
   nombreArchivo: string = 'exportacion'
@@ -26,9 +26,11 @@ export function exportarACSV<T extends Record<string, any>>(
   const filas = datos.map((fila) => {
     return columnas
       .map((col) => {
-        let val: any;
+        let val: unknown;
         if (typeof col.clave === 'string' && col.clave.includes('.')) {
-          val = col.clave.split('.').reduce((acc, part) => acc?.[part], fila);
+          val = col.clave
+            .split('.')
+            .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], fila);
         } else {
           val = fila[col.clave as keyof T];
         }

@@ -21,7 +21,7 @@ import {
   Loader2,
   Edit3
 } from 'lucide-vue-next';
-import { formatearMoneda, formatearFecha, formatearFechaHora, formatearTelefonoRD } from '@/core/lib/utils';
+import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
 import Can from '@/shared/components/Can.vue';
 import type { Cliente, EstadoCliente, Oportunidad, Actividad } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
@@ -39,7 +39,17 @@ const emit = defineEmits<{
   (e: 'eliminar', id: string): void;
   (e: 'enviarDocumento', cliente: Cliente): void;
   (e: 'actualizar'): void;
+  (e: 'update:cliente', cliente: Cliente): void;
 }>();
+
+// Nunca mutar la prop: emitir una copia con los cambios aplicados
+const actualizarCliente = (cambios: Partial<Cliente>) => {
+  if (!props.cliente) return;
+  emit('update:cliente', { ...props.cliente, ...cambios });
+};
+
+const sumarMontos = (oportunidades: Oportunidad[]) =>
+  oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
 
 const pestanaActiva = ref<'general' | 'contactos' | 'oportunidades' | 'actividades'>('general');
 const modalEditarClienteAbierto = ref(false);
@@ -89,13 +99,10 @@ const guardarContacto = async () => {
       es_principal: formularioContacto.es_principal,
     });
 
-    if (!props.cliente.contactos) {
-      props.cliente.contactos = [];
-    }
-    if (formularioContacto.es_principal) {
-      props.cliente.contactos.forEach((c) => (c.es_principal = false));
-    }
-    props.cliente.contactos.push(nuevo);
+    const previos = (props.cliente.contactos ?? []).map((c) =>
+      formularioContacto.es_principal ? { ...c, es_principal: false } : c
+    );
+    actualizarCliente({ contactos: [...previos, nuevo] });
     mostrarFormContacto.value = false;
     toastService.exito(`Contacto "${nuevo.nombre}" agregado con éxito.`);
     emit('actualizar');
@@ -112,10 +119,9 @@ const eliminarContacto = async (contactoId: string) => {
 
   try {
     await clienteService.eliminarContacto(props.cliente.id, contactoId);
-    if (props.cliente.contactos) {
-      const idx = props.cliente.contactos.findIndex((c) => c.id === contactoId);
-      if (idx >= 0) props.cliente.contactos.splice(idx, 1);
-    }
+    actualizarCliente({
+      contactos: (props.cliente.contactos ?? []).filter((c) => c.id !== contactoId),
+    });
     toastService.exito('Contacto eliminado.');
     emit('actualizar');
   } catch (err: unknown) {
@@ -127,11 +133,9 @@ const marcarPrincipal = async (contactoId: string) => {
   if (!props.cliente) return;
   try {
     await clienteService.marcarContactoPrincipal(props.cliente.id, contactoId);
-    if (props.cliente.contactos) {
-      props.cliente.contactos.forEach((c) => {
-        c.es_principal = c.id === contactoId;
-      });
-    }
+    actualizarCliente({
+      contactos: (props.cliente.contactos ?? []).map((c) => ({ ...c, es_principal: c.id === contactoId })),
+    });
     toastService.exito('Contacto principal actualizado.');
     emit('actualizar');
   } catch (err: unknown) {
@@ -184,11 +188,8 @@ const guardarOportunidad = async () => {
       fecha_cierre_estimada: formularioOportunidad.fecha_cierre_estimada,
     });
 
-    if (!props.cliente.oportunidades) {
-      props.cliente.oportunidades = [];
-    }
-    props.cliente.oportunidades.unshift(nuevaOp);
-    props.cliente.valor_estimado = props.cliente.oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
+    const oportunidades = [nuevaOp, ...(props.cliente.oportunidades ?? [])];
+    actualizarCliente({ oportunidades, valor_estimado: sumarMontos(oportunidades) });
     mostrarFormOportunidad.value = false;
     toastService.exito(`Oportunidad "${nuevaOp.titulo}" registrada exitosamente.`);
     emit('actualizar');
@@ -203,7 +204,11 @@ const cambiarEtapaDeal = async (deal: Oportunidad, nuevaEtapa: Oportunidad['etap
   if (!props.cliente) return;
   try {
     await clienteService.moverEtapaOportunidad(deal.id, nuevaEtapa);
-    deal.etapa = nuevaEtapa;
+    actualizarCliente({
+      oportunidades: (props.cliente.oportunidades ?? []).map((o) =>
+        o.id === deal.id ? { ...o, etapa: nuevaEtapa } : o
+      ),
+    });
     toastService.exito(`Oportunidad movida a ${nuevaEtapa}`);
     emit('actualizar');
   } catch {
@@ -216,11 +221,8 @@ const eliminarOportunidad = async (dealId: string) => {
   if (!confirm('¿Confirma que desea eliminar esta oportunidad?')) return;
   try {
     await clienteService.eliminarOportunidad(props.cliente.id, dealId);
-    if (props.cliente.oportunidades) {
-      const idx = props.cliente.oportunidades.findIndex((o) => o.id === dealId);
-      if (idx !== -1) props.cliente.oportunidades.splice(idx, 1);
-      props.cliente.valor_estimado = props.cliente.oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
-    }
+    const oportunidades = (props.cliente.oportunidades ?? []).filter((o) => o.id !== dealId);
+    actualizarCliente({ oportunidades, valor_estimado: sumarMontos(oportunidades) });
     toastService.exito('Oportunidad eliminada.');
     emit('actualizar');
   } catch {
@@ -263,11 +265,10 @@ const guardarActividad = async () => {
       realizado_por: formularioActividad.realizado_por.trim() || props.cliente.responsable,
     });
 
-    if (!props.cliente.actividades) {
-      props.cliente.actividades = [];
-    }
-    props.cliente.actividades.unshift(nuevaAct);
-    props.cliente.ultimo_contacto = nuevaAct.fecha;
+    actualizarCliente({
+      actividades: [nuevaAct, ...(props.cliente.actividades ?? [])],
+      ultimo_contacto: nuevaAct.fecha,
+    });
     mostrarFormActividad.value = false;
     toastService.exito('Actividad registrada en la bitácora comercial.');
     emit('actualizar');
@@ -283,10 +284,9 @@ const eliminarActividad = async (actividadId: string) => {
   if (!confirm('¿Confirma que desea eliminar esta anotación de la bitácora?')) return;
   try {
     await clienteService.eliminarActividad(props.cliente.id, actividadId);
-    if (props.cliente.actividades) {
-      const idx = props.cliente.actividades.findIndex((a) => a.id === actividadId);
-      if (idx !== -1) props.cliente.actividades.splice(idx, 1);
-    }
+    actualizarCliente({
+      actividades: (props.cliente.actividades ?? []).filter((a) => a.id !== actividadId),
+    });
     toastService.exito('Anotación eliminada.');
     emit('actualizar');
   } catch {
@@ -302,9 +302,7 @@ const cambiarEstado = (evento: Event) => {
 };
 
 const onClienteActualizado = (clienteActualizado: Cliente) => {
-  if (props.cliente) {
-    Object.assign(props.cliente, clienteActualizado);
-  }
+  actualizarCliente(clienteActualizado);
   emit('actualizar');
 };
 </script>
@@ -475,7 +473,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                   Valor Estimado de Cartera
                 </span>
                 <div class="text-xl font-bold font-mono text-zinc-100 tabular-nums">
-                  {{ formatearMoneda(cliente?.valor_estimado || 0) }}
+                  {{ formatCurrency(cliente?.valor_estimado) }}
                 </div>
               </div>
               <button
@@ -525,7 +523,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
               <div class="flex items-center gap-2.5 text-zinc-300">
                 <Phone class="w-4 h-4 text-zinc-500 shrink-0" />
-                <span class="font-mono">{{ formatearTelefonoRD(cliente?.telefono) }}</span>
+                <span class="font-mono">{{ formatPhoneNumber(cliente?.telefono) }}</span>
               </div>
 
               <div v-if="cliente?.sitio_web" class="flex items-center gap-2.5 text-zinc-300">
@@ -547,8 +545,8 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
             <!-- Fechas de Auditoría -->
             <div class="pt-4 border-t border-zinc-800 text-[11px] text-zinc-500 flex justify-between">
-              <span>Registrado: {{ formatearFecha(cliente?.creado_en) }}</span>
-              <span>Actualizado: {{ formatearFecha(cliente?.actualizado_en || cliente?.creado_en) }}</span>
+              <span>Registrado: {{ formatDate(cliente?.creado_en) }}</span>
+              <span>Actualizado: {{ formatDate(cliente?.actualizado_en || cliente?.creado_en) }}</span>
             </div>
           </div>
 
@@ -721,7 +719,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                     </a>
                     <span v-if="contacto.telefono" class="flex items-center gap-1.5">
                       <Phone class="w-3 h-3 text-zinc-500" />
-                      <span class="font-mono">{{ formatearTelefonoRD(contacto.telefono) }}</span>
+                      <span class="font-mono">{{ formatPhoneNumber(contacto.telefono) }}</span>
                     </span>
                   </div>
                 </div>
@@ -885,7 +883,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                     <div class="font-medium text-zinc-200 text-xs leading-snug">{{ deal.titulo }}</div>
                     <div class="flex items-center gap-1.5 shrink-0">
                       <span class="font-mono font-bold text-zinc-100 tabular-nums text-xs">
-                        {{ formatearMoneda(deal.monto) }}
+                        {{ formatCurrency(deal.monto) }}
                       </span>
                       <button
                         @click="eliminarOportunidad(deal.id)"
@@ -915,7 +913,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
                     <div class="flex items-center gap-1 text-zinc-500 font-mono text-[10px]">
                       <Calendar class="w-3 h-3" />
-                      <span>Cierre: {{ formatearFecha(deal.fecha_cierre_estimada) }}</span>
+                      <span>Cierre: {{ formatDate(deal.fecha_cierre_estimada) }}</span>
                     </div>
                   </div>
                 </div>
@@ -1041,7 +1039,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
                     <div class="flex items-center gap-2">
                       <span class="text-zinc-500 font-mono text-[10px]">
-                        {{ formatearFechaHora(actividad.fecha) }}
+                        {{ formatDate(actividad.fecha, 'datetime') }}
                       </span>
                       <button
                         @click="eliminarActividad(actividad.id)"

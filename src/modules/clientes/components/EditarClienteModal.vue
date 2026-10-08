@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
 import { X, Building2, Save, Loader2 } from 'lucide-vue-next';
-import type { Cliente } from '../types/cliente.types';
+import type { Cliente, EstadoCliente, PrioridadCliente } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import { toastService } from '@/core/notifications/toast.service';
 
@@ -23,8 +23,8 @@ const formulario = reactive({
   nombre_comercial: '',
   identificacion_fiscal: '',
   sector: 'Tecnología',
-  estado: 'prospecto',
-  prioridad: 'media',
+  estado: 'prospecto' as EstadoCliente,
+  prioridad: 'media' as PrioridadCliente,
   email: '',
   telefono: '',
   sitio_web: '',
@@ -75,8 +75,8 @@ const guardar = async () => {
       nombre_comercial: formulario.nombre_comercial.trim() || undefined,
       identificacion_fiscal: formulario.identificacion_fiscal.trim(),
       sector: formulario.sector,
-      estado: formulario.estado as any,
-      prioridad: formulario.prioridad as any,
+      estado: formulario.estado,
+      prioridad: formulario.prioridad,
       email: formulario.email.trim() || undefined,
       telefono: formulario.telefono.trim() || undefined,
       sitio_web: formulario.sitio_web.trim() || undefined,

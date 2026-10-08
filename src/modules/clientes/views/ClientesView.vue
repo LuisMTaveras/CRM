@@ -106,22 +106,22 @@ const onEnvioCompletado = () => {
       :clientes="clientes"
       :cargando="cargando"
       :total="total"
-      :totalPaginas="totalPaginas"
+      :total-paginas="totalPaginas"
       :parametros="parametrosURL"
-      @actualizarParametros="actualizarEstado"
+      @actualizar-parametros="actualizarEstado"
       @seleccionar="seleccionarCliente"
-      @nuevoCliente="modalNuevoClienteAbierto = true"
-      @enviarMasivo="abrirEnvioMasivo"
+      @nuevo-cliente="modalNuevoClienteAbierto = true"
+      @enviar-masivo="abrirEnvioMasivo"
     />
 
     <!-- Panel Lateral de Detalle (Split-Pane / Drawer) -->
     <ClienteDrawer
       :abierto="drawerAbierto"
-      :cliente="clienteSeleccionado"
+      v-model:cliente="clienteSeleccionado"
       @cerrar="cerrarDrawer"
-      @cambiarEstado="cambiarEstadoCliente"
+      @cambiar-estado="cambiarEstadoCliente"
       @eliminar="eliminarCliente"
-      @enviarDocumento="abrirEnvioIndividual"
+      @enviar-documento="abrirEnvioIndividual"
       @actualizar="consultarClientes"
     />
 

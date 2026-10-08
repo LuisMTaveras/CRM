@@ -24,7 +24,7 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-vue-next';
-import { formatearFechaHora } from '@/core/lib/utils';
+import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 
 const plantillas = ref<PlantillaDocumento[]>(emailService.obtenerPlantillas());
@@ -282,7 +282,7 @@ onMounted(() => {
             ¿Tienes un documento en Word (.docx) o contrato listo para enviar?
           </h2>
           <p class="text-[11px] text-zinc-400 mt-0.5">
-            Súbelo directamente. El sistema extraerá el texto, identificará las variables <span class="font-mono text-emerald-400">`{{'{' + '{empresa}' + '}'}}`</span> y <span class="font-mono text-emerald-400">`{{'{' + '{contacto_principal}' + '}'}}`</span> y generará el PDF oficial automáticamente.
+            Súbelo directamente. El sistema extraerá el texto, identificará las variables <span class="font-mono text-emerald-400">`{{ '{' + '{empresa}' + '}' }}`</span> y <span class="font-mono text-emerald-400">`{{ '{' + '{contacto_principal}' + '}' }}`</span> y generará el PDF oficial automáticamente.
           </p>
         </div>
       </div>
@@ -447,7 +447,7 @@ onMounted(() => {
                 {{ envio.remitente }}
               </td>
               <td class="py-2.5 px-3.5 text-zinc-500 font-mono text-[11px]">
-                {{ formatearFechaHora(envio.fechaEnvio) }}
+                {{ formatDate(envio.fechaEnvio, 'datetime') }}
               </td>
               <td class="py-2.5 px-3.5 text-right">
                 <span
@@ -499,7 +499,7 @@ onMounted(() => {
       v-if="modalCargarDocumentoAbierto"
       :abierto="modalCargarDocumentoAbierto"
       @cerrar="modalCargarDocumentoAbierto = false"
-      @plantillaCreada="onPlantillaCreada"
+      @plantilla-creada="onPlantillaCreada"
     />
   </div>
 </template>

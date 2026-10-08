@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { authService } from '../services/auth.service';
 import type { Usuario, RolUsuario } from '../types/auth.types';
 import { Users, Shield, Check, X, Sparkles, RefreshCw } from 'lucide-vue-next';
-import { formatearFechaHora } from '@/core/lib/utils';
+import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 
 const authStore = useAuthStore();
@@ -172,7 +172,7 @@ onMounted(async () => {
 
                 <!-- Último Acceso -->
                 <td class="py-2.5 px-3.5 text-zinc-500 font-mono text-[11px]">
-                  {{ formatearFechaHora(user.ultimoAcceso) }}
+                  {{ formatDate(user.ultimoAcceso, 'datetime') }}
                 </td>
               </tr>
             </tbody>

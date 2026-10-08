@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "crm-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "crm-email",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "email-server"],
+      "port": 3002
+    }
+  ]
+}

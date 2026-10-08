@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Users, TrendingUp, Briefcase, CheckCircle2, DollarSign } from 'lucide-vue-next';
-import { formatearMoneda } from '@/core/lib/utils';
+import { formatCurrency } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 
 defineProps<{
@@ -24,7 +24,7 @@ defineProps<{
     announce-text="Actualizando métricas de cartera..."
     class="mb-5 rounded-xl overflow-hidden"
   >
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
       <!-- 1. Total Clientes -->
       <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
         <div class="flex items-center justify-between text-zinc-400 mb-2">
@@ -106,7 +106,7 @@ defineProps<{
       </div>
 
       <!-- 5. Pipeline Ponderado -->
-      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group">
+      <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group sm:col-span-2">
         <div class="flex items-center justify-between text-zinc-400 mb-2">
           <span class="text-xs font-medium text-zinc-400">Pipeline Estimado</span>
           <div class="w-7 h-7 rounded-lg bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center text-zinc-300 group-hover:text-emerald-400 transition-colors">
@@ -114,8 +114,8 @@ defineProps<{
           </div>
         </div>
         <div>
-          <div class="text-xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5 truncate">
-            {{ formatearMoneda(estadisticas.valorTotalPipeline) }}
+          <div class="text-base xl:text-xl font-semibold tracking-tight text-zinc-100 tabular-nums font-mono mb-1.5 truncate" :title="formatCurrency(estadisticas.valorTotalPipeline)">
+            {{ formatCurrency(estadisticas.valorTotalPipeline) }}
           </div>
           <div class="flex items-center gap-1.5">
             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">

@@ -144,7 +144,8 @@ class ClienteService {
     const pagina = params.pagina || 1;
     const tamanoPagina = params.tamanoPagina || 15;
     const inicio = (pagina - 1) * tamanoPagina;
-    const datosPaginados = filtrados.slice(inicio, inicio + tamanoPagina);
+    // Copias: la UI nunca debe compartir referencias con la memoria del servicio
+    const datosPaginados: Cliente[] = JSON.parse(JSON.stringify(filtrados.slice(inicio, inicio + tamanoPagina)));
     const totalPaginas = Math.ceil(total / tamanoPagina) || 1;
 
     // Métricas en tiempo real del pipeline

@@ -302,10 +302,6 @@ const CARGOS_SECUNDARIOS = [
   'Gerente de Seguridad Industrial y Calidad'
 ];
 
-// Estados y prioridades
-const ESTADOS = ['activo', 'en_negociacion', 'prospecto', 'inactivo', 'cerrado_perdido'];
-const PRIORIDADES = ['alta', 'media', 'baja'];
-
 function getRandomItem(arr, idx) {
   return arr[idx % arr.length];
 }
