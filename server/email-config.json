@@ -1,0 +1,22 @@
+{
+  "servidorSmtp": "mail.negox.com",
+  "puertoSmtp": 465,
+  "seguridadSmtp": "tls",
+  "usuarioSmtp": "luismiguel@alliance.do",
+  "contrasenaSmtp": "b5vQ22*k7",
+  "proveedor": "personalizado",
+  "requiereAutenticacion": true,
+  "habilitarImap": true,
+  "servidorImap": "mail.negox.com",
+  "puertoImap": 993,
+  "seguridadImap": "ssl",
+  "usuarioImap": "luismiguel@alliance.do",
+  "contrasenaImap": "b5vQ22*k7",
+  "nombreRemitente": "Alliance SRL — Departamento Comercial",
+  "correoRemitente": "luismiguel@alliance.do",
+  "correoRespuesta": "luismiguel@alliance.do",
+  "firmaTexto": "Atentamente,\nDepartamento Comercial & Facturación B2B\nDEVFORGE Dominicana SRL • RNC: 1-32-45890-1\nAv. Winston Churchill, Torre Empresarial, Santo Domingo, Rep. Dom.\nTel: +1 (809) 555-0100 | www.devforge.com.do",
+  "activo": true,
+  "ultimaVerificacion": "2026-10-08T12:59:57.668Z",
+  "latenciaMs": 435
+}
