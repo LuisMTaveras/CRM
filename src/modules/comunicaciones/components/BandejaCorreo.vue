@@ -10,6 +10,7 @@ import type {
 } from '../types/webmail.types';
 import RedactarCorreoModal from './RedactarCorreoModal.vue';
 import ConfiguracionFirmaYPieModal from './ConfiguracionFirmaYPieModal.vue';
+import EmailViewer from './EmailViewer.vue';
 import { 
   Inbox, 
   Send, 
@@ -651,16 +652,11 @@ onMounted(async () => {
 
           <!-- Cuerpo Scrolleable del Mensaje -->
           <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <div
-              v-if="mensajeSeleccionado.cuerpoHtml"
-              class="text-zinc-800 dark:text-zinc-200 text-xs leading-relaxed bg-zinc-50/70 dark:bg-zinc-950/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/60"
-              v-html="mensajeSeleccionado.cuerpoHtml"
-            ></div>
-            <div
-              v-else
-              class="text-zinc-800 dark:text-zinc-200 text-xs leading-relaxed whitespace-pre-wrap font-sans bg-zinc-50/70 dark:bg-zinc-950/40 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800/60"
-            >
-              {{ mensajeSeleccionado.cuerpoTexto }}
+            <div class="bg-zinc-50/70 dark:bg-zinc-950/40 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800/60 overflow-hidden">
+              <EmailViewer
+                :html="mensajeSeleccionado.cuerpoHtml"
+                :texto="mensajeSeleccionado.cuerpoTexto"
+              />
             </div>
 
             <!-- CAJA DE RESPUESTA RÁPIDA INTEGRADA -->

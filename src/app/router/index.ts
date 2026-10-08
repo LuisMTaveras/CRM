@@ -20,6 +20,12 @@ const router = createRouter({
     },
     {
       path: '/',
+      name: 'metricas',
+      component: MetricasView,
+      alias: '/metricas',
+    },
+    {
+      path: '/clientes',
       name: 'clientes',
       component: ClientesView,
     },
@@ -37,11 +43,6 @@ const router = createRouter({
       path: '/comunicaciones',
       name: 'comunicaciones',
       component: ComunicacionesView,
-    },
-    {
-      path: '/metricas',
-      name: 'metricas',
-      component: MetricasView,
     },
     {
       path: '/usuarios',
@@ -65,7 +66,7 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (authStore.estaAutenticado && to.name === 'login') {
-    return next({ name: 'clientes' });
+    return next({ name: 'metricas' });
   }
 
   next();

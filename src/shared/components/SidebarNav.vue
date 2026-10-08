@@ -16,13 +16,20 @@ const route = useRoute();
 const perfilEmpresa = computed(() => empresaService.datos.value);
 
 const enlaces = [
-  { nombre: 'Cartera Clientes', ruta: '/', icono: Building2 },
+  { nombre: 'Métricas & KPIs', ruta: '/', icono: BarChart3 },
+  { nombre: 'Cartera Clientes', ruta: '/clientes', icono: Building2 },
   { nombre: 'Pipeline Kanban', ruta: '/pipeline', icono: Kanban },
   { nombre: 'Envíos & Documentos', ruta: '/comunicaciones', icono: Mail },
-  { nombre: 'Métricas & KPIs', ruta: '/metricas', icono: BarChart3 },
   { nombre: 'Usuarios & Roles', ruta: '/usuarios', icono: Users },
   { nombre: 'Empresa & Ajustes', ruta: '/configuracion', icono: Settings },
 ];
+
+const esRutaActiva = (ruta: string) => {
+  if (ruta === '/') {
+    return route.path === '/' || route.path === '/metricas';
+  }
+  return route.path === ruta || route.path.startsWith(ruta);
+};
 </script>
 
 <template>
@@ -54,8 +61,8 @@ const enlaces = [
         :key="enlace.ruta"
         :to="enlace.ruta"
         :class="[
-          'group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150',
-          route.path === enlace.ruta || (enlace.ruta !== '/' && route.path.startsWith(enlace.ruta))
+          'group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium no-underline hover:no-underline transition-all duration-150',
+          esRutaActiva(enlace.ruta)
             ? 'bg-indigo-50/90 text-indigo-700 border border-indigo-200/80 shadow-sm dark:bg-zinc-800/80 dark:text-zinc-100 dark:border-white/[0.08]'
             : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100/80 dark:hover:bg-zinc-900/60 border border-transparent'
         ]"
@@ -65,15 +72,15 @@ const enlaces = [
             :is="enlace.icono" 
             :class="[
               'w-4 h-4 transition-colors',
-              route.path === enlace.ruta 
+              esRutaActiva(enlace.ruta) 
                 ? 'text-indigo-600 dark:text-indigo-400 stroke-[2]' 
                 : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
             ]" 
           />
-          <span>{{ enlace.nombre }}</span>
+          <span class="no-underline">{{ enlace.nombre }}</span>
         </div>
         <span 
-          v-if="route.path === enlace.ruta" 
+          v-if="esRutaActiva(enlace.ruta)" 
           class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shadow-sm shadow-indigo-500/80"
         ></span>
       </router-link>
@@ -94,3 +101,10 @@ const enlaces = [
     </div>
   </aside>
 </template>
+
+<style scoped>
+a,
+:deep(a) {
+  text-decoration: none !important;
+}
+</style>
