@@ -52,20 +52,20 @@ const onEnvioCompletado = () => {
     <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
     <Teleport to="#header-portal-left">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+        <span class="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
           <Building2 class="w-5 h-5" />
         </span>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-bold text-zinc-100 truncate">
+            <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
               Directorio Comercial & Clientes B2B
             </h1>
-            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
               PostgreSQL Conectado
             </span>
           </div>
-          <p class="text-[11px] text-zinc-400 truncate hidden md:block">
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
             Gestión centralizada de prospectos, cuentas estratégicas, contratos y trazabilidad de cartera
           </p>
         </div>
@@ -77,7 +77,7 @@ const onEnvioCompletado = () => {
       <div class="flex items-center gap-2">
         <button
           @click="modalNuevoClienteAbierto = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-emerald-950/40"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/40"
         >
           <Plus class="w-3.5 h-3.5" />
           <span>+ Nuevo Cliente</span>
@@ -87,7 +87,7 @@ const onEnvioCompletado = () => {
           @click="restablecerDatosIniciales"
           :disabled="cargando"
           title="Recargar catálogo inicial de 100+ clientes y contactos semilla"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/80 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition shadow-sm hover:border-zinc-300 dark:hover:border-white/[0.16] disabled:opacity-50"
         >
           <RotateCcw class="w-3.5 h-3.5 text-zinc-400" />
           <span class="hidden sm:inline">Restablecer 100+</span>
@@ -97,9 +97,9 @@ const onEnvioCompletado = () => {
           @click="consultarClientes"
           :disabled="cargando"
           title="Actualizar datos"
-          class="p-2 rounded-xl border border-white/[0.08] bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 text-xs font-medium transition shadow-sm hover:border-white/[0.16] disabled:opacity-50"
+          class="p-2 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/80 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-medium transition shadow-sm hover:border-zinc-300 dark:hover:border-white/[0.16] disabled:opacity-50"
         >
-          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-emerald-400' : '']" />
+          <RefreshCw :class="['w-3.5 h-3.5 text-zinc-400', cargando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
         </button>
       </div>
     </Teleport>

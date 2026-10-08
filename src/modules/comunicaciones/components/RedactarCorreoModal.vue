@@ -114,21 +114,21 @@ const enviarCorreo = async () => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop oscuro -->
-    <div @click="emit('cerrar')" class="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"></div>
+    <div @click="emit('cerrar')" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Card -->
-    <div class="relative bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
+    <div class="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
       <!-- Cabecera -->
-      <div class="px-6 py-4 border-b border-zinc-800 bg-zinc-950/80 flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/80 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div class="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
             <Send class="w-4 h-4" />
           </div>
           <div>
-            <h3 class="text-sm sm:text-base font-bold text-zinc-100">
+            <h3 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
               Redactar Nuevo Correo
             </h3>
-            <p class="text-[11px] text-zinc-400">
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
               Envío individual con firma profesional y pie de confidencialidad
             </p>
           </div>
@@ -137,7 +137,7 @@ const enviarCorreo = async () => {
         <button
           type="button"
           @click="emit('cerrar')"
-          class="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition"
+          class="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
         >
           <X class="w-4 h-4" />
         </button>
@@ -148,48 +148,48 @@ const enviarCorreo = async () => {
         <!-- Error alert -->
         <div
           v-if="errorEnvio"
-          class="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-red-300 text-xs flex items-center gap-2"
+          class="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-red-600 dark:text-red-300 text-xs flex items-center gap-2"
         >
-          <AlertCircle class="w-4 h-4 text-red-400 shrink-0" />
+          <AlertCircle class="w-4 h-4 text-red-500 shrink-0" />
           <span>{{ errorEnvio }}</span>
         </div>
 
         <!-- Destinatario y CC -->
         <div class="space-y-2">
           <div class="flex items-center gap-2">
-            <span class="w-20 text-zinc-400 font-medium shrink-0">Para:</span>
+            <span class="w-20 text-zinc-500 dark:text-zinc-400 font-medium shrink-0">Para:</span>
             <input
               type="email"
               v-model="formulario.destinatario"
               placeholder="cliente@empresa.com.do"
-              class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500"
+              class="flex-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 placeholder-zinc-400 dark:placeholder-zinc-600"
             />
             <button
               type="button"
               @click="mostrarCc = !mostrarCc"
-              class="px-2.5 py-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg text-[11px] font-medium transition"
+              class="px-2.5 py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-[11px] font-medium transition"
             >
               {{ mostrarCc ? 'Ocultar CC' : 'CC / CCO' }}
             </button>
           </div>
 
-          <div v-if="mostrarCc" class="space-y-2 pl-4 border-l-2 border-zinc-800">
+          <div v-if="mostrarCc" class="space-y-2 pl-4 border-l-2 border-zinc-200 dark:border-zinc-800">
             <div class="flex items-center gap-2">
-              <span class="w-16 text-zinc-400 font-medium shrink-0">CC:</span>
+              <span class="w-16 text-zinc-500 dark:text-zinc-400 font-medium shrink-0">CC:</span>
               <input
                 type="text"
                 v-model="formulario.cc"
                 placeholder="copia@empresa.com.do"
-                class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-emerald-500 text-xs"
+                class="flex-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 text-xs placeholder-zinc-400 dark:placeholder-zinc-600"
               />
             </div>
             <div class="flex items-center gap-2">
-              <span class="w-16 text-zinc-400 font-medium shrink-0">CCO:</span>
+              <span class="w-16 text-zinc-500 dark:text-zinc-400 font-medium shrink-0">CCO:</span>
               <input
                 type="text"
                 v-model="formulario.cco"
                 placeholder="copiaoculta@empresa.com.do"
-                class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-emerald-500 text-xs"
+                class="flex-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 text-xs placeholder-zinc-400 dark:placeholder-zinc-600"
               />
             </div>
           </div>
@@ -197,37 +197,37 @@ const enviarCorreo = async () => {
 
         <!-- Asunto -->
         <div class="flex items-center gap-2">
-          <span class="w-20 text-zinc-400 font-medium shrink-0">Asunto:</span>
+          <span class="w-20 text-zinc-500 dark:text-zinc-400 font-medium shrink-0">Asunto:</span>
           <input
             type="text"
             v-model="formulario.asunto"
             placeholder="Propuesta Técnica y Seguimiento de Cotización"
-            class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500"
+            class="flex-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 placeholder-zinc-400 dark:placeholder-zinc-600"
           />
         </div>
 
         <!-- Opciones de Inclusión -->
-        <div class="flex flex-wrap items-center gap-4 py-2 px-3 bg-zinc-950/60 border border-zinc-800/80 rounded-xl text-[11px]">
-          <label class="flex items-center gap-2 cursor-pointer text-zinc-300">
+        <div class="flex flex-wrap items-center gap-4 py-2 px-3 bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800/80 rounded-xl text-[11px]">
+          <label class="flex items-center gap-2 cursor-pointer text-zinc-700 dark:text-zinc-300">
             <input
               type="checkbox"
               v-model="formulario.incluirFirma"
-              class="rounded bg-zinc-900 border-zinc-700 text-emerald-600 focus:ring-0"
+              class="rounded bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-indigo-600 focus:ring-0 cursor-pointer"
             />
             <span class="flex items-center gap-1.5">
-              <PenTool class="w-3.5 h-3.5 text-emerald-400" />
+              <PenTool class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Incluir firma corporativa</span>
             </span>
           </label>
 
-          <label class="flex items-center gap-2 cursor-pointer text-zinc-300">
+          <label class="flex items-center gap-2 cursor-pointer text-zinc-700 dark:text-zinc-300">
             <input
               type="checkbox"
               v-model="formulario.incluirPie"
-              class="rounded bg-zinc-900 border-zinc-700 text-emerald-600 focus:ring-0"
+              class="rounded bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-indigo-600 focus:ring-0 cursor-pointer"
             />
             <span class="flex items-center gap-1.5">
-              <ShieldCheck class="w-3.5 h-3.5 text-emerald-400" />
+              <ShieldCheck class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Incluir pie institucional & aviso confidencialidad</span>
             </span>
           </label>
@@ -235,7 +235,7 @@ const enviarCorreo = async () => {
           <button
             type="button"
             @click="vistaPreviaActiva = !vistaPreviaActiva"
-            class="ml-auto text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition"
+            class="ml-auto text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium flex items-center gap-1 transition"
           >
             <Eye class="w-3.5 h-3.5" />
             <span>{{ vistaPreviaActiva ? 'Ver Editor' : 'Vista Previa' }}</span>
@@ -248,21 +248,21 @@ const enviarCorreo = async () => {
             v-model="formulario.cuerpo"
             rows="10"
             placeholder="Estimado cliente:&#10;&#10;Por medio de la presente nos dirigimos a usted para dar seguimiento..."
-            class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500 leading-relaxed font-sans"
+            class="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl p-3.5 text-zinc-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-indigo-500 leading-relaxed font-sans placeholder-zinc-400 dark:placeholder-zinc-600"
           ></textarea>
         </div>
 
-        <div v-else class="p-5 bg-white text-zinc-900 rounded-xl border border-zinc-300 shadow-inner max-h-80 overflow-y-auto">
+        <div v-else class="p-5 bg-white text-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-inner max-h-80 overflow-y-auto">
           <div v-html="htmlVistaPrevia"></div>
         </div>
       </div>
 
       <!-- Pie del modal -->
-      <div class="px-6 py-3.5 border-t border-zinc-800 bg-zinc-950/90 flex items-center justify-between">
+      <div class="px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/90 flex items-center justify-between">
         <button
           type="button"
           @click="emit('cerrar')"
-          class="px-4 py-2 rounded-xl border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 font-medium transition"
+          class="px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 font-medium transition"
         >
           Cancelar
         </button>
@@ -271,7 +271,7 @@ const enviarCorreo = async () => {
           type="button"
           @click="enviarCorreo"
           :disabled="enviando"
-          class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition flex items-center gap-2 shadow-sm shadow-emerald-950/40 disabled:opacity-50"
+          class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition flex items-center gap-2 shadow-sm shadow-indigo-950/40 disabled:opacity-50"
         >
           <Loader2 v-if="enviando" class="w-4 h-4 animate-spin" />
           <Send v-else class="w-4 h-4" />
