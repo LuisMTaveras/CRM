@@ -19,10 +19,8 @@ import {
   Layers, 
   Settings2,
   Tag,
-  CheckCircle2,
-  Clock,
   AlertCircle,
-  TrendingUp,
+  AlertOctagon,
   GripVertical
 } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/core/formatters/formatters';
@@ -32,16 +30,20 @@ import type {
   Pipeline, 
   ColumnaPipeline, 
   TarjetaPipeline, 
-  FiltrosPipeline 
+  FiltrosPipeline,
+  ResumenPipelineItem
 } from '../types/pipeline.types';
 import { LIMITE_MAXIMO_COLUMNAS } from '../types/pipeline.types';
 import NuevoPipelineModal from '../components/NuevoPipelineModal.vue';
 import GestionColumnaModal from '../components/GestionColumnaModal.vue';
 import NuevaTarjetaModal from '../components/NuevaTarjetaModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
+import { dialogService } from '@/core/dialog/dialog.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const cargando = ref(true);
 const pipelines = ref<Pipeline[]>([]);
+const resumenPipelines = ref<ResumenPipelineItem[]>([]);
 const pipelineActivoId = ref<string>('pipeline-visitas');
 const tarjetas = ref<TarjetaPipeline[]>([]);
 const responsablesDisponibles = ref<string[]>([]);
@@ -74,6 +76,32 @@ const filtros = reactive<FiltrosPipeline>({
   prioridad: '',
 });
 
+const opcionesPipelines = computed<Array<SelectOption<string>>>(() => {
+  return pipelines.value.map((p) => ({
+    value: p.id,
+    label: p.nombre,
+    icon: p.tipo === 'visitas' ? MapPin : Kanban,
+    colorClass: 'text-zinc-100 font-semibold',
+  }));
+});
+
+const opcionesResponsables = computed<Array<SelectOption<string>>>(() => {
+  return [
+    { value: '', label: 'Todos los Responsables' },
+    ...responsablesDisponibles.value.map((r) => ({
+      value: r,
+      label: r,
+    })),
+  ];
+});
+
+const opcionesPrioridades: Array<SelectOption<string>> = [
+  { value: '', label: 'Todas las Prioridades' },
+  { value: 'alta', label: 'Prioridad Alta', dotColor: 'bg-rose-400', colorClass: 'text-rose-300 font-medium' },
+  { value: 'media', label: 'Prioridad Media', dotColor: 'bg-amber-400', colorClass: 'text-amber-300 font-medium' },
+  { value: 'baja', label: 'Prioridad Baja', dotColor: 'bg-sky-400', colorClass: 'text-sky-300 font-medium' },
+];
+
 const pipelineActivo = computed<Pipeline | null>(() => {
   return pipelines.value.find((p) => p.id === pipelineActivoId.value) || pipelines.value[0] || null;
 });
@@ -88,12 +116,31 @@ const columnaCompletada = computed<ColumnaPipeline | null>(() => {
   );
 });
 
-// MÉTRICAS DE PROGRESO Y COMPLETITUD
+// MÉTRICAS DE PROGRESO Y COMPLETITUD SEGÚN ESTADOS MACRO
 const metricasProgreso = computed(() => {
   const total = tarjetas.value.length;
   const colCompId = columnaCompletada.value?.id;
+
+  const colsPendientesIds = new Set(
+    pipelineActivo.value?.columnas.filter((c) => c.estado === 'pendiente').map((c) => c.id) || []
+  );
+  const colsEnProcesoIds = new Set(
+    pipelineActivo.value?.columnas.filter((c) => c.estado === 'en_proceso').map((c) => c.id) || []
+  );
+  const colsBloqueadasIds = new Set(
+    pipelineActivo.value?.columnas.filter((c) => c.estado === 'bloqueado').map((c) => c.id) || []
+  );
+
   const completadas = colCompId ? tarjetas.value.filter((t) => t.columna_id === colCompId).length : 0;
-  const pendientes = total - completadas;
+  const enProceso = tarjetas.value.filter((t) => colsEnProcesoIds.has(t.columna_id)).length;
+  const bloqueadas = tarjetas.value.filter((t) => colsBloqueadasIds.has(t.columna_id)).length;
+  const pendientes = tarjetas.value.filter(
+    (t) =>
+      colsPendientesIds.has(t.columna_id) ||
+      (t.columna_id !== colCompId &&
+        !colsEnProcesoIds.has(t.columna_id) &&
+        !colsBloqueadasIds.has(t.columna_id))
+  ).length;
   const porcentaje = total > 0 ? Math.round((completadas / total) * 100) : 0;
 
   const montoCompletado = colCompId
@@ -102,18 +149,34 @@ const metricasProgreso = computed(() => {
         .reduce((acc, t) => acc + (t.monto || 0), 0)
     : 0;
 
-  const montoPendiente = colCompId
-    ? tarjetas.value
-        .filter((t) => t.columna_id !== colCompId)
-        .reduce((acc, t) => acc + (t.monto || 0), 0)
-    : 0;
+  const montoEnProceso = tarjetas.value
+    .filter((t) => colsEnProcesoIds.has(t.columna_id))
+    .reduce((acc, t) => acc + (t.monto || 0), 0);
+
+  const montoBloqueado = tarjetas.value
+    .filter((t) => colsBloqueadasIds.has(t.columna_id))
+    .reduce((acc, t) => acc + (t.monto || 0), 0);
+
+  const montoPendiente = tarjetas.value
+    .filter(
+      (t) =>
+        colsPendientesIds.has(t.columna_id) ||
+        (t.columna_id !== colCompId &&
+          !colsEnProcesoIds.has(t.columna_id) &&
+          !colsBloqueadasIds.has(t.columna_id))
+    )
+    .reduce((acc, t) => acc + (t.monto || 0), 0);
 
   return {
     total,
     completadas,
+    enProceso,
+    bloqueadas,
     pendientes,
     porcentaje,
     montoCompletado,
+    montoEnProceso,
+    montoBloqueado,
     montoPendiente,
   };
 });
@@ -124,6 +187,7 @@ const cargarPipelines = async () => {
     if (!pipelines.value.some((p) => p.id === pipelineActivoId.value) && pipelines.value.length > 0) {
       pipelineActivoId.value = pipelines.value[0].id;
     }
+    resumenPipelines.value = await pipelineService.obtenerResumenPipelines();
   } catch (err) {
     console.error('Error cargando catálogo de pipelines:', err);
     toastService.error('No se pudo cargar la lista de tableros.');
@@ -205,11 +269,20 @@ const moverTarjetaVertical = async (tarjeta: TarjetaPipeline, direccion: 'arriba
 };
 
 const eliminarTarjeta = async (tarjeta: TarjetaPipeline) => {
-  const mensaje = pipelineActivo.value?.tipo === 'visitas'
-    ? `¿Desea eliminar la visita de "${tarjeta.cliente_nombre}"?`
-    : `¿Desea eliminar la tarjeta "${tarjeta.titulo}"?`;
-  
-  if (!confirm(mensaje)) return;
+  const esVisita = pipelineActivo.value?.tipo === 'visitas';
+  const confirmado = await dialogService.confirmar({
+    titulo: esVisita ? 'ELIMINAR VISITA TÉCNICA' : 'ELIMINAR TARJETA',
+    subtitulo: esVisita ? 'CONFIRMA LA CANCELACIÓN DE LA VISITA' : 'CONFIRMA LA ELIMINACIÓN DEL ELEMENTO',
+    mensaje: esVisita
+      ? `¿Confirma que desea eliminar la visita programada para "${tarjeta.cliente_nombre}"?`
+      : `¿Confirma que desea eliminar la tarjeta "${tarjeta.titulo}" de "${tarjeta.cliente_nombre}"?`,
+    detalle: 'Esta tarjeta se removerá permanentemente de esta etapa del tablero.',
+    textoConfirmar: esVisita ? 'ELIMINAR VISITA' : 'ELIMINAR ELEMENTO',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
 
   try {
     await pipelineService.eliminarTarjeta(pipelineActivoId.value, tarjeta.cliente_id, tarjeta.id);
@@ -309,9 +382,18 @@ const moverColumna = async (columnaId: string, direccion: 'izquierda' | 'derecha
 
 const eliminarColumna = async (col: ColumnaPipeline) => {
   columnaMenuAbiertoId.value = null;
-  if (!confirm(`¿Confirma eliminar la columna "${col.titulo}"? Las tarjetas existentes se moverán a la primera columna.`)) {
-    return;
-  }
+  const confirmado = await dialogService.confirmar({
+    titulo: `ELIMINAR ETAPA "${col.titulo.toUpperCase()}"`,
+    subtitulo: 'REORGANIZACIÓN DE COLUMNAS DEL TABLERO',
+    mensaje: `¿Confirma que desea eliminar la columna "${col.titulo}"?`,
+    detalle: 'Las tarjetas existentes se moverán automáticamente a la primera columna para garantizar la integridad de los datos.',
+    textoConfirmar: 'ELIMINAR ETAPA',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
+
   try {
     await pipelineService.eliminarColumna(pipelineActivoId.value, col.id);
     await cargarDatos();
@@ -360,9 +442,19 @@ const eliminarPipelineActivo = async () => {
     toastService.error('No es posible eliminar el tablero principal predeterminado.');
     return;
   }
-  if (!confirm(`¿Confirma que desea eliminar el tablero "${pipelineActivo.value.nombre}" y todas sus tarjetas?`)) {
-    return;
-  }
+
+  const nombrePipeline = pipelineActivo.value.nombre;
+  const confirmado = await dialogService.confirmar({
+    titulo: `ELIMINAR TABLERO "${nombrePipeline.toUpperCase()}"`,
+    subtitulo: 'ACCIÓN PERMANENTE E IRREVERSIBLE',
+    mensaje: `¿Confirma que desea eliminar el tablero "${nombrePipeline}" y todas sus tarjetas asociadas?`,
+    detalle: 'Esta acción borrará todas las etapas y elementos activos de este tablero de forma definitiva.',
+    textoConfirmar: 'ELIMINAR TABLERO',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
 
   try {
     await pipelineService.eliminarPipeline(pipelineActivoId.value);
@@ -409,23 +501,14 @@ onMounted(() => {
               <Kanban v-else class="w-5 h-5" />
             </span>
 
-            <!-- Selector de Tableros -->
-            <div class="relative">
-              <select
-                :value="pipelineActivoId"
-                @change="cambiarPipeline(($event.target as HTMLSelectElement).value)"
-                class="bg-zinc-900 border border-white/[0.12] hover:border-white/[0.25] text-white text-base font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 cursor-pointer transition pr-8"
-              >
-                <option
-                  v-for="p in pipelines"
-                  :key="p.id"
-                  :value="p.id"
-                  class="bg-zinc-950 text-zinc-200"
-                >
-                  {{ p.nombre }} {{ p.tipo === 'visitas' ? '📍' : '💼' }}
-                </option>
-              </select>
-            </div>
+            <!-- Selector de Tableros con diseño idéntico a la referencia -->
+            <AppSelect
+              :model-value="pipelineActivoId"
+              @update:model-value="(nuevoId) => cambiarPipeline(nuevoId as string)"
+              :options="opcionesPipelines"
+              min-width-class="min-w-[240px]"
+              trigger-class="text-sm font-semibold bg-zinc-900 border-white/[0.14] hover:border-white/[0.25] px-3.5 py-1.5"
+            />
           </div>
 
           <!-- Badge de Conteo -->
@@ -513,60 +596,102 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- PANEL DE MÉTRICAS DE PROGRESO Y COMPLETITUD (Flickerless) -->
-    <FlickerlessSurface
-      :loading="cargando"
-      :delay-ms="100"
-      :preserve-height="true"
-      stream-color="#10b981"
-      class="bg-zinc-900/60 p-3.5 rounded-xl border border-white/[0.07] space-y-3"
-    >
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <!-- Indicador de Porcentaje Completado -->
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2">
-            <span class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <TrendingUp class="w-4 h-4" />
-            </span>
-            <div>
-              <div class="font-semibold text-white flex items-center gap-2">
-                <span>Progreso del Tablero:</span>
-                <span class="font-mono text-emerald-400 text-sm font-bold">{{ metricasProgreso.porcentaje }}%</span>
-                <span class="text-zinc-500 font-normal">completado</span>
+    <!-- CONSULTA DE PIPELINES: CARDS POR CADA TABLERO CON BARRA DE PROGRESO Y % -->
+    <div class="space-y-1.5">
+      <div class="flex items-center justify-between text-xs text-zinc-400 px-0.5">
+        <span class="font-semibold uppercase tracking-wider text-[11px] text-zinc-400 flex items-center gap-1.5">
+          <Layers class="w-3.5 h-3.5 text-emerald-400" />
+          <span>Tableros Creados y Progreso de Objetivos</span>
+        </span>
+        <span class="text-[11px] text-zinc-500 hidden sm:inline">Selecciona cualquier tablero para consultar o gestionar sus tarjetas</span>
+      </div>
+
+      <div class="flex items-stretch gap-3 overflow-x-auto pb-1.5 kanban-scroll">
+        <!-- Card por cada Pipeline Creado -->
+        <div
+          v-for="pipe in resumenPipelines"
+          :key="pipe.id"
+          @click="cambiarPipeline(pipe.id)"
+          class="w-64 sm:w-72 shrink-0 saas-card p-3 rounded-xl border transition-all cursor-pointer select-none group flex flex-col justify-between"
+          :class="[
+            pipelineActivoId === pipe.id
+              ? 'ring-2 ring-emerald-500/50 bg-zinc-900 border-emerald-500/40 shadow-lg shadow-emerald-950/30'
+              : 'border-white/[0.07] bg-zinc-900/40 hover:bg-zinc-900/70 hover:border-white/[0.16]'
+          ]"
+        >
+          <div>
+            <!-- Cabecera de la Card: Icono, Nombre y Badge -->
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2 truncate">
+                <span
+                  class="p-1.5 rounded-lg shrink-0 border"
+                  :class="pipe.tipo === 'visitas' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'"
+                >
+                  <MapPin v-if="pipe.tipo === 'visitas'" class="w-3.5 h-3.5" />
+                  <Kanban v-else class="w-3.5 h-3.5" />
+                </span>
+                <span class="text-xs font-bold text-zinc-100 truncate group-hover:text-white" :title="pipe.nombre">
+                  {{ pipe.nombre }}
+                </span>
               </div>
-              <p class="text-[11px] text-zinc-400">
-                Estado meta: <span class="text-zinc-200 font-medium">{{ columnaCompletada?.titulo || 'Completado' }}</span>
-              </p>
+
+              <!-- Indicador de Estado Activo o Cantidad -->
+              <span
+                v-if="pipelineActivoId === pipe.id"
+                class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0"
+              >
+                <span class="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>
+                Activo
+              </span>
+              <span
+                v-else
+                class="text-[10px] font-mono text-zinc-500 shrink-0"
+              >
+                {{ pipe.totalTarjetas }} elem.
+              </span>
+            </div>
+
+            <!-- Porcentaje y Barra de Progreso Elegante -->
+            <div class="space-y-1.5 my-2">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-zinc-400 text-[10px]">Progreso Global</span>
+                <span class="font-mono font-bold text-emerald-400 text-xs">{{ pipe.porcentaje }}%</span>
+              </div>
+              <div class="w-full bg-zinc-950 rounded-full h-1.5 overflow-hidden border border-white/[0.05]">
+                <div
+                  class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500"
+                  :style="{ width: `${pipe.porcentaje}%` }"
+                ></div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Badges de Desglose: Completadas vs Pendientes -->
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium text-xs">
-            <CheckCircle2 class="w-3.5 h-3.5" />
-            <span>{{ metricasProgreso.completadas }} Completadas</span>
-          </div>
-
-          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium text-xs">
-            <Clock class="w-3.5 h-3.5" />
-            <span>{{ metricasProgreso.pendientes }} Pendientes</span>
-          </div>
-
-          <div class="text-right text-[11px] text-zinc-500 font-mono hidden md:block">
-            <span>Total: {{ metricasProgreso.total }}</span>
+          <!-- Micro-desglose por estados en chips -->
+          <div class="flex items-center gap-2 text-[10px] font-mono text-zinc-400 pt-2 border-t border-white/[0.05]">
+            <span class="text-emerald-400 font-semibold">{{ pipe.completadas }} compl.</span>
+            <span class="text-zinc-600">•</span>
+            <span class="text-sky-400">{{ pipe.enProceso }} proc.</span>
+            <template v-if="pipe.bloqueadas > 0">
+              <span class="text-zinc-600">•</span>
+              <span class="text-rose-400 font-semibold">{{ pipe.bloqueadas }} bloq.</span>
+            </template>
+            <span class="text-zinc-600 ml-auto">•</span>
+            <span class="text-zinc-500">{{ pipe.totalTarjetas }} tot.</span>
           </div>
         </div>
-      </div>
 
-      <!-- Barra de Progreso Visual Lineal -->
-      <div class="w-full bg-zinc-950 rounded-full h-2 overflow-hidden border border-white/[0.05]">
-        <div
-          class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500 ease-out"
-          :style="{ width: `${metricasProgreso.porcentaje}%` }"
-        ></div>
+        <!-- Card Especial: + Nuevo Tablero -->
+        <button
+          @click="modalNuevoPipelineAbierto = true"
+          class="w-44 shrink-0 rounded-xl border border-dashed border-zinc-800 hover:border-emerald-500/40 bg-zinc-950/30 hover:bg-zinc-900/50 text-zinc-500 hover:text-emerald-400 flex flex-col items-center justify-center gap-2 transition text-xs font-medium cursor-pointer p-4 group"
+        >
+          <div class="w-8 h-8 rounded-full bg-zinc-800 group-hover:bg-emerald-500/10 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition">
+            <Plus class="w-4 h-4" />
+          </div>
+          <span>+ Nuevo Tablero</span>
+        </button>
       </div>
-    </FlickerlessSurface>
+    </div>
 
     <!-- Barra de Filtros en Tiempo Real -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900/60 p-3 rounded-xl border border-white/[0.06] text-xs">
@@ -583,33 +708,27 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Filtro por Responsable -->
+        <!-- Filtro por Responsable con diseño idéntico a la referencia -->
         <div class="flex items-center gap-1.5">
           <Filter class="w-3.5 h-3.5 text-zinc-500 hidden sm:block" />
-          <select
-            v-model="filtros.responsable"
-            @change="cargarDatos"
-            class="px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-300 text-xs focus:outline-none focus:border-zinc-700 transition"
-          >
-            <option value="">Todos los Responsables</option>
-            <option v-for="r in responsablesDisponibles" :key="r" :value="r">
-              {{ r }}
-            </option>
-          </select>
+          <AppSelect
+            :model-value="filtros.responsable || ''"
+            @update:model-value="(nuevo) => { filtros.responsable = nuevo as string; cargarDatos(); }"
+            :options="opcionesResponsables"
+            size="sm"
+            min-width-class="min-w-[210px]"
+          />
         </div>
 
-        <!-- Filtro por Prioridad -->
+        <!-- Filtro por Prioridad con diseño idéntico a la referencia -->
         <div class="flex items-center gap-1.5">
-          <select
-            v-model="filtros.prioridad"
-            @change="cargarDatos"
-            class="px-2.5 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-300 text-xs focus:outline-none focus:border-zinc-700 transition"
-          >
-            <option value="">Todas las Prioridades</option>
-            <option value="alta">Prioridad Alta</option>
-            <option value="media">Prioridad Media</option>
-            <option value="baja">Prioridad Baja</option>
-          </select>
+          <AppSelect
+            :model-value="filtros.prioridad || ''"
+            @update:model-value="(nuevo) => { filtros.prioridad = nuevo as string; cargarDatos(); }"
+            :options="opcionesPrioridades"
+            size="sm"
+            min-width-class="min-w-[190px]"
+          />
         </div>
       </div>
 
@@ -630,12 +749,12 @@ onMounted(() => {
       announce-text="Actualizando tablero..."
       class="rounded-xl overflow-hidden"
     >
-      <div class="flex gap-4 items-start overflow-x-auto pb-4 min-h-[480px]">
+      <div class="flex gap-4 items-stretch overflow-x-auto pb-3.5 h-[calc(100vh-315px)] min-h-[460px] kanban-scroll">
         <!-- Columnas Dinámicas del Pipeline Activo -->
         <div
           v-for="(col, colIndex) in pipelineActivo?.columnas || []"
           :key="col.id"
-          class="w-72 shrink-0 saas-card rounded-xl overflow-hidden flex flex-col border border-white/[0.08] transition-colors"
+          class="w-72 shrink-0 saas-card rounded-xl overflow-hidden flex flex-col border border-white/[0.08] transition-colors h-full max-h-full"
           :class="[
             columnaDestinoId === col.id ? 'ring-2 ring-emerald-500/40 bg-zinc-900/90' : ''
           ]"
@@ -644,19 +763,40 @@ onMounted(() => {
           @drop="onDropColumna(col.id, $event)"
         >
           <!-- Cabecera de Columna -->
-          <div class="p-3 border-b border-white/[0.07] bg-[#0c0c0e]/80 flex items-center justify-between">
+          <div class="p-3 border-b border-white/[0.07] bg-[#0c0c0e]/80 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-1.5 truncate">
               <span :class="['w-2 h-2 rounded-full border shrink-0', col.color]"></span>
               <span class="text-xs font-semibold text-zinc-200 truncate" :title="col.titulo">
                 {{ col.titulo }}
               </span>
-              <!-- Indicador de etapa completada -->
+              <!-- Indicador de Estado Macro de la Etapa -->
               <span
-                v-if="col.es_completado"
+                v-if="col.estado === 'completado' || col.es_completado"
                 class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shrink-0"
-                title="Esta es la etapa completada que otorga el 100% de avance"
+                title="Estado Meta: Las tarjetas aquí suman al 100% completado"
               >
-                ✓ Meta
+                ✓ Completado
+              </span>
+              <span
+                v-else-if="col.estado === 'en_proceso'"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0"
+                title="Estado En Proceso: Actividades o visitas en curso"
+              >
+                En Proceso
+              </span>
+              <span
+                v-else-if="col.estado === 'bloqueado'"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0"
+                title="Estado Bloqueado: Tarea o visita detenida temporalmente"
+              >
+                Bloqueado
+              </span>
+              <span
+                v-else
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0"
+                title="Estado Pendiente: Tareas o visitas por iniciar"
+              >
+                Pendiente
               </span>
             </div>
             
@@ -686,14 +826,14 @@ onMounted(() => {
 
                 <div
                   v-if="columnaMenuAbiertoId === col.id"
-                  class="absolute right-0 mt-1 w-48 bg-zinc-900 border border-white/[0.1] rounded-xl shadow-xl z-20 p-1 text-xs"
+                  class="absolute right-0 mt-1 w-52 bg-zinc-900 border border-white/[0.1] rounded-xl shadow-xl z-20 p-1 text-xs"
                 >
                   <button
                     @click="abrirModalEditarColumna(col)"
                     class="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-800 text-zinc-200 flex items-center gap-1.5 transition"
                   >
                     <Edit3 class="w-3 h-3 text-zinc-400" />
-                    <span>Editar Columna / Meta</span>
+                    <span>Editar Etapa / Estado Macro</span>
                   </button>
 
                   <button
@@ -730,13 +870,13 @@ onMounted(() => {
           </div>
 
           <!-- Total Acumulado por Etapa -->
-          <div class="px-3.5 py-1.5 bg-[#09090b]/40 border-b border-white/[0.05] text-[11px] font-mono text-zinc-400 flex justify-between">
+          <div class="px-3.5 py-1.5 bg-[#09090b]/40 border-b border-white/[0.05] text-[11px] font-mono text-zinc-400 flex justify-between shrink-0">
             <span>Subtotal:</span>
             <span class="text-zinc-200 font-semibold">{{ formatCurrency(totalMontoColumna(col.id)) }}</span>
           </div>
 
           <!-- Lista de Tarjetas con Soporte de Reordenamiento Vertical (Arriba/Abajo) -->
-          <div class="p-2.5 space-y-2.5 min-h-[350px] flex-1">
+          <div class="p-2.5 space-y-2.5 flex-1 min-h-0 overflow-y-auto overscroll-contain kanban-column-scroll">
             <!-- Estado vacío por columna -->
             <div
               v-if="tarjetasPorColumna(col.id).length === 0"
@@ -790,6 +930,15 @@ onMounted(() => {
                       <ChevronDown class="w-3 h-3" />
                     </button>
                   </div>
+
+                  <span
+                    v-if="col.estado === 'bloqueado'"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/25 flex items-center gap-1 shrink-0"
+                    title="Esta tarjeta o visita se encuentra bloqueada"
+                  >
+                    <AlertOctagon class="w-2.5 h-2.5" />
+                    <span>Bloqueada</span>
+                  </span>
 
                   <span :class="['px-1.5 py-0.5 rounded text-[10px] font-medium capitalize', badgePrioridad(tarjeta.prioridad)]">
                     {{ tarjeta.prioridad || 'media' }}
@@ -861,8 +1010,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Tarjeta Especial: + Añadir Nueva Columna (Limitada a 6) -->
-        <div class="w-72 shrink-0">
+        <!-- Tarjeta Especial: + Añadir Nueva Columna (Limitada a 10) -->
+        <div class="w-72 shrink-0 self-start">
           <button
             v-if="(pipelineActivo?.columnas?.length || 0) < LIMITE_MAXIMO_COLUMNAS"
             @click="abrirModalNuevaColumna"

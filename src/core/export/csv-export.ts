@@ -9,13 +9,15 @@ export interface ColumnaCSV<T> {
   formateador?: (valor: unknown, registro: T) => string;
 }
 
+import { toastService } from '@/core/notifications/toast.service';
+
 export function exportarACSV<T extends object>(
   datos: T[],
   columnas: ColumnaCSV<T>[],
   nombreArchivo: string = 'exportacion'
 ): void {
   if (!datos || datos.length === 0) {
-    alert('No hay registros disponibles para exportar.');
+    toastService.advertencia('No hay registros disponibles para exportar.');
     return;
   }
 

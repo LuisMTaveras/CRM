@@ -17,6 +17,7 @@ import {
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
 import { FlickerlessSurface } from '@flickerless/vue';
+import { dialogService } from '@/core/dialog/dialog.service';
 
 const pestanaActiva = ref<'empresa' | 'sistema'>('empresa');
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
@@ -45,15 +46,25 @@ const guardarCambios = () => {
   }
 };
 
-const restablecer = () => {
-  if (confirm('¿Desea restablecer los datos de la empresa a los valores iniciales predeterminados?')) {
-    const defaultData = empresaService.restablecerPorDefecto();
-    Object.assign(formulario, defaultData);
-    mensajeGuardado.value = true;
-    setTimeout(() => {
-      mensajeGuardado.value = false;
-    }, 2500);
-  }
+const restablecer = async () => {
+  const confirmado = await dialogService.confirmar({
+    titulo: 'RESTABLECER CONFIGURACIÓN',
+    subtitulo: 'RESTAURAR VALORES PREDETERMINADOS DE LA EMPRESA',
+    mensaje: '¿Desea restablecer los datos de la empresa a los valores iniciales predeterminados?',
+    detalle: 'Los campos actuales del formulario se reemplazarán por la información predeterminada del sistema.',
+    textoConfirmar: 'RESTABLECER VALORES',
+    textoCancelar: 'CANCELAR',
+    tipo: 'advertencia',
+  });
+
+  if (!confirmado) return;
+
+  const defaultData = empresaService.restablecerPorDefecto();
+  Object.assign(formulario, defaultData);
+  mensajeGuardado.value = true;
+  setTimeout(() => {
+    mensajeGuardado.value = false;
+  }, 2500);
 };
 </script>
 

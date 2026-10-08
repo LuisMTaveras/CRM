@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
-import { X, Columns3, CheckCircle2, Loader2, AlertCircle } from 'lucide-vue-next';
+import { 
+  X, 
+  Columns3, 
+  CheckCircle2, 
+  Clock, 
+  PlayCircle, 
+  Loader2, 
+  AlertCircle,
+  AlertOctagon 
+} from 'lucide-vue-next';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { pipelineService } from '../services/pipeline.service';
-import type { ColumnaPipeline } from '../types/pipeline.types';
+import type { ColumnaPipeline, CategoriaEstadoEtapa } from '../types/pipeline.types';
 import { LIMITE_MAXIMO_COLUMNAS } from '../types/pipeline.types';
 import { toastService } from '@/core/notifications/toast.service';
 
@@ -36,7 +45,7 @@ const formulario = reactive({
   titulo: '',
   color: opcionesColor[1].color,
   bgBadge: opcionesColor[1].bgBadge,
-  es_completado: false,
+  estado: 'en_proceso' as CategoriaEstadoEtapa,
 });
 
 watch(
@@ -46,12 +55,12 @@ watch(
       formulario.titulo = col.titulo;
       formulario.color = col.color;
       formulario.bgBadge = col.bgBadge;
-      formulario.es_completado = !!col.es_completado;
+      formulario.estado = col.estado || (col.es_completado ? 'completado' : 'en_proceso');
     } else {
       formulario.titulo = '';
       formulario.color = opcionesColor[1].color;
       formulario.bgBadge = opcionesColor[1].bgBadge;
-      formulario.es_completado = false;
+      formulario.estado = 'en_proceso';
     }
   },
   { immediate: true }
@@ -74,12 +83,15 @@ const guardar = async () => {
   errorMensaje.value = '';
   guardando.value = true;
   try {
+    const esCompletado = formulario.estado === 'completado';
+
     if (props.columnaAEditar) {
       await pipelineService.actualizarColumna(props.pipelineId, props.columnaAEditar.id, {
         titulo: formulario.titulo.trim(),
         color: formulario.color,
         bgBadge: formulario.bgBadge,
-        es_completado: formulario.es_completado,
+        estado: formulario.estado,
+        es_completado: esCompletado,
       });
       toastService.exito(`Columna "${formulario.titulo}" actualizada.`);
     } else {
@@ -87,7 +99,8 @@ const guardar = async () => {
         titulo: formulario.titulo.trim(),
         color: formulario.color,
         bgBadge: formulario.bgBadge,
-        es_completado: formulario.es_completado,
+        estado: formulario.estado,
+        es_completado: esCompletado,
       });
       toastService.exito(`Columna "${formulario.titulo}" agregada al tablero.`);
     }
@@ -104,7 +117,7 @@ const guardar = async () => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
     <div
-      class="bg-zinc-900 border border-white/[0.08] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+      class="bg-zinc-900 border border-white/[0.08] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-titulo-columna"
@@ -114,7 +127,7 @@ const guardar = async () => {
         <div class="flex items-center gap-2">
           <Columns3 class="w-4 h-4 text-emerald-400" />
           <h2 id="modal-titulo-columna" class="text-xs font-semibold text-white tracking-tight">
-            {{ columnaAEditar ? 'Editar Columna / Etapa' : 'Nueva Columna / Etapa' }}
+            {{ columnaAEditar ? 'Configuración de Etapa' : 'Nueva Etapa del Tablero' }}
           </h2>
         </div>
         <button
@@ -132,7 +145,7 @@ const guardar = async () => {
         :delay-ms="80"
         :preserve-height="true"
         stream-color="#10b981"
-        class="p-5 space-y-4 text-xs"
+        class="p-5 space-y-4 text-xs overflow-y-auto flex-1"
       >
         <div v-if="errorMensaje" class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
           {{ errorMensaje }}
@@ -143,9 +156,10 @@ const guardar = async () => {
           <span>Límite de {{ LIMITE_MAXIMO_COLUMNAS }} etapas alcanzado para este tablero. Para añadir una nueva, elimine o edite una existente.</span>
         </div>
 
+        <!-- Nombre de la Columna -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1.5">
-            Nombre de la Columna o Etapa <span class="text-rose-400">*</span>
+            Nombre de la Columna / Etapa <span class="text-rose-400">*</span>
           </label>
           <input
             v-model="formulario.titulo"
@@ -155,6 +169,91 @@ const guardar = async () => {
           />
         </div>
 
+        <!-- DEFINICIÓN EXPLÍCITA DEL ESTADO AL QUE PERTENECE -->
+        <div>
+          <!-- Si es la etapa completada final existente -->
+          <div v-if="columnaAEditar?.es_completado" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-center gap-2.5">
+            <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
+            <div>
+              <span class="font-semibold block text-emerald-200">Etapa Meta Final (100% Completado)</span>
+              <span class="text-zinc-400 text-[11px]">Su estado es fijo e inalterable al ser el cierre del flujo. Puedes personalizar libremente su título y color.</span>
+            </div>
+          </div>
+
+          <!-- Si es una etapa editable o nueva columna -->
+          <div v-else>
+            <label class="block font-medium text-zinc-300 mb-2">
+              ¿A cuál Estado Macro pertenece esta etapa? <span class="text-rose-400">*</span>
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <!-- PENDIENTE -->
+              <button
+                type="button"
+                @click="formulario.estado = 'pendiente'"
+                :class="[
+                  'p-2.5 rounded-xl border text-left transition flex flex-col gap-1',
+                  formulario.estado === 'pendiente'
+                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                ]"
+              >
+                <div class="flex items-center gap-1.5 font-semibold text-xs">
+                  <Clock class="w-3.5 h-3.5 text-amber-400" />
+                  <span>Pendiente</span>
+                </div>
+                <span class="text-[10px] text-zinc-400 leading-tight">
+                  Por iniciar o por agendar
+                </span>
+              </button>
+
+              <!-- EN PROCESO -->
+              <button
+                type="button"
+                @click="formulario.estado = 'en_proceso'"
+                :class="[
+                  'p-2.5 rounded-xl border text-left transition flex flex-col gap-1',
+                  formulario.estado === 'en_proceso'
+                    ? 'bg-sky-500/10 border-sky-500/40 text-sky-300'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                ]"
+              >
+                <div class="flex items-center gap-1.5 font-semibold text-xs">
+                  <PlayCircle class="w-3.5 h-3.5 text-sky-400" />
+                  <span>En Proceso</span>
+                </div>
+                <span class="text-[10px] text-zinc-400 leading-tight">
+                  En curso o en ruta
+                </span>
+              </button>
+
+              <!-- BLOQUEADO -->
+              <button
+                type="button"
+                @click="formulario.estado = 'bloqueado'"
+                :class="[
+                  'p-2.5 rounded-xl border text-left transition flex flex-col gap-1',
+                  formulario.estado === 'bloqueado'
+                    ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                ]"
+              >
+                <div class="flex items-center gap-1.5 font-semibold text-xs">
+                  <AlertOctagon class="w-3.5 h-3.5 text-rose-400" />
+                  <span>Bloqueado</span>
+                </div>
+                <span class="text-[10px] text-zinc-400 leading-tight">
+                  Detenido o con impedimento
+                </span>
+              </button>
+            </div>
+
+            <p class="text-[11px] text-zinc-500 mt-2">
+              <span class="text-zinc-400 font-medium">Nota:</span> La etapa <strong>Completado</strong> siempre permanece al final como la meta del tablero. Las nuevas etapas se agregan automáticamente arriba de ella.
+            </p>
+          </div>
+        </div>
+
+        <!-- Color Identificador -->
         <div>
           <label class="block font-medium text-zinc-300 mb-2">
             Color Identificador de la Etapa
@@ -176,26 +275,6 @@ const guardar = async () => {
               <span class="truncate">{{ opt.nombre }}</span>
             </button>
           </div>
-        </div>
-
-        <!-- Marcar como Estado Completado (Regla: Solo 1 estado completado por tablero) -->
-        <div class="p-3 rounded-xl bg-zinc-950/60 border border-white/[0.06] space-y-2">
-          <label class="flex items-start gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              v-model="formulario.es_completado"
-              class="mt-0.5 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 focus:outline-none"
-            />
-            <div>
-              <div class="font-medium text-zinc-200 flex items-center gap-1.5">
-                <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400" />
-                <span>Marcar como Estado Completado</span>
-              </div>
-              <p class="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
-                Solo puede haber un estado completado por tablero. Este estado determina el porcentaje de avance (métrica de completitud) del pipeline.
-              </p>
-            </div>
-          </label>
         </div>
       </FlickerlessSurface>
 

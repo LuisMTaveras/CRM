@@ -57,4 +57,52 @@
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
     transform: translateY(-1px);
   }
+
+  /* Scrollbar horizontal dedicado para el Tablero Kanban: visible, ergonómico y accesible */
+  .kanban-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) rgba(0, 0, 0, 0.25);
+  }
+
+  .kanban-scroll::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 9999px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .kanban-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  /* Scrollbar vertical para las tarjetas dentro de cada columna */
+  .kanban-column-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+
+  .kanban-column-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .kanban-column-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .kanban-column-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 9999px;
+  }
+
+  .kanban-column-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
 }

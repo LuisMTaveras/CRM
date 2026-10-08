@@ -4,6 +4,7 @@ import { X, Building2, Plus, Loader2, Users } from 'lucide-vue-next';
 import { ClienteSchema, type NuevoClienteInput } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import { formatCurrency } from '@/core/formatters/formatters';
+import { toastService } from '@/core/notifications/toast.service';
 
 defineProps<{
   abierto: boolean;
@@ -120,7 +121,7 @@ const guardar = async () => {
     emit('creado');
     emit('cerrar');
   } catch (err: unknown) {
-    alert(err instanceof Error ? err.message : 'Error al guardar el nuevo cliente');
+    toastService.error(err instanceof Error ? err.message : 'Error al guardar el nuevo cliente');
   } finally {
     guardando.value = false;
   }

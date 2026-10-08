@@ -2,6 +2,8 @@ import { ref, watch, onMounted } from 'vue';
 import { useURLTableState } from '@/shared/composables/useURLTableState';
 import { clienteService } from '../services/cliente.service';
 import type { Cliente, EstadoCliente, RespuestaClientesPaginada } from '../types/cliente.types';
+import { dialogService } from '@/core/dialog/dialog.service';
+import { toastService } from '@/core/notifications/toast.service';
 
 export function useClientes() {
   const { estado: parametrosURL, actualizarEstado } = useURLTableState();
@@ -67,22 +69,38 @@ export function useClientes() {
   const cambiarEstadoCliente = async (id: string, nuevoEstado: EstadoCliente) => {
     try {
       await clienteService.actualizarEstado(id, nuevoEstado);
+      toastService.exito('Estado de cliente actualizado exitosamente.');
       await consultarClientes();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al actualizar estado');
+      toastService.error(err instanceof Error ? err.message : 'Error al actualizar estado');
     }
   };
 
   const eliminarCliente = async (id: string) => {
-    if (!confirm('¿Confirma que desea eliminar este registro comercial?')) return;
+    const clienteABorrar = clientes.value.find((c) => c.id === id);
+    const nombre = clienteABorrar ? clienteABorrar.razon_social : 'este registro';
+
+    const confirmado = await dialogService.confirmar({
+      titulo: 'ELIMINAR CLIENTE EMPRESARIAL',
+      subtitulo: 'CONFIRMA LA ELIMINACIÓN DEL REGISTRO COMERCIAL',
+      mensaje: `¿Confirma que desea eliminar a "${nombre}" del sistema?`,
+      detalle: 'Se removerán los contactos, oportunidades y bitácoras asociadas a esta cuenta.',
+      textoConfirmar: 'ELIMINAR CLIENTE',
+      textoCancelar: 'CANCELAR',
+      tipo: 'peligro',
+    });
+
+    if (!confirmado) return;
+
     try {
       await clienteService.eliminarCliente(id);
       if (clienteSeleccionado.value?.id === id) {
         cerrarDrawer();
       }
+      toastService.exito('Cliente eliminado exitosamente.');
       await consultarClientes();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar cliente');
+      toastService.error(err instanceof Error ? err.message : 'Error al eliminar cliente');
     }
   };
 

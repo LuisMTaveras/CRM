@@ -4,9 +4,9 @@ export type EtapaOportunidad = 'calificacion' | 'propuesta' | 'negociacion' | 'g
 
 export type TipoPipeline = 'ventas' | 'visitas' | 'operaciones' | 'personalizado';
 
-export type CategoriaEstadoEtapa = 'pendiente' | 'en_proceso' | 'completado';
+export type CategoriaEstadoEtapa = 'pendiente' | 'en_proceso' | 'bloqueado' | 'completado';
 
-export const LIMITE_MAXIMO_COLUMNAS = 6;
+export const LIMITE_MAXIMO_COLUMNAS = 10;
 
 export interface ColumnaPipeline {
   id: string;
@@ -59,13 +59,31 @@ export interface MetricasProgresoPipeline {
   total: number;
   completadas: number;
   enProceso: number;
+  bloqueadas: number;
   pendientes: number;
   porcentaje: number;
   columnaCompletadaId: string;
   columnaCompletadaTitulo: string;
   montoCompletado: number;
   montoEnProceso: number;
+  montoBloqueado: number;
   montoPendiente: number;
+}
+
+export interface ResumenPipelineItem {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  tipo: TipoPipeline;
+  es_predeterminado: boolean;
+  columnasCount: number;
+  totalTarjetas: number;
+  completadas: number;
+  enProceso: number;
+  bloqueadas: number;
+  pendientes: number;
+  porcentaje: number;
+  montoTotal: number;
 }
 
 export interface CrearPipelineInput {

@@ -11,6 +11,7 @@ import type {
   CrearMultiplesTarjetasInput,
   FiltrosPipeline,
   MetricasProgresoPipeline,
+  ResumenPipelineItem,
   OportunidadConCliente,
   EtapaOportunidad,
   NuevaOportunidadInput,
@@ -37,6 +38,7 @@ const PIPELINES_INICIALES: Pipeline[] = [
         color: 'border-sky-500/40 text-sky-400',
         bgBadge: 'bg-sky-500/10 border-sky-500/20',
         orden: 1,
+        estado: 'pendiente',
         es_completado: false,
       },
       {
@@ -45,6 +47,7 @@ const PIPELINES_INICIALES: Pipeline[] = [
         color: 'border-indigo-500/40 text-indigo-400',
         bgBadge: 'bg-indigo-500/10 border-indigo-500/20',
         orden: 2,
+        estado: 'en_proceso',
         es_completado: false,
       },
       {
@@ -53,6 +56,16 @@ const PIPELINES_INICIALES: Pipeline[] = [
         color: 'border-amber-500/40 text-amber-400',
         bgBadge: 'bg-amber-500/10 border-amber-500/20',
         orden: 3,
+        estado: 'en_proceso',
+        es_completado: false,
+      },
+      {
+        id: 'trato_bloqueado',
+        titulo: 'Trato En Pausa / Bloqueado',
+        color: 'border-rose-500/40 text-rose-400',
+        bgBadge: 'bg-rose-500/10 border-rose-500/20',
+        orden: 4,
+        estado: 'bloqueado',
         es_completado: false,
       },
       {
@@ -60,7 +73,8 @@ const PIPELINES_INICIALES: Pipeline[] = [
         titulo: 'Cerrada Ganada',
         color: 'border-emerald-500/40 text-emerald-400',
         bgBadge: 'bg-emerald-500/10 border-emerald-500/20',
-        orden: 4,
+        orden: 5,
+        estado: 'completado',
         es_completado: true,
       },
     ],
@@ -81,6 +95,7 @@ const PIPELINES_INICIALES: Pipeline[] = [
         color: 'border-amber-500/40 text-amber-400',
         bgBadge: 'bg-amber-500/10 border-amber-500/20',
         orden: 1,
+        estado: 'pendiente',
         es_completado: false,
       },
       {
@@ -89,6 +104,7 @@ const PIPELINES_INICIALES: Pipeline[] = [
         color: 'border-sky-500/40 text-sky-400',
         bgBadge: 'bg-sky-500/10 border-sky-500/20',
         orden: 2,
+        estado: 'en_proceso',
         es_completado: false,
       },
       {
@@ -97,6 +113,16 @@ const PIPELINES_INICIALES: Pipeline[] = [
         color: 'border-indigo-500/40 text-indigo-400',
         bgBadge: 'bg-indigo-500/10 border-indigo-500/20',
         orden: 3,
+        estado: 'en_proceso',
+        es_completado: false,
+      },
+      {
+        id: 'visita_bloqueada',
+        titulo: 'Visita Pospuesta / Bloqueada',
+        color: 'border-rose-500/40 text-rose-400',
+        bgBadge: 'bg-rose-500/10 border-rose-500/20',
+        orden: 4,
+        estado: 'bloqueado',
         es_completado: false,
       },
       {
@@ -104,7 +130,8 @@ const PIPELINES_INICIALES: Pipeline[] = [
         titulo: 'Visita Realizada',
         color: 'border-emerald-500/40 text-emerald-400',
         bgBadge: 'bg-emerald-500/10 border-emerald-500/20',
-        orden: 4,
+        orden: 5,
+        estado: 'completado',
         es_completado: true,
       },
     ],
@@ -120,22 +147,21 @@ class PipelineService {
   }
 
   private asegurarUnicoEstadoCompletado(columnas: ColumnaPipeline[]): void {
-    const completados = columnas.filter((c) => c.es_completado);
-    if (completados.length === 0 && columnas.length > 0) {
-      columnas[columnas.length - 1].es_completado = true;
-    } else if (completados.length > 1) {
-      // Dejar solo el último marcado como completado
-      let yaDejoUno = false;
-      for (let i = columnas.length - 1; i >= 0; i--) {
-        if (columnas[i].es_completado) {
-          if (!yaDejoUno) {
-            yaDejoUno = true;
-          } else {
-            columnas[i].es_completado = false;
-          }
+    if (columnas.length === 0) return;
+
+    // 1. La última etapa es SIEMPRE la meta completada del tablero
+    columnas.forEach((c, idx) => {
+      if (idx === columnas.length - 1) {
+        c.estado = 'completado';
+        c.es_completado = true;
+      } else {
+        // Ninguna etapa previa puede ser completado
+        if (!c.estado || c.estado === 'completado') {
+          c.estado = idx === 0 ? 'pendiente' : 'en_proceso';
         }
+        c.es_completado = false;
       }
-    }
+    });
   }
 
   private cargarPipelinesIniciales(): Pipeline[] {
@@ -146,6 +172,23 @@ class PipelineService {
         if (Array.isArray(parsed) && parsed.length > 0) {
           parsed.forEach((pipe) => {
             this.asegurarUnicoEstadoCompletado(pipe.columnas);
+            // Si el pipeline es el predeterminado de visitas y no tiene etapa bloqueada, incorporarla
+            if (pipe.id === 'pipeline-visitas' && !pipe.columnas.some((c) => c.estado === 'bloqueado') && pipe.columnas.length < LIMITE_MAXIMO_COLUMNAS) {
+              const compIdx = pipe.columnas.findIndex((c) => c.estado === 'completado');
+              const insertIdx = compIdx !== -1 ? compIdx : pipe.columnas.length;
+              pipe.columnas.splice(insertIdx, 0, {
+                id: 'visita_bloqueada',
+                titulo: 'Visita Pospuesta / Bloqueada',
+                color: 'border-rose-500/40 text-rose-400',
+                bgBadge: 'bg-rose-500/10 border-rose-500/20',
+                orden: insertIdx + 1,
+                estado: 'bloqueado',
+                es_completado: false,
+              });
+              pipe.columnas.forEach((c, idx) => {
+                c.orden = idx + 1;
+              });
+            }
           });
           return parsed;
         }
@@ -217,14 +260,24 @@ class PipelineService {
       throw new Error(`El número máximo de columnas permitido es de ${LIMITE_MAXIMO_COLUMNAS} etapas.`);
     }
 
-    const columnas: ColumnaPipeline[] = input.columnas.map((col, idx) => ({
-      id: `${nuevoId}-col-${idx + 1}`,
-      titulo: col.titulo.trim(),
-      color: col.color || 'border-zinc-500/40 text-zinc-300',
-      bgBadge: col.bgBadge || 'bg-zinc-500/10 border-zinc-500/20',
-      orden: idx + 1,
-      es_completado: !!col.es_completado,
-    }));
+    const columnas: ColumnaPipeline[] = input.columnas.map((col, idx) => {
+      let est = col.estado;
+      if (!est) {
+        if (col.es_completado) est = 'completado';
+        else if (idx === 0) est = 'pendiente';
+        else if (idx === input.columnas.length - 1) est = 'completado';
+        else est = 'en_proceso';
+      }
+      return {
+        id: `${nuevoId}-col-${idx + 1}`,
+        titulo: col.titulo.trim(),
+        color: col.color || 'border-zinc-500/40 text-zinc-300',
+        bgBadge: col.bgBadge || 'bg-zinc-500/10 border-zinc-500/20',
+        orden: idx + 1,
+        estado: est,
+        es_completado: est === 'completado' || !!col.es_completado,
+      };
+    });
 
     this.asegurarUnicoEstadoCompletado(columnas);
 
@@ -284,24 +337,32 @@ class PipelineService {
       throw new Error(`Se ha alcanzado el límite máximo de ${LIMITE_MAXIMO_COLUMNAS} etapas por tablero para mantener métricas claras.`);
     }
 
-    const nuevoOrden = pipeline.columnas.length + 1;
+    let est = input.estado;
+    // Si intentaron asignarle completado a una nueva columna, se fija a en_proceso
+    // porque completado es exclusivamente la última etapa
+    if (!est || est === 'completado') {
+      est = 'en_proceso';
+    }
+
     const nuevaColumna: ColumnaPipeline = {
       id: `${pipelineId}-col-${this.generarId('stage')}`,
       titulo: input.titulo.trim(),
       color: input.color,
       bgBadge: input.bgBadge,
-      orden: nuevoOrden,
-      es_completado: !!input.es_completado,
+      orden: pipeline.columnas.length + 1,
+      estado: est,
+      es_completado: false,
     };
 
-    if (nuevaColumna.es_completado) {
-      pipeline.columnas.forEach((c) => {
-        c.es_completado = false;
-      });
-    }
+    // La nueva columna siempre se inserta ARRIBA de la última etapa (antes de completado)
+    const posicionInsercion = Math.max(0, pipeline.columnas.length - 1);
+    pipeline.columnas.splice(posicionInsercion, 0, nuevaColumna);
 
-    pipeline.columnas.push(nuevaColumna);
     this.asegurarUnicoEstadoCompletado(pipeline.columnas);
+    pipeline.columnas.forEach((c, idx) => {
+      c.orden = idx + 1;
+    });
+
     this.guardarPipelines();
     return JSON.parse(JSON.stringify(nuevaColumna));
   }
@@ -315,24 +376,25 @@ class PipelineService {
     const pipeline = this.memoriaPipelines.find((p) => p.id === pipelineId);
     if (!pipeline) return false;
 
-    const col = pipeline.columnas.find((c) => c.id === columnaId);
-    if (!col) return false;
+    const idx = pipeline.columnas.findIndex((c) => c.id === columnaId);
+    if (idx === -1) return false;
+    const col = pipeline.columnas[idx];
 
     if (datos.titulo !== undefined) col.titulo = datos.titulo.trim();
     if (datos.color !== undefined) col.color = datos.color;
     if (datos.bgBadge !== undefined) col.bgBadge = datos.bgBadge;
 
-    if (datos.es_completado !== undefined) {
-      if (datos.es_completado) {
-        // Desmarcar todas las otras columnas
-        pipeline.columnas.forEach((c) => {
-          c.es_completado = c.id === columnaId;
-        });
-      } else {
-        col.es_completado = false;
-        this.asegurarUnicoEstadoCompletado(pipeline.columnas);
-      }
+    // Si es la última columna del tablero, su estado siempre es completado
+    if (idx === pipeline.columnas.length - 1) {
+      col.estado = 'completado';
+      col.es_completado = true;
+    } else if (datos.estado !== undefined) {
+      // Las columnas intermedias no pueden ser completado
+      col.estado = datos.estado === 'completado' ? 'en_proceso' : datos.estado;
+      col.es_completado = false;
     }
+
+    this.asegurarUnicoEstadoCompletado(pipeline.columnas);
 
     this.guardarPipelines();
     return true;
@@ -381,6 +443,12 @@ class PipelineService {
     const nuevoIdx = direccion === 'izquierda' ? idx - 1 : idx + 1;
     if (nuevoIdx < 0 || nuevoIdx >= pipeline.columnas.length) return false;
 
+    const ultimoIdx = pipeline.columnas.length - 1;
+    // La última columna siempre es Completado: nunca se puede mover
+    if (idx === ultimoIdx) return false;
+    // Ninguna columna intermedia puede moverse a la derecha pasando a la última
+    if (direccion === 'derecha' && nuevoIdx >= ultimoIdx) return false;
+
     const temp = pipeline.columnas[idx];
     pipeline.columnas[idx] = pipeline.columnas[nuevoIdx];
     pipeline.columnas[nuevoIdx] = temp;
@@ -399,33 +467,95 @@ class PipelineService {
     const pipeline = await this.obtenerPipelinePorId(pipelineId);
     const tarjetas = await this.obtenerTarjetas(pipelineId);
 
-    const columnaCompletada = pipeline?.columnas.find((c) => c.es_completado) || pipeline?.columnas[pipeline?.columnas.length - 1];
+    const columnaCompletada = pipeline?.columnas.find((c) => c.estado === 'completado' || c.es_completado) || pipeline?.columnas[pipeline?.columnas.length - 1];
     const columnaCompletadaId = columnaCompletada?.id || '';
     const columnaCompletadaTitulo = columnaCompletada?.titulo || 'Completado';
 
+    const colsPendientesIds = new Set(
+      pipeline?.columnas.filter((c) => c.estado === 'pendiente').map((c) => c.id) || []
+    );
+    const colsEnProcesoIds = new Set(
+      pipeline?.columnas.filter((c) => c.estado === 'en_proceso').map((c) => c.id) || []
+    );
+    const colsBloqueadasIds = new Set(
+      pipeline?.columnas.filter((c) => c.estado === 'bloqueado').map((c) => c.id) || []
+    );
+
     const total = tarjetas.length;
     const completadas = tarjetas.filter((t) => t.columna_id === columnaCompletadaId).length;
-    const pendientes = total - completadas;
+    const enProceso = tarjetas.filter((t) => colsEnProcesoIds.has(t.columna_id)).length;
+    const bloqueadas = tarjetas.filter((t) => colsBloqueadasIds.has(t.columna_id)).length;
+    const pendientes = tarjetas.filter(
+      (t) =>
+        colsPendientesIds.has(t.columna_id) ||
+        (t.columna_id !== columnaCompletadaId &&
+          !colsEnProcesoIds.has(t.columna_id) &&
+          !colsBloqueadasIds.has(t.columna_id))
+    ).length;
     const porcentaje = total > 0 ? Math.round((completadas / total) * 100) : 0;
 
     const montoCompletado = tarjetas
       .filter((t) => t.columna_id === columnaCompletadaId)
       .reduce((acc, t) => acc + (t.monto || 0), 0);
 
+    const montoEnProceso = tarjetas
+      .filter((t) => colsEnProcesoIds.has(t.columna_id))
+      .reduce((acc, t) => acc + (t.monto || 0), 0);
+
+    const montoBloqueado = tarjetas
+      .filter((t) => colsBloqueadasIds.has(t.columna_id))
+      .reduce((acc, t) => acc + (t.monto || 0), 0);
+
     const montoPendiente = tarjetas
-      .filter((t) => t.columna_id !== columnaCompletadaId)
+      .filter(
+        (t) =>
+          colsPendientesIds.has(t.columna_id) ||
+          (t.columna_id !== columnaCompletadaId &&
+            !colsEnProcesoIds.has(t.columna_id) &&
+            !colsBloqueadasIds.has(t.columna_id))
+      )
       .reduce((acc, t) => acc + (t.monto || 0), 0);
 
     return {
       total,
       completadas,
+      enProceso,
+      bloqueadas,
       pendientes,
       porcentaje,
       columnaCompletadaId,
       columnaCompletadaTitulo,
       montoCompletado,
+      montoEnProceso,
+      montoBloqueado,
       montoPendiente,
     };
+  }
+
+  async obtenerResumenPipelines(): Promise<ResumenPipelineItem[]> {
+    const pipelines = await this.obtenerPipelines();
+    const resumen: ResumenPipelineItem[] = [];
+
+    for (const pipe of pipelines) {
+      const metricas = await this.obtenerMetricasProgreso(pipe.id);
+      resumen.push({
+        id: pipe.id,
+        nombre: pipe.nombre,
+        descripcion: pipe.descripcion,
+        tipo: pipe.tipo,
+        es_predeterminado: pipe.es_predeterminado,
+        columnasCount: pipe.columnas.length,
+        totalTarjetas: metricas.total,
+        completadas: metricas.completadas,
+        enProceso: metricas.enProceso,
+        bloqueadas: metricas.bloqueadas,
+        pendientes: metricas.pendientes,
+        porcentaje: metricas.porcentaje,
+        montoTotal: metricas.montoCompletado + metricas.montoEnProceso + metricas.montoPendiente,
+      });
+    }
+
+    return resumen;
   }
 
   // --- GESTIÓN Y ORDENAMIENTO VERTICAL DE TARJETAS ---
@@ -558,9 +688,25 @@ class PipelineService {
       {
         id: this.generarId('visita'),
         pipeline_id: 'pipeline-visitas',
-        columna_id: 'visita_realizada',
+        columna_id: 'visita_bloqueada',
         cliente_id: clientes[3]?.id || clientes[0]?.id || '',
-        cliente_nombre: clientes[3]?.nombre_comercial || clientes[3]?.razon_social || 'Cliente Industrial',
+        cliente_nombre: clientes[3]?.nombre_comercial || clientes[3]?.razon_social || 'Cliente con Observaciones',
+        cliente_sector: 'Construcción e Infraestructura',
+        responsable: 'Carlos Mendoza',
+        titulo: 'Acceso denegado temporalmente por mantenimiento de planta',
+        monto: 1600000,
+        fecha_objetivo: formatoFecha(1),
+        prioridad: 'alta',
+        notas: 'Visita suspendida temporalmente por protocolos de seguridad interna. Reagendar la próxima semana.',
+        orden: 1,
+        creado_en: new Date().toISOString(),
+      },
+      {
+        id: this.generarId('visita'),
+        pipeline_id: 'pipeline-visitas',
+        columna_id: 'visita_realizada',
+        cliente_id: clientes[2]?.id || clientes[0]?.id || '',
+        cliente_nombre: clientes[2]?.nombre_comercial || clientes[2]?.razon_social || 'Cliente Industrial',
         cliente_sector: 'Agroindustria',
         responsable: 'Carlos Mendoza',
         titulo: 'Levantamiento de requerimientos concluido con éxito',

@@ -27,6 +27,7 @@ import type { Cliente, EstadoCliente, Oportunidad, Actividad } from '../types/cl
 import { clienteService } from '../services/cliente.service';
 import EditarClienteModal from './EditarClienteModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
+import { dialogService } from '@/core/dialog/dialog.service';
 
 const props = defineProps<{
   abierto: boolean;
@@ -115,7 +116,20 @@ const guardarContacto = async () => {
 
 const eliminarContacto = async (contactoId: string) => {
   if (!props.cliente) return;
-  if (!confirm('¿Confirma que desea eliminar este contacto?')) return;
+  const contacto = (props.cliente.contactos ?? []).find((c) => c.id === contactoId);
+  const nombre = contacto ? contacto.nombre : 'este contacto';
+
+  const confirmado = await dialogService.confirmar({
+    titulo: 'ELIMINAR CONTACTO',
+    subtitulo: 'REMOVER CONTACTO DEL CLIENTE',
+    mensaje: `¿Confirma que desea eliminar el contacto de "${nombre}"?`,
+    detalle: 'Se removerá de la ficha de la empresa.',
+    textoConfirmar: 'ELIMINAR CONTACTO',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
 
   try {
     await clienteService.eliminarContacto(props.cliente.id, contactoId);
@@ -125,7 +139,7 @@ const eliminarContacto = async (contactoId: string) => {
     toastService.exito('Contacto eliminado.');
     emit('actualizar');
   } catch (err: unknown) {
-    alert(err instanceof Error ? err.message : 'Error al eliminar contacto');
+    toastService.error(err instanceof Error ? err.message : 'Error al eliminar contacto');
   }
 };
 
@@ -139,7 +153,7 @@ const marcarPrincipal = async (contactoId: string) => {
     toastService.exito('Contacto principal actualizado.');
     emit('actualizar');
   } catch (err: unknown) {
-    alert(err instanceof Error ? err.message : 'Error al actualizar contacto principal');
+    toastService.error(err instanceof Error ? err.message : 'Error al actualizar contacto principal');
   }
 };
 
@@ -218,7 +232,21 @@ const cambiarEtapaDeal = async (deal: Oportunidad, nuevaEtapa: Oportunidad['etap
 
 const eliminarOportunidad = async (dealId: string) => {
   if (!props.cliente) return;
-  if (!confirm('¿Confirma que desea eliminar esta oportunidad?')) return;
+  const op = (props.cliente.oportunidades ?? []).find((o) => o.id === dealId);
+  const titulo = op ? op.titulo : 'esta oportunidad';
+
+  const confirmado = await dialogService.confirmar({
+    titulo: 'ELIMINAR OPORTUNIDAD',
+    subtitulo: 'REMOVER TRATO COMERCIAL DEL PIPELINE',
+    mensaje: `¿Confirma que desea eliminar la oportunidad "${titulo}"?`,
+    detalle: 'El valor estimado asociado se restará del total de la cuenta.',
+    textoConfirmar: 'ELIMINAR OPORTUNIDAD',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
+
   try {
     await clienteService.eliminarOportunidad(props.cliente.id, dealId);
     const oportunidades = (props.cliente.oportunidades ?? []).filter((o) => o.id !== dealId);
@@ -281,7 +309,18 @@ const guardarActividad = async () => {
 
 const eliminarActividad = async (actividadId: string) => {
   if (!props.cliente) return;
-  if (!confirm('¿Confirma que desea eliminar esta anotación de la bitácora?')) return;
+  const confirmado = await dialogService.confirmar({
+    titulo: 'ELIMINAR ANOTACIÓN',
+    subtitulo: 'REMOVER REGISTRO DE BITÁCORA',
+    mensaje: '¿Confirma que desea eliminar esta anotación de la bitácora comercial?',
+    detalle: 'Este apunte del historial se borrará de forma permanente.',
+    textoConfirmar: 'ELIMINAR ANOTACIÓN',
+    textoCancelar: 'CANCELAR',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
+
   try {
     await clienteService.eliminarActividad(props.cliente.id, actividadId);
     actualizarCliente({

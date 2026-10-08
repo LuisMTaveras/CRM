@@ -21,6 +21,7 @@ import {
   UploadCloud
 } from 'lucide-vue-next';
 import { documentParserService } from '../services/document-parser.service';
+import { toastService } from '@/core/notifications/toast.service';
 
 const props = defineProps<{
   abierto: boolean;
@@ -241,7 +242,7 @@ const descargarPdfMuestra = () => {
 
 const iniciarEnvio = async () => {
   if (!plantillaActual.value) {
-    alert('Por favor selecciona o carga una plantilla de documento.');
+    toastService.error('Por favor selecciona o carga una plantilla de documento.');
     return;
   }
 
@@ -250,7 +251,7 @@ const iniciarEnvio = async () => {
   if (listaDestinatarios.length === 0 && correoPruebaManual.value.trim()) {
     const correoTest = correoPruebaManual.value.trim();
     if (!correoTest.includes('@')) {
-      alert('Por favor ingresa un correo electrónico válido para el envío de prueba.');
+      toastService.error('Por favor ingresa un correo electrónico válido para el envío de prueba.');
       return;
     }
     const clienteDirecto: Cliente = {
@@ -282,7 +283,7 @@ const iniciarEnvio = async () => {
   }
 
   if (listaDestinatarios.length === 0) {
-    alert('Por favor selecciona al menos un cliente de la lista o ingresa un correo de prueba directo.');
+    toastService.error('Por favor selecciona al menos un cliente de la lista o ingresa un correo de prueba directo.');
     return;
   }
 
@@ -313,7 +314,7 @@ const iniciarEnvio = async () => {
     emit('completado');
   } catch (err: unknown) {
     console.error('Error durante el envío de correos:', err);
-    alert(err instanceof Error ? err.message : 'Error durante el envío de correos');
+    toastService.error(err instanceof Error ? err.message : 'Error durante el envío de correos.');
   } finally {
     enviando.value = false;
   }

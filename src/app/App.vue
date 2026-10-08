@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router';
 import SidebarNav from '@/shared/components/SidebarNav.vue';
 import HeaderBar from '@/shared/components/HeaderBar.vue';
 import ToastContainer from '@/shared/components/ToastContainer.vue';
+import AppConfirmModal from '@/shared/components/AppConfirmModal.vue';
 
 const route = useRoute();
 </script>
@@ -28,8 +29,9 @@ const route = useRoute();
         <router-view />
       </main>
     </div>
-
-    <!-- Contenedor Global de Notificaciones -->
-    <ToastContainer />
   </div>
+
+  <!-- Contenedores Globales del Sistema -->
+  <ToastContainer />
+  <AppConfirmModal />
 </template>

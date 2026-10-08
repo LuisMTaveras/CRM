@@ -17,6 +17,7 @@ import { FlickerlessSurface } from '@flickerless/vue';
 import { pipelineService } from '../services/pipeline.service';
 import type { Pipeline } from '../types/pipeline.types';
 import { toastService } from '@/core/notifications/toast.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const props = defineProps<{
   abierto: boolean;
@@ -51,6 +52,36 @@ const formulario = reactive({
   probabilidad: 50,
   notas: '',
 });
+
+const opcionesColumnas = computed<Array<SelectOption<string>>>(() => {
+  if (!props.pipeline?.columnas) return [];
+  return props.pipeline.columnas.map((col) => ({
+    value: col.id,
+    label: col.titulo,
+    dotColor:
+      col.estado === 'completado'
+        ? 'bg-emerald-400'
+        : col.estado === 'bloqueado'
+        ? 'bg-rose-400'
+        : col.estado === 'en_proceso'
+        ? 'bg-sky-400'
+        : 'bg-amber-400',
+    colorClass:
+      col.estado === 'completado'
+        ? 'text-emerald-300 font-semibold'
+        : col.estado === 'bloqueado'
+        ? 'text-rose-300 font-medium'
+        : col.estado === 'en_proceso'
+        ? 'text-sky-300 font-medium'
+        : 'text-amber-300 font-medium',
+  }));
+});
+
+const opcionesPrioridad: Array<SelectOption<'alta' | 'media' | 'baja'>> = [
+  { value: 'alta', label: 'Prioridad Alta', dotColor: 'bg-rose-400', colorClass: 'text-rose-300 font-medium' },
+  { value: 'media', label: 'Prioridad Media', dotColor: 'bg-amber-400', colorClass: 'text-amber-300 font-medium' },
+  { value: 'baja', label: 'Prioridad Baja', dotColor: 'bg-sky-400', colorClass: 'text-sky-300 font-medium' },
+];
 
 const clientesFiltrados = computed(() => {
   if (!busquedaCliente.value.trim()) return clientesDisponibles.value;
@@ -374,38 +405,32 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Columna Inicial y Prioridad -->
+        <!-- Columna Inicial y Prioridad con AppSelect idéntico a la referencia -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block font-medium text-zinc-300 mb-1.5">
               Columna / Estado Inicial <span class="text-rose-400">*</span>
             </label>
-            <select
-              v-model="formulario.columna_id"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50 transition"
-            >
-              <option
-                v-for="col in pipeline.columnas"
-                :key="col.id"
-                :value="col.id"
-              >
-                {{ col.titulo }} {{ col.es_completado ? '✓ (Completado)' : '' }}
-              </option>
-            </select>
+            <AppSelect
+              :model-value="formulario.columna_id"
+              @update:model-value="(nuevo) => formulario.columna_id = nuevo as string"
+              :options="opcionesColumnas"
+              trigger-class="w-full justify-between"
+              min-width-class="w-full"
+            />
           </div>
 
           <div>
             <label class="block font-medium text-zinc-300 mb-1.5">
               Prioridad
             </label>
-            <select
-              v-model="formulario.prioridad"
-              class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/50 transition"
-            >
-              <option value="alta">Prioridad Alta</option>
-              <option value="media">Prioridad Media</option>
-              <option value="baja">Prioridad Baja</option>
-            </select>
+            <AppSelect
+              :model-value="formulario.prioridad"
+              @update:model-value="(nuevo) => formulario.prioridad = nuevo as 'alta' | 'media' | 'baja'"
+              :options="opcionesPrioridad"
+              trigger-class="w-full justify-between"
+              min-width-class="w-full"
+            />
           </div>
         </div>
 
