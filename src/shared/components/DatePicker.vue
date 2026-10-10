@@ -54,7 +54,7 @@
           :aria-label="range ? 'Seleccionar rango de fechas' : 'Seleccionar fecha'"
           tabindex="-1"
           :style="popoverStyle"
-          class="select-none rounded-card border border-border bg-surface-raised p-3 shadow-popover focus:outline-none"
+          class="select-none rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 bg-surface-raised p-3 shadow-2xl dark:shadow-black/80 focus:outline-none z-[9999]"
           @keydown.esc.stop.prevent="close()"
         >
           <!-- Vista de meses / años -->

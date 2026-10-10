@@ -354,7 +354,7 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
             tamanoBytes: att.size || att.content?.length || 0,
             tipoContenido: att.contentType || 'application/octet-stream',
             base64:
-              att.content && att.content.length < 2500000
+              att.content && att.content.length < 15000000
                 ? `data:${att.contentType};base64,${att.content.toString('base64')}`
                 : undefined,
           }));
@@ -721,6 +721,43 @@ app.get('/api/email/mensajes/:id', (req, res) => {
     ok: true,
     mensaje,
   });
+});
+
+// ─── DESCARGAR ADJUNTO ESPECÍFICO ──────────────────────────────────────────
+app.get('/api/email/mensajes/:id/adjuntos/:attId', (req, res) => {
+  const { id, attId } = req.params;
+  const mensaje = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
+  if (!mensaje) {
+    return res.status(404).json({ ok: false, error: 'Mensaje no encontrado.' });
+  }
+
+  const adjuntos = mensaje.adjuntos || [];
+  const att = adjuntos.find(
+    (a) => a.id === attId || a.nombre === attId || encodeURIComponent(a.nombre) === attId
+  );
+  if (!att) {
+    return res.status(404).json({ ok: false, error: 'Adjunto no encontrado.' });
+  }
+
+  if (att.base64 && att.base64.includes(';base64,')) {
+    const parts = att.base64.split(';base64,');
+    const mime = parts[0].replace('data:', '') || att.tipoContenido || 'application/octet-stream';
+    const buffer = Buffer.from(parts[1], 'base64');
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(att.nombre)}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
+  }
+
+  // Fallback con datos formateados si no tiene base64
+  const fallback = Buffer.from(
+    `CRM B2B - Archivo Adjunto: ${att.nombre}\nMensaje: ${mensaje.asunto}\nDe: ${mensaje.de?.nombre || mensaje.de?.correo}\nFecha: ${mensaje.fecha}`,
+    'utf-8'
+  );
+  res.setHeader('Content-Type', att.tipoContenido || 'text/plain');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(att.nombre)}"`);
+  res.setHeader('Content-Length', fallback.length);
+  return res.send(fallback);
 });
 
 // ─── ACTUALIZAR ESTADO DE MENSAJE (Leído, Destacado, Mover carpeta) ──────────

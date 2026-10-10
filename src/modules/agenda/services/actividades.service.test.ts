@@ -63,7 +63,7 @@ describe('ActividadesService - Agenda, Next Steps & Detector de Clientes Estanca
       titulo: 'Llamada telefónica modificada',
       prioridad: 'alta',
     });
-    let encontrada = actividadesService.obtenerActividadPorId(creada.id);
+    const encontrada = actividadesService.obtenerActividadPorId(creada.id);
     expect(encontrada?.titulo).toBe('Llamada telefónica modificada');
     expect(encontrada?.prioridad).toBe('alta');
 

@@ -8,10 +8,15 @@
       aria-haspopup="listbox"
       :aria-controls="listboxId"
       :aria-label="label || selectedLabel"
-      class="flex w-full cursor-pointer select-none items-center justify-between gap-3 rounded-control border bg-surface text-left transition disabled:cursor-not-allowed disabled:opacity-60"
+      class="flex w-full cursor-pointer select-none items-center justify-between gap-2 transition disabled:cursor-not-allowed disabled:opacity-60"
       :class="[
-        isOpen ? 'border-primary-border ring-2 ring-ring' : 'border-border hover:border-primary-border',
-        compact ? 'min-h-9 px-3 py-1.5 text-small' : 'min-h-11 px-4 py-2.5 text-body',
+        borderless
+          ? 'h-7 rounded-md border-0 bg-transparent px-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
+          : [
+              'rounded-control border bg-surface text-left',
+              isOpen ? 'border-primary-border ring-2 ring-ring' : 'border-border hover:border-primary-border',
+              compact ? 'min-h-9 px-3 py-1.5 text-small' : 'min-h-11 px-4 py-2.5 text-body',
+            ],
         $attrs.class,
       ]"
       :disabled="disabled"
@@ -29,8 +34,11 @@
       </span>
       <svg
         viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
-        class="size-5 shrink-0 transition-transform duration-200"
-        :class="isOpen ? 'rotate-180 text-foreground' : 'text-muted-foreground'"
+        class="shrink-0 transition-transform duration-200"
+        :class="[
+          borderless ? 'size-4 text-zinc-400' : 'size-5',
+          isOpen ? 'rotate-180 text-foreground' : 'text-muted-foreground',
+        ]"
       ><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /></svg>
     </button>
 
@@ -51,7 +59,7 @@
           :aria-label="label || placeholder || 'Opciones'"
           :aria-activedescendant="activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined"
           :style="popoverStyle"
-          class="max-h-72 overflow-y-auto rounded-card border border-border bg-surface-raised p-1.5 shadow-popover focus:outline-none"
+          class="max-h-72 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 bg-surface-raised p-1.5 shadow-2xl dark:shadow-black/80 focus:outline-none z-[9999]"
           @keydown="onListKeydown"
         >
           <template v-for="block in optionGroups" :key="block.group ?? '__'">
@@ -134,8 +142,9 @@ const props = withDefaults(
     placeholder?: string;
     compact?: boolean;
     disabled?: boolean;
+    borderless?: boolean;
   }>(),
-  { placeholder: 'Seleccionar…', compact: false, disabled: false },
+  { placeholder: 'Seleccionar…', compact: false, disabled: false, borderless: false },
 );
 
 const emit = defineEmits<{
@@ -186,16 +195,16 @@ const selectedLabel = computed(() => (hasSelection.value ? selectedOption.value!
 
 function optionClass(opt: FlatOption) {
   if (opt.disabled) return 'cursor-not-allowed border-transparent text-dim-foreground opacity-50';
-  if (isSelected(opt.value)) return 'cursor-pointer border-primary-border bg-primary-subtle font-semibold text-foreground';
-  if (opt.index === activeIndex.value) return 'cursor-pointer border-transparent bg-surface-hover text-foreground';
-  return 'cursor-pointer border-transparent text-muted-foreground hover:text-foreground';
+  if (isSelected(opt.value)) return 'cursor-pointer border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40 font-semibold text-indigo-700 dark:text-indigo-300';
+  if (opt.index === activeIndex.value) return 'cursor-pointer border-transparent bg-zinc-100 dark:bg-zinc-800 text-foreground';
+  return 'cursor-pointer border-transparent text-muted-foreground hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-foreground';
 }
 
 function updatePosition() {
   const rect = triggerRef.value?.getBoundingClientRect();
   if (!rect) return;
   const openUp = window.innerHeight - rect.bottom < 260 && rect.top > 260;
-  const width = Math.max(rect.width, 220);
+  const width = Math.max(rect.width, props.borderless ? 180 : 220);
   const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
   popoverStyle.value = {
     position: 'fixed',
