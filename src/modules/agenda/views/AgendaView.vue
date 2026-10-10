@@ -30,6 +30,24 @@ import {
   BellRing,
   Check
 } from 'lucide-vue-next';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+
+const opcionesTipo: SelectOption<TipoActividad | ''>[] = [
+  { value: '', label: 'Todos los tipos' },
+  { value: 'llamada', label: '📞 Llamadas' },
+  { value: 'reunion', label: '🤝 Reuniones' },
+  { value: 'videollamada', label: '💻 Videollamadas' },
+  { value: 'correo', label: '✉️ Correos' },
+  { value: 'propuesta', label: '📄 Propuestas' },
+  { value: 'tarea', label: '✅ Tareas' },
+];
+
+const opcionesPrioridad: SelectOption<PrioridadActividad | ''>[] = [
+  { value: '', label: 'Todas las prioridades' },
+  { value: 'alta', label: '🔴 Alta' },
+  { value: 'media', label: '🟡 Media' },
+  { value: 'baja', label: '🟢 Baja' },
+];
 
 const route = useRoute();
 
@@ -300,29 +318,22 @@ const esDeHoy = (act: ActividadSeguimiento) => {
       <!-- Filtros de Tipo, Prioridad y Búsqueda -->
       <div class="flex items-center gap-2 w-full md:w-auto">
         <!-- Filtro por Tipo -->
-        <select
+        <AppSelect
           v-model="tipoSeleccionado"
-          class="px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-800 dark:text-zinc-200 focus:outline-none"
-        >
-          <option value="">Todos los tipos</option>
-          <option value="llamada">Llamadas</option>
-          <option value="reunion">Reuniones</option>
-          <option value="videollamada">Videollamadas</option>
-          <option value="correo">Correos</option>
-          <option value="propuesta">Propuestas</option>
-          <option value="tarea">Tareas</option>
-        </select>
+          :options="opcionesTipo"
+          labelPrefix="Tipo:"
+          size="sm"
+          minWidthClass="min-w-[160px]"
+        />
 
         <!-- Filtro por Prioridad -->
-        <select
+        <AppSelect
           v-model="prioridadSeleccionada"
-          class="px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-800 dark:text-zinc-200 focus:outline-none"
-        >
-          <option value="">Todas las prioridades</option>
-          <option value="alta">Alta</option>
-          <option value="media">Media</option>
-          <option value="baja">Baja</option>
-        </select>
+          :options="opcionesPrioridad"
+          labelPrefix="Prioridad:"
+          size="sm"
+          minWidthClass="min-w-[170px]"
+        />
 
         <!-- Buscador -->
         <div class="relative flex-1 md:w-60">

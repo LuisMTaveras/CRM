@@ -23,6 +23,8 @@ import {
   Calendar,
   Sparkles
 } from 'lucide-vue-next';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { computed } from 'vue';
 
 const props = defineProps<{
   abierto: boolean;
@@ -119,7 +121,7 @@ watch(
     descripcion.value = '';
     tipo.value = 'llamada';
     prioridad.value = 'alta';
-    responsable.value = 'Camila Morales';
+    responsable.value = 'Luis M. Taveras';
 
     // Fecha límite predeterminada: Mañana a las 10:00 AM
     const manana = new Date(Date.now() + 86400000);
@@ -146,7 +148,7 @@ const aplicarPlantilla = (plantillaTitulo: string, tipoPlantilla: TipoActividad)
   tipo.value = tipoPlantilla;
 };
 
-// Opciones de tipos de actividad
+// Opciones de tipos de actividad (compatibles con AppSelect)
 const tiposDisponibles = [
   { valor: 'llamada', etiqueta: 'Llamada Telefónica', icono: Phone },
   { valor: 'reunion', etiqueta: 'Reunión Presencial', icono: Users },
@@ -154,6 +156,24 @@ const tiposDisponibles = [
   { valor: 'correo', etiqueta: 'Envío de Correo', icono: Mail },
   { valor: 'propuesta', etiqueta: 'Presentación Propuesta', icono: FileText },
   { valor: 'tarea', etiqueta: 'Tarea Operativa', icono: CheckSquare },
+];
+
+const opcionesTipo: SelectOption<TipoActividad>[] = tiposDisponibles.map((t) => ({
+  value: t.valor as TipoActividad,
+  label: t.etiqueta,
+  icon: t.icono,
+}));
+
+const opcionesCliente = computed((): SelectOption<string>[] => [
+  { value: '', label: 'Seleccione un cliente corporativo...' },
+  ...clientes.value.map((c) => ({
+    value: c.id,
+    label: `${c.nombre_comercial || c.razon_social} (${c.sector})`,
+  })),
+]);
+
+const opcionesResponsable: SelectOption<string>[] = [
+  { value: 'Luis M. Taveras', label: 'Luis M. Taveras' },
 ];
 
 const prioridades = [
@@ -284,17 +304,16 @@ const guardar = () => {
             <span class="text-[10px] text-zinc-400">Preseleccionado</span>
           </div>
 
-          <select
+          <!-- Cliente seleccionado desde el selector -->
+          <AppSelect
             v-else
             v-model="clienteId"
+            :options="opcionesCliente"
+            placeholder="Seleccione un cliente corporativo..."
+            full-width
+            size="md"
             @change="alCambiarCliente"
-            class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-          >
-            <option value="" disabled>Seleccione un cliente corporativo...</option>
-            <option v-for="c in clientes" :key="c.id" :value="c.id">
-              {{ c.nombre_comercial || c.razon_social }} ({{ c.sector }})
-            </option>
-          </select>
+          />
         </div>
 
         <!-- Plantillas Rápidas de Título -->
@@ -357,14 +376,12 @@ const guardar = () => {
             <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
               Tipo de Compromiso
             </label>
-            <select
+            <AppSelect
               v-model="tipo"
-              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 capitalize"
-            >
-              <option v-for="t in tiposDisponibles" :key="t.valor" :value="t.valor">
-                {{ t.etiqueta }}
-              </option>
-            </select>
+              :options="opcionesTipo"
+              full-width
+              size="md"
+            />
           </div>
 
           <div>
@@ -408,14 +425,12 @@ const guardar = () => {
             <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
               Ejecutivo Responsable
             </label>
-            <select
+            <AppSelect
               v-model="responsable"
-              class="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
-            >
-              <option value="Camila Morales">Camila Morales</option>
-              <option value="Jean Carlos Peña">Jean Carlos Peña</option>
-              <option value="Lic. Luis Taveras">Lic. Luis Taveras</option>
-            </select>
+              :options="opcionesResponsable"
+              full-width
+              size="md"
+            />
           </div>
         </div>
 

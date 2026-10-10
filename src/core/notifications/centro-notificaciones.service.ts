@@ -55,10 +55,15 @@ class CentroNotificacionesService {
 
   constructor() {
     // Si no había nada guardado en storage, inicializar con las semillas
-    if (this.items.value.length === 0) {
+    if (this.items.value.length === 0 && localStorage.getItem(CLAVE_STORAGE) === null) {
       this.items.value = [...NOTIFICACIONES_INICIALES];
       this.guardarEnStorage();
     }
+  }
+
+  vaciarNotificaciones(): void {
+    this.items.value = [];
+    this.guardarEnStorage();
   }
 
   private cargarDeStorage(): Notificacion[] {

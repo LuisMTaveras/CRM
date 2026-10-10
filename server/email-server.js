@@ -615,6 +615,7 @@ app.post('/api/email/probar-imap', async (req, res) => {
 
 // ─── CARPETAS Y CONTADORES ───────────────────────────────────────────────────
 app.all(['/api/email/carpetas'], async (req, res) => {
+  const standardIds = ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'];
   const carpetas = [
     {
       id: 'inbox',
@@ -647,6 +648,19 @@ app.all(['/api/email/carpetas'], async (req, res) => {
       noLeidos: 0,
     },
   ];
+
+  // Carpetas personalizadas adicionales detectadas en los correos en memoria
+  const customIds = [...new Set(correosEnMemoria.map((c) => c.carpeta).filter(Boolean))].filter(
+    (id) => !standardIds.includes(id)
+  );
+  for (const cid of customIds) {
+    carpetas.push({
+      id: cid,
+      nombre: cid.charAt(0).toUpperCase() + cid.slice(1),
+      total: correosEnMemoria.filter((c) => c.carpeta === cid).length,
+      noLeidos: correosEnMemoria.filter((c) => c.carpeta === cid && !c.leido).length,
+    });
+  }
 
   res.json({
     ok: true,
@@ -772,8 +786,8 @@ app.patch('/api/email/mensajes/:id', async (req, res) => {
 
   if (typeof leido === 'boolean') mensaje.leido = leido;
   if (typeof destacado === 'boolean') mensaje.destacado = destacado;
-  if (carpeta && ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'].includes(carpeta.toLowerCase())) {
-    mensaje.carpeta = carpeta.toLowerCase();
+  if (carpeta && typeof carpeta === 'string' && carpeta.trim().length > 0) {
+    mensaje.carpeta = carpeta.toLowerCase().trim();
   }
 
   // Si tiene UID y configuración IMAP real, sincronizar flag al servidor remoto
@@ -810,6 +824,41 @@ app.patch('/api/email/mensajes/:id', async (req, res) => {
   res.json({
     ok: true,
     mensaje,
+  });
+});
+
+// ─── MOVER MENSAJES EN LOTE (REGLAS AUTOMÁTICAS O SELECCIÓN) ──────────────────
+app.post('/api/email/mensajes/lote/mover', (req, res) => {
+  const { ids, carpeta } = req.body;
+  if (!Array.isArray(ids) || !carpeta) {
+    return res.status(400).json({ ok: false, error: 'Parámetros requeridos: ids (array) y carpeta (string).' });
+  }
+
+  const carpetaNormalizada = carpeta.toLowerCase().trim();
+  let actualizados = 0;
+
+  for (const id of ids) {
+    const msg = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
+    if (msg) {
+      msg.carpeta = carpetaNormalizada;
+      actualizados++;
+    }
+  }
+
+  res.json({
+    ok: true,
+    actualizados,
+    carpeta: carpetaNormalizada,
+  });
+});
+
+// ─── LIMPIAR MEMORIA DE CORREOS (REINICIO DESDE CERO) ─────────────────────────
+app.post(['/api/email/limpiar-memoria', '/api/email/vaciar'], (_req, res) => {
+  correosEnMemoria = [];
+  res.json({
+    ok: true,
+    mensaje: 'Bandeja y memoria de correos vaciada exitosamente para empezar desde 0.',
+    totalCorreos: 0,
   });
 });
 

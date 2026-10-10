@@ -20,7 +20,10 @@ import {
   X,
   Check,
   UploadCloud,
-  Image as ImageIcon
+  Image as ImageIcon,
+  DatabaseBackup,
+  AlertTriangle,
+  Sparkles
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
@@ -265,6 +268,36 @@ const restablecer = async () => {
   setTimeout(() => {
     mensajeGuardado.value = false;
   }, 2500);
+};
+
+const ejecutarLimpiezaCero = async () => {
+  const confirmado = await dialogService.confirmar({
+    titulo: '¿Limpiar todos los datos para empezar desde 0?',
+    mensaje: 'Esta acción eliminará todos los clientes registrados, contactos, tableros Kanban, actividades de la agenda, historial y bitácoras para dejar el CRM completamente limpio.',
+    textoConfirmar: 'Sí, limpiar todo a 0',
+    textoCancelar: 'Cancelar',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
+
+  const { limpiezaDatosService } = await import('@/core/mantenimiento/limpieza-datos.service');
+  limpiezaDatosService.limpiarTodoParaEmpezarDesdeCero(true);
+};
+
+const ejecutarCargaDemo = async () => {
+  const confirmado = await dialogService.confirmar({
+    titulo: '¿Cargar catálogo de demostración?',
+    mensaje: 'Se cargarán 100+ clientes B2B de prueba, actividades en la agenda y datos de demostración para presentaciones comerciales.',
+    textoConfirmar: 'Cargar datos demo',
+    textoCancelar: 'Cancelar',
+    tipo: 'info',
+  });
+
+  if (!confirmado) return;
+
+  const { limpiezaDatosService } = await import('@/core/mantenimiento/limpieza-datos.service');
+  limpiezaDatosService.restablecerDatosDemo();
 };
 
 onMounted(() => {
@@ -827,9 +860,67 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      </div>
 
-      <!-- PESTAÑA 3: CATÁLOGO MAESTRO DE SECTORES ECONÓMICOS -->
+      <!-- Tarjeta de Gestión de Datos del Sistema -->
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div class="flex items-center gap-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <DatabaseBackup class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span>Gestión de Datos del CRM</span>
+          </div>
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <AlertTriangle class="w-3 h-3" />
+            Zona de Mantenimiento
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <!-- Vaciar a 0 -->
+          <div class="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg p-4 space-y-3">
+            <div>
+              <div class="font-semibold text-red-800 dark:text-red-300 flex items-center gap-1.5">
+                <Trash2 class="w-3.5 h-3.5" />
+                Limpiar Todos los Datos
+              </div>
+              <p class="text-[11px] text-red-600 dark:text-red-400/80 leading-relaxed mt-1">
+                Elimina todos los clientes, contactos, tableros Kanban, actividades, historial y bitácoras. El CRM quedará completamente vacío para empezar desde cero.
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="ejecutarLimpiezaCero"
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition shadow-sm shadow-red-500/20"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+              Vaciar todo a 0
+            </button>
+          </div>
+
+          <!-- Cargar Demo -->
+          <div class="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg p-4 space-y-3">
+            <div>
+              <div class="font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
+                <Sparkles class="w-3.5 h-3.5" />
+                Cargar Datos de Demostración
+              </div>
+              <p class="text-[11px] text-indigo-600 dark:text-indigo-400/80 leading-relaxed mt-1">
+                Carga 100+ clientes B2B de prueba, actividades en la agenda y datos de demostración para presentaciones comerciales. Ideal para evaluar el CRM con datos realistas.
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="ejecutarCargaDemo"
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-sm shadow-indigo-500/20"
+            >
+              <Sparkles class="w-3.5 h-3.5" />
+              Cargar Demo 100+
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
       <div v-else-if="pestanaActiva === 'sectores'" class="space-y-6">
         <!-- Tarjeta de Encabezado y Acciones -->
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">

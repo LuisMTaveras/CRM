@@ -6,8 +6,9 @@ import ClientesDataGrid from '../components/ClientesDataGrid.vue';
 import ClienteDrawer from '../components/ClienteDrawer.vue';
 import NuevoClienteModal from '../components/NuevoClienteModal.vue';
 import EnvioMasivoModal from '@/modules/comunicaciones/components/EnvioMasivoModal.vue';
-import { RefreshCw, AlertCircle, RotateCcw, Building2, Plus } from 'lucide-vue-next';
+import { RefreshCw, AlertCircle, RotateCcw, Building2, Plus, Trash2 } from 'lucide-vue-next';
 import type { Cliente } from '../types/cliente.types';
+import { limpiezaDatosService } from '@/core/mantenimiento/limpieza-datos.service';
 
 const {
   parametrosURL,
@@ -22,12 +23,21 @@ const {
   drawerAbierto,
   modalNuevoClienteAbierto,
   consultarClientes,
-  restablecerDatosIniciales,
   seleccionarCliente,
   cerrarDrawer,
   cambiarEstadoCliente,
   eliminarCliente,
 } = useClientes();
+
+const vaciarTodosLosDatos = async () => {
+  limpiezaDatosService.limpiarTodoParaEmpezarDesdeCero(true);
+  await consultarClientes();
+};
+
+const restablecerDatosIniciales = async () => {
+  limpiezaDatosService.restablecerDatosDemo();
+  await consultarClientes();
+};
 
 const modalEnvioMasivoAbierto = ref(false);
 const clientesParaEnvio = ref<Cliente[]>([]);
@@ -83,13 +93,23 @@ const onEnvioCompletado = () => {
         </button>
 
         <button
+          @click="vaciarTodosLosDatos"
+          :disabled="cargando"
+          title="Vaciar todos los clientes, kanban y datos para empezar desde 0"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/60 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-semibold transition shadow-sm disabled:opacity-50"
+        >
+          <Trash2 class="w-3.5 h-3.5 text-rose-500" />
+          <span class="hidden sm:inline">Vaciar a 0</span>
+        </button>
+
+        <button
           @click="restablecerDatosIniciales"
           :disabled="cargando"
-          title="Recargar catálogo inicial de 100+ clientes y contactos semilla"
+          title="Cargar catálogo de 100+ clientes de prueba"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/80 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition shadow-sm hover:border-zinc-300 dark:hover:border-white/[0.16] disabled:opacity-50"
         >
           <RotateCcw class="w-3.5 h-3.5 text-zinc-400" />
-          <span class="hidden sm:inline">Restablecer 100+</span>
+          <span class="hidden sm:inline">Cargar Demo 100+</span>
         </button>
 
         <button

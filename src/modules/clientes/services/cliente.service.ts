@@ -19,9 +19,9 @@ class ClienteService {
   private cargarClientesIniciales(): Cliente[] {
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE_CLIENTES);
-      if (guardado) {
+      if (guardado !== null) {
         const parsed: Cliente[] = JSON.parse(guardado);
-        if (Array.isArray(parsed) && parsed.length >= 100) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -43,6 +43,10 @@ class ClienteService {
     } catch {
       // fallback
     }
+  }
+
+  obtenerCantidadClientes(): number {
+    return this.memoriaClientes.length;
   }
 
   /**

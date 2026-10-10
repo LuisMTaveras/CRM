@@ -530,6 +530,22 @@ const eliminarPipelineActivo = async () => {
   }
 };
 
+const vaciarTarjetasKanban = async () => {
+  const confirmado = await dialogService.confirmar({
+    titulo: '¿Vaciar todas las tarjetas del tablero?',
+    mensaje: 'Esta acción removerá todas las oportunidades y tarjetas del Kanban para dejarlo en 0.',
+    textoConfirmar: 'Sí, vaciar tarjetas',
+    tipo: 'peligro',
+  });
+
+  if (!confirmado) return;
+
+  pipelineService.vaciarTarjetas();
+  menuOpcionesPipelineAbierto.value = false;
+  toastService.exito('Tablero Kanban vaciado a 0 tarjetas.');
+  await cargarDatos();
+};
+
 const onPipelineCreado = (nuevoId: string) => {
   modalNuevoPipelineAbierto.value = false;
   router.push(`/pipeline/${nuevoId}`);
@@ -631,6 +647,13 @@ watch(
             >
               <Edit3 class="w-3.5 h-3.5 text-zinc-400" />
               <span>Editar Nombre / Descripción</span>
+            </button>
+            <button
+              @click="vaciarTarjetasKanban"
+              class="w-full text-left px-3 py-2 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2 transition"
+            >
+              <Trash2 class="w-3.5 h-3.5 text-rose-500" />
+              <span>Vaciar Tarjetas (0)</span>
             </button>
             <button
               v-if="!pipelineActivo?.es_predeterminado"

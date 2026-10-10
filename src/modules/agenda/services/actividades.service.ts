@@ -98,7 +98,7 @@ export class ActividadesService {
   private items = ref<ActividadSeguimiento[]>(this.cargarDeStorage());
 
   constructor() {
-    if (this.items.value.length === 0) {
+    if (this.items.value.length === 0 && localStorage.getItem(CLAVE_STORAGE) === null) {
       this.items.value = [...ACTIVIDADES_SEMILLA];
       this.guardarEnStorage();
     }
@@ -109,9 +109,9 @@ export class ActividadesService {
   private cargarDeStorage(): ActividadSeguimiento[] {
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE);
-      if (guardado) {
+      if (guardado !== null) {
         const parsed = JSON.parse(guardado);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -119,6 +119,12 @@ export class ActividadesService {
       // Fallback si falla almacenamiento local
     }
     return [];
+  }
+
+  vaciarActividades(): void {
+    this.items.value = [];
+    this.guardarEnStorage();
+    this.sincronizarConCentroNotificaciones();
   }
 
   private guardarEnStorage(): void {

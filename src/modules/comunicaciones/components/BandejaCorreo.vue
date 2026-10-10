@@ -10,7 +10,10 @@ import type {
   RespuestaMensajesPaginada 
 } from '../types/webmail.types';
 import RedactarCorreoModal from './RedactarCorreoModal.vue';
+import ReglasCorreoModal from './ReglasCorreoModal.vue';
 import EmailViewer from './EmailViewer.vue';
+import { reglasCorreoService } from '../services/reglas-correo.service';
+import type { CarpetaPersonalizada } from '../types/reglas-correo.types';
 import { 
   Inbox, 
   Send, 
@@ -40,6 +43,9 @@ import {
   ExternalLink,
   FileSpreadsheet,
   FolderArchive,
+  Folder,
+  FolderPlus,
+  SlidersHorizontal,
   Check,
   X
 } from 'lucide-vue-next';
@@ -47,6 +53,7 @@ import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
 import { toastService } from '@/core/notifications/toast.service';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import { timelineService } from '@/modules/clientes/services/timeline.service';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
 const carpetas = ref<CarpetaCorreo[]>([]);
 const carpetaActiva = ref<CarpetaCorreoId>('inbox');
@@ -69,6 +76,38 @@ const redactarDestinatario = ref('');
 const redactarAsunto = ref('');
 const redactarCuerpo = ref('');
 
+// Reglas de Correo y Carpetas Personalizadas
+const modalReglasAbierto = ref(false);
+const carpetasPersonalizadas = ref<CarpetaPersonalizada[]>([]);
+
+const opcionesCarpetaMovimiento = computed((): SelectOption<string>[] => [
+  { value: 'inbox', label: '📥 Bandeja' },
+  { value: 'archivados', label: '🗂️ Archivados' },
+  { value: 'papelera', label: '🗑️ Papelera' },
+  ...carpetasPersonalizadas.value.map(c => ({ value: c.id, label: `📁 ${c.nombre}` })),
+]);
+const totalReglasActivas = ref(0);
+
+const obtenerColorPuntoCarpeta = (color?: string) => {
+  switch (color) {
+    case 'emerald': return 'bg-emerald-500';
+    case 'amber': return 'bg-amber-500';
+    case 'rose': return 'bg-rose-500';
+    case 'purple': return 'bg-purple-500';
+    case 'sky': return 'bg-sky-500';
+    case 'teal': return 'bg-teal-500';
+    default: return 'bg-indigo-500';
+  }
+};
+
+const nombreCarpetaActiva = computed(() => {
+  const cEst = carpetas.value.find((c) => c.id === carpetaActiva.value);
+  if (cEst) return cEst.nombre;
+  const cPers = carpetasPersonalizadas.value.find((c) => c.id === carpetaActiva.value);
+  if (cPers) return cPers.nombre;
+  return carpetaActiva.value;
+});
+
 // Estado de respuesta rápida
 const respuestaCuerpo = ref('');
 const incluirFirmaEnRespuesta = ref(true);
@@ -86,9 +125,12 @@ const actualizarCuentaConfigurada = () => {
 
 const cargarCarpetas = async () => {
   carpetas.value = await webmailService.obtenerCarpetas();
+  carpetasPersonalizadas.value = reglasCorreoService.obtenerCarpetasPersonalizadas();
+  const listReglas = reglasCorreoService.obtenerReglas();
+  totalReglasActivas.value = listReglas.filter((r) => r.activa).length;
 };
 
-const cargarMensajes = async () => {
+const cargarMensajes = async (aplicarReglas = false) => {
   try {
     cargando.value = true;
     const resp: RespuestaMensajesPaginada = await webmailService.obtenerMensajes(
@@ -100,6 +142,11 @@ const cargarMensajes = async () => {
     mensajes.value = resp.mensajes || [];
     total.value = resp.total || 0;
     totalPaginas.value = resp.totalPaginas || 1;
+
+    // Ejecutar reglas automáticas en segundo plano si se sincronizó
+    if (aplicarReglas && mensajes.value.length > 0) {
+      await reglasCorreoService.ejecutarReglasLote(mensajes.value);
+    }
 
     if (mensajeSeleccionado.value) {
       const encontrado = mensajes.value.find((m) => m.id === mensajeSeleccionado.value?.id);
@@ -126,7 +173,8 @@ const sincronizarCorreos = async (forzarSilencioso = false) => {
     const res = await webmailService.sincronizar(carpetaActiva.value, 35);
     if (res.exito) {
       await cargarCarpetas();
-      await cargarMensajes();
+      await cargarMensajes(true);
+      await cargarCarpetas(); // refrescar contadores tras aplicar reglas
 
       if (!forzarSilencioso) {
         if (res.sincronizados && res.sincronizados > 0) {
@@ -458,6 +506,25 @@ const archivar = async (mensaje: MensajeCorreo) => {
   }
 };
 
+const moverACarpetaDirecto = async (mensaje: MensajeCorreo | null, nuevaCarpeta: string) => {
+  if (!mensaje || !nuevaCarpeta || mensaje.carpeta === nuevaCarpeta) return;
+  mensaje.carpeta = nuevaCarpeta as CarpetaCorreoId;
+  await webmailService.moverCarpeta(mensaje.id, nuevaCarpeta as CarpetaCorreoId);
+  const nombreC = carpetasPersonalizadas.value.find((c) => c.id === nuevaCarpeta)?.nombre || nuevaCarpeta;
+  toastService.exito(`Correo movido a "${nombreC}"`);
+  await cargarCarpetas();
+  await cargarMensajes();
+};
+
+const nombreCarpetaDeMensaje = (carpetaId?: string) => {
+  if (!carpetaId) return 'Bandeja';
+  const cEst = carpetas.value.find((c) => c.id === carpetaId);
+  if (cEst) return cEst.nombre;
+  const cPers = carpetasPersonalizadas.value.find((c) => c.id === carpetaId);
+  if (cPers) return cPers.nombre;
+  return carpetaId.charAt(0).toUpperCase() + carpetaId.slice(1);
+};
+
 const reenviar = (mensaje: MensajeCorreo) => {
   redactarDestinatario.value = '';
   redactarAsunto.value = mensaje.asunto.startsWith('Fwd:') 
@@ -625,6 +692,23 @@ onMounted(async () => {
           <span>{{ sincronizando ? 'Sincronizando...' : 'Sincronizar' }}</span>
         </button>
 
+        <!-- Botón de Reglas de Enrutamiento y Carpetas Automáticas -->
+        <button
+          type="button"
+          @click="modalReglasAbierto = true"
+          title="Configurar reglas automáticas por dominio (@verafeca.com) o asunto"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs font-semibold transition"
+        >
+          <SlidersHorizontal class="w-3.5 h-3.5 text-indigo-500" />
+          <span class="hidden sm:inline">Reglas de Correo</span>
+          <span
+            v-if="totalReglasActivas > 0"
+            class="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[9px] font-bold"
+          >
+            {{ totalReglasActivas }}
+          </span>
+        </button>
+
         <!-- Botón Redactar Nuevo Correo -->
         <button
           type="button"
@@ -745,6 +829,65 @@ onMounted(async () => {
               {{ carpetas.find(c => c.id === 'papelera')?.total || 0 }}
             </span>
           </button>
+
+          <!-- Sección: Carpetas Inteligentes / Personalizadas por Reglas -->
+          <div class="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1">
+            <div class="px-3 py-1.5 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono flex items-center justify-between">
+              <span>Carpetas Reglas</span>
+              <button
+                type="button"
+                @click="modalReglasAbierto = true"
+                title="Crear regla o carpeta automática"
+                class="p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+              >
+                <FolderPlus class="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div v-if="carpetasPersonalizadas.length === 0" class="px-3 py-1 text-[11px] text-zinc-400 italic">
+              Sin carpetas personalizadas
+            </div>
+
+            <button
+              v-for="carp in carpetasPersonalizadas"
+              :key="carp.id"
+              type="button"
+              @click="seleccionarCarpeta(carp.id)"
+              class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition"
+              :class="carpetaActiva === carp.id
+                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold'
+                : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
+            >
+              <span class="flex items-center gap-2.5 min-w-0">
+                <span
+                  class="w-2.5 h-2.5 rounded-full shrink-0"
+                  :class="obtenerColorPuntoCarpeta(carp.color)"
+                />
+                <span class="truncate">{{ carp.nombre }}</span>
+              </span>
+              <span class="text-[10px] text-zinc-400 font-mono shrink-0 ml-1">
+                {{ carpetas.find(c => c.id === carp.id)?.total || 0 }}
+              </span>
+            </button>
+
+            <!-- Botón Configurar Reglas Automáticas -->
+            <button
+              type="button"
+              @click="modalReglasAbierto = true"
+              class="w-full mt-2 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-200/60 dark:border-indigo-500/20 transition"
+            >
+              <span class="flex items-center gap-2 min-w-0">
+                <SlidersHorizontal class="w-3.5 h-3.5 shrink-0" />
+                <span class="truncate">Administrar Reglas</span>
+              </span>
+              <span
+                v-if="totalReglasActivas > 0"
+                class="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[9px] font-bold"
+              >
+                {{ totalReglasActivas }}
+              </span>
+            </button>
+          </div>
         </div>
 
         <!-- Tarjeta de Cuenta Activa & Protocolo IMAP -->
@@ -784,7 +927,8 @@ onMounted(async () => {
         <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 space-y-2 shrink-0">
           <div class="flex items-center justify-between">
             <div class="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
-              <span>{{ total }} correos</span>
+              <span class="truncate">{{ nombreCarpetaActiva }}</span>
+              <span class="text-zinc-400 font-mono text-[11px] font-normal">({{ total }})</span>
               <span v-if="busqueda" class="text-[10px] font-normal text-indigo-500">(filtrados)</span>
             </div>
 
@@ -1059,6 +1203,15 @@ onMounted(async () => {
                 <Trash2 class="w-3.5 h-3.5" />
                 <span>Eliminar</span>
               </button>
+
+              <!-- Selector Rápido de Carpeta -->
+              <AppSelect
+                :model-value="mensajeSeleccionado.carpeta"
+                :options="opcionesCarpetaMovimiento"
+                size="sm"
+                min-width-class="min-w-[150px]"
+                @change="(v) => moverACarpetaDirecto(mensajeSeleccionado, String(v))"
+              />
             </div>
 
             <!-- Acciones secundarias (Imprimir / Fecha) -->
@@ -1092,6 +1245,32 @@ onMounted(async () => {
               >
                 <Copy class="w-3.5 h-3.5" />
               </button>
+            </div>
+
+            <!-- Badges de Carpeta y Estado -->
+            <div class="flex items-center gap-2 flex-wrap text-xs">
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium text-[11px] border border-zinc-200/80 dark:border-zinc-700/80"
+              >
+                <Folder class="w-3.5 h-3.5 text-indigo-500" />
+                <span>Carpeta: <strong class="text-zinc-900 dark:text-zinc-100">{{ nombreCarpetaDeMensaje(mensajeSeleccionado.carpeta) }}</strong></span>
+              </span>
+
+              <span
+                v-if="mensajeSeleccionado.destacado"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium text-[11px] border border-amber-200/80 dark:border-amber-500/20"
+              >
+                <Star class="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <span>Destacado</span>
+              </span>
+
+              <span
+                v-if="mensajeSeleccionado.tieneAdjuntos || (mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0)"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-medium text-[11px] border border-indigo-200/80 dark:border-indigo-500/20"
+              >
+                <Paperclip class="w-3.5 h-3.5 text-indigo-500" />
+                <span>{{ mensajeSeleccionado.adjuntos?.length || 1 }} archivo(s) adjunto(s)</span>
+              </span>
             </div>
 
             <!-- EXPEDIENTE DE CLIENTE CRM DETECTADO / VINCULADO (FRONT & CENTER) -->
@@ -1374,6 +1553,15 @@ onMounted(async () => {
       :cuerpo-inicial="redactarCuerpo"
       @cerrar="modalRedactarAbierto = false"
       @enviado="() => { cargarCarpetas(); cargarMensajes(); }"
+    />
+
+    <!-- Modal de Reglas Automáticas y Carpetas Inteligentes -->
+    <ReglasCorreoModal
+      :abierto="modalReglasAbierto"
+      :mensajes-actuales="mensajes"
+      @close="modalReglasAbierto = false"
+      @reglas-actualizadas="async () => { await cargarCarpetas(); }"
+      @ejecutar-reglas="async () => { await cargarCarpetas(); await cargarMensajes(); }"
     />
   </div>
 </template>

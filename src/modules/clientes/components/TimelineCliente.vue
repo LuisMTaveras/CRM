@@ -19,6 +19,11 @@ import {
   Search,
   Sparkles
 } from 'lucide-vue-next';
+import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+
+const opcionesAutor: SelectOption<string>[] = [
+  { value: 'Luis M. Taveras', label: 'Luis M. Taveras' },
+];
 
 const props = defineProps<{
   clienteId: string;
@@ -30,7 +35,7 @@ const formularioAbierto = ref(false);
 const tipoSeleccionado = ref<TipoEventoTimeline>('llamada');
 const tituloInteraccion = ref('');
 const descripcionInteraccion = ref('');
-const autorSeleccionado = ref('Camila Morales');
+const autorSeleccionado = ref('Luis M. Taveras');
 const errorFormulario = ref('');
 
 // Filtros
@@ -211,14 +216,11 @@ const eliminar = (ev: EventoTimeline) => {
       <div class="flex items-center justify-between pt-1">
         <div class="flex items-center gap-2">
           <span class="text-[11px] text-zinc-500">Registrado por:</span>
-          <select
+          <AppSelect
             v-model="autorSeleccionado"
-            class="px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] rounded-lg text-zinc-800 dark:text-zinc-200"
-          >
-            <option value="Camila Morales">Camila Morales</option>
-            <option value="Jean Carlos Peña">Jean Carlos Peña</option>
-            <option value="Lic. Luis Taveras">Lic. Luis Taveras</option>
-          </select>
+            :options="opcionesAutor"
+            size="sm"
+          />
         </div>
 
         <button

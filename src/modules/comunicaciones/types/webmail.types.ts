@@ -1,4 +1,4 @@
-export type CarpetaCorreoId = 'inbox' | 'enviados' | 'borradores' | 'archivados' | 'papelera';
+export type CarpetaCorreoId = 'inbox' | 'enviados' | 'borradores' | 'archivados' | 'papelera' | string;
 
 export interface DireccionCorreo {
   nombre: string;

@@ -66,7 +66,7 @@ export class TimelineService {
   private items = ref<EventoTimeline[]>(this.cargarDeStorage());
 
   constructor() {
-    if (this.items.value.length === 0) {
+    if (this.items.value.length === 0 && localStorage.getItem(CLAVE_STORAGE) === null) {
       this.items.value = [...EVENTOS_SEMILLA];
       this.guardarEnStorage();
     }
@@ -75,9 +75,9 @@ export class TimelineService {
   private cargarDeStorage(): EventoTimeline[] {
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE);
-      if (guardado) {
+      if (guardado !== null) {
         const parsed = JSON.parse(guardado);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -85,6 +85,11 @@ export class TimelineService {
       // fallback
     }
     return [];
+  }
+
+  vaciarTimeline(): void {
+    this.items.value = [];
+    this.guardarEnStorage();
   }
 
   private guardarEnStorage(): void {

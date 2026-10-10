@@ -19,5 +19,10 @@ app.directive('flickerless-saving', vFlickerlessSaving);
 const authStore = useAuthStore();
 authStore.inicializarSesion();
 
+// Verificar estado de inicio limpio desde cero
+import('@/core/mantenimiento/limpieza-datos.service').then(({ limpiezaDatosService }) => {
+  limpiezaDatosService.verificarLimpiezaInicial();
+});
+
 app.use(router);
 app.mount('#app');

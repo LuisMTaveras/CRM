@@ -254,6 +254,15 @@ class PipelineService {
     return JSON.parse(JSON.stringify(this.memoriaTarjetas));
   }
 
+  obtenerCantidadTarjetas(): number {
+    return this.memoriaTarjetas.length;
+  }
+
+  vaciarTarjetas(): void {
+    this.memoriaTarjetas = [];
+    this.guardarTarjetas();
+  }
+
   async obtenerPipelinePorId(id: string): Promise<Pipeline | null> {
     await new Promise((resolve) => setTimeout(resolve, 50));
     const p = this.memoriaPipelines.find((item) => item.id === id);
@@ -575,35 +584,41 @@ class PipelineService {
 
     if (pipelineId === 'pipeline-comercial') {
       const oportunidadesOriginales = await clienteService.obtenerTodasLasOportunidades();
-      // Aseguramos que todas las oportunidades se inicialicen en memoriaTarjetas si no existen
-      for (let idx = 0; idx < oportunidadesOriginales.length; idx++) {
-        const op = oportunidadesOriginales[idx];
-        const existente = this.memoriaTarjetas.find((t) => t.id === op.id);
-        if (!existente) {
-          this.memoriaTarjetas.push({
-            id: op.id,
-            pipeline_id: 'pipeline-comercial',
-            columna_id: op.etapa,
-            cliente_id: op.cliente_id,
-            cliente_nombre: op.cliente_nombre,
-            cliente_sector: op.cliente_sector,
-            responsable: op.responsable,
-            titulo: op.titulo,
-            monto: op.monto,
-            fecha_objetivo: op.fecha_cierre_estimada,
-            probabilidad: op.probabilidad,
-            prioridad: op.probabilidad >= 70 ? 'alta' : op.probabilidad >= 40 ? 'media' : 'baja',
-            orden: idx + 1,
-            creado_en: op.creado_en,
-          });
+      if (oportunidadesOriginales.length === 0) {
+        this.memoriaTarjetas = this.memoriaTarjetas.filter((t) => t.pipeline_id !== 'pipeline-comercial');
+        this.guardarTarjetas();
+      } else {
+        // Aseguramos que todas las oportunidades se inicialicen en memoriaTarjetas si no existen
+        for (let idx = 0; idx < oportunidadesOriginales.length; idx++) {
+          const op = oportunidadesOriginales[idx];
+          const existente = this.memoriaTarjetas.find((t) => t.id === op.id);
+          if (!existente) {
+            this.memoriaTarjetas.push({
+              id: op.id,
+              pipeline_id: 'pipeline-comercial',
+              columna_id: op.etapa,
+              cliente_id: op.cliente_id,
+              cliente_nombre: op.cliente_nombre,
+              cliente_sector: op.cliente_sector,
+              responsable: op.responsable,
+              titulo: op.titulo,
+              monto: op.monto,
+              fecha_objetivo: op.fecha_cierre_estimada,
+              probabilidad: op.probabilidad,
+              prioridad: op.probabilidad >= 70 ? 'alta' : op.probabilidad >= 40 ? 'media' : 'baja',
+              orden: idx + 1,
+              creado_en: op.creado_en,
+            });
+          }
         }
+        this.guardarTarjetas();
       }
-      this.guardarTarjetas();
       resultado = this.memoriaTarjetas.filter((t) => t.pipeline_id === 'pipeline-comercial');
     } else {
       if (
         pipelineId === 'pipeline-visitas' &&
-        this.memoriaTarjetas.filter((t) => t.pipeline_id === 'pipeline-visitas').length === 0
+        this.memoriaTarjetas.filter((t) => t.pipeline_id === 'pipeline-visitas').length === 0 &&
+        localStorage.getItem(CLAVE_STORAGE_TARJETAS) === null
       ) {
         await this.sembrarVisitasDemostracion();
       }

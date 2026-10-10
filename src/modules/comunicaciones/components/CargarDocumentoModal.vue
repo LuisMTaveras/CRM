@@ -98,6 +98,14 @@ const monedaCotizacion = ref<MonedaCotizacion>('DOP');
 const catalogoDisponible = catalogoService.obtenerCatalogo();
 const servicioSeleccionadoId = ref('');
 
+const opcionesCatalogo = computed((): SelectOption<string>[] => [
+  { value: '', label: '-- Seleccionar Servicio del Catálogo Maestro --' },
+  ...catalogoDisponible.map(item => ({
+    value: item.id,
+    label: `[${item.codigo}] ${item.nombre} (${formatCurrency(item.precioBase, item.moneda)} / ${item.unidadMedida})`,
+  })),
+]);
+
 const lineasCotizacion = ref<LineaCotizacion[]>([
   catalogoService.crearLineaDesdeItem(catalogoDisponible[0], 1, 0),
   catalogoService.crearLineaDesdeItem(catalogoDisponible[1], 1, 5),
@@ -958,15 +966,13 @@ const guardarPlantilla = (enviarInmediato = false) => {
               <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-zinc-50 dark:bg-zinc-950/70 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800/80">
                 <div class="flex-1 flex items-center gap-2">
                   <Tag class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                  <select
+                  <AppSelect
                     v-model="servicioSeleccionadoId"
-                    class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="">-- Seleccionar Servicio del Catálogo Maestro --</option>
-                    <option v-for="item in catalogoDisponible" :key="item.id" :value="item.id">
-                      [{{ item.codigo }}] {{ item.nombre }} ({{ formatCurrency(item.precioBase, item.moneda) }} / {{ item.unidadMedida }})
-                    </option>
-                  </select>
+                    :options="opcionesCatalogo"
+                    full-width
+                    size="sm"
+                    minWidthClass="min-w-[320px]"
+                  />
                 </div>
 
                 <div class="flex items-center gap-2">
