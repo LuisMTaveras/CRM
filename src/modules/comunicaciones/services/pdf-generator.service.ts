@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { PlantillaDocumento, VariablesPlantilla } from '../types/comunicacion.types';
+import type { ResumenCotizacion } from '../types/catalogo.types';
+import { formatCurrency } from '@/core/formatters/formatters';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 
 /**
@@ -14,6 +16,7 @@ const PALETTE = {
   slate900: [15, 23, 42] as [number, number, number],        // Slate 900 (#0f172a)
   slate800: [30, 41, 59] as [number, number, number],        // Slate 800 (#1e293b)
   slate700: [51, 65, 85] as [number, number, number],        // Slate 700 (#334155)
+  slate600: [71, 85, 105] as [number, number, number],       // Slate 600 (#475569)
   slate500: [100, 116, 139] as [number, number, number],     // Slate 500 (#64748b)
   slate400: [148, 163, 184] as [number, number, number],     // Slate 400 (#94a3b8)
   bordeSuave: [226, 232, 240] as [number, number, number],   // Slate 200 (#e2e8f0)
@@ -77,7 +80,11 @@ export class PdfGeneratorService {
   /**
    * Genera una instancia de jsPDF con formato profesional ejecutivo B2B de nivel corporativo
    */
-  generarDocumentoPdf(plantilla: PlantillaDocumento, variables: VariablesPlantilla): jsPDF {
+  generarDocumentoPdf(
+    plantilla: PlantillaDocumento,
+    variables: VariablesPlantilla,
+    resumenCotizacion?: ResumenCotizacion
+  ): jsPDF {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -483,6 +490,168 @@ export class PdfGeneratorService {
       y += lineasParrafo.length * 3.9 + 1.8;
     }
 
+    // ─── 5.5 DESGLOSE ECONÓMICO Y COTIZACIÓN DE SERVICIOS (CPQ) ───────────
+    if (resumenCotizacion && resumenCotizacion.lineas && resumenCotizacion.lineas.length > 0) {
+      if (y > maxYContenido - 55) {
+        doc.addPage();
+        y = 26;
+      } else {
+        y += 4;
+      }
+
+      // Título de la sección CPQ
+      doc.setFillColor(...PALETTE.primario);
+      doc.roundedRect(margin, y - 2.8, 2.2, 4, 0.6, 0.6, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...PALETTE.slate950);
+      doc.text('PRESUPUESTO ECONÓMICO & PARTIDAS COTIZADAS', margin + 4.5, y);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...PALETTE.slate500);
+      doc.text(`Moneda de liquidación: ${resumenCotizacion.moneda}`, pageWidth - margin, y, { align: 'right' });
+
+      y += 4.5;
+
+      // Cabecera de la tabla de cotización
+      const colX = {
+        item: margin + 3,
+        cant: margin + 92,
+        precio: margin + 112,
+        descto: margin + 138,
+        total: margin + contentWidth - 3,
+      };
+
+      const tableH = 5.5;
+      doc.setFillColor(...PALETTE.slate950);
+      doc.roundedRect(margin, y, contentWidth, tableH, 1, 1, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(...PALETTE.blanco);
+      doc.text('CONCEPTO / SERVICIO PROFESIONAL', colX.item, y + 3.8);
+      doc.text('CANT.', colX.cant, y + 3.8, { align: 'center' });
+      doc.text('PRECIO UNIT.', colX.precio, y + 3.8, { align: 'right' });
+      doc.text('DESCTO.', colX.descto, y + 3.8, { align: 'right' });
+      doc.text('IMPORTE', colX.total, y + 3.8, { align: 'right' });
+
+      y += tableH;
+
+      // Filas de partidas
+      for (let i = 0; i < resumenCotizacion.lineas.length; i++) {
+        const item = resumenCotizacion.lineas[i];
+        if (y + 9 > maxYContenido) {
+          doc.addPage();
+          y = 26;
+        }
+
+        const esFilaPar = i % 2 === 0;
+        if (esFilaPar) {
+          doc.setFillColor(...PALETTE.fondoCard);
+          doc.rect(margin, y, contentWidth, 7, 'F');
+        }
+
+        // Borde inferior sutil
+        doc.setDrawColor(...PALETTE.bordeSuave);
+        doc.setLineWidth(0.2);
+        doc.line(margin, y + 7, margin + contentWidth, y + 7);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...PALETTE.slate900);
+        const textoConcepto = item.concepto.length > 55 ? item.concepto.substring(0, 52) + '...' : item.concepto;
+        doc.text(textoConcepto, colX.item, y + 4.5);
+
+        // Subtítulo con descripción pequeña si existe
+        if (item.descripcion) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(5);
+          doc.setTextColor(...PALETTE.slate500);
+          const descCorta = item.descripcion.length > 70 ? item.descripcion.substring(0, 67) + '...' : item.descripcion;
+          doc.text(descCorta, colX.item, y + 6.2);
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...PALETTE.slate800);
+        doc.text(String(item.cantidad), colX.cant, y + 4.5, { align: 'center' });
+
+        doc.text(formatCurrency(item.precioUnitario, resumenCotizacion.moneda), colX.precio, y + 4.5, { align: 'right' });
+
+        if (item.descuentoPorcentaje > 0) {
+          doc.setTextColor(...PALETTE.amber600);
+          doc.text(`-${item.descuentoPorcentaje}%`, colX.descto, y + 4.5, { align: 'right' });
+        } else {
+          doc.setTextColor(...PALETTE.slate400);
+          doc.text('—', colX.descto, y + 4.5, { align: 'right' });
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...PALETTE.slate950);
+        doc.text(formatCurrency(item.total, resumenCotizacion.moneda), colX.total, y + 4.5, { align: 'right' });
+
+        y += 7.2;
+      }
+
+      // Bloque de Totales y Liquidación Fiscal
+      y += 2;
+      if (y + 26 > maxYContenido) {
+        doc.addPage();
+        y = 26;
+      }
+
+      const totW = 75;
+      const totX = margin + contentWidth - totW;
+
+      doc.setFillColor(...PALETTE.fondoCard);
+      doc.roundedRect(totX, y, totW, 23, 1.5, 1.5, 'F');
+      doc.setDrawColor(...PALETTE.bordeMedio);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(totX, y, totW, 23, 1.5, 1.5, 'S');
+
+      let ty = y + 4;
+      // Subtotal Bruto
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(...PALETTE.slate600);
+      doc.text('Subtotal Bruto:', totX + 3.5, ty);
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatCurrency(resumenCotizacion.subtotalBruto, resumenCotizacion.moneda), totX + totW - 3.5, ty, { align: 'right' });
+
+      // Descuento Comercial si aplica
+      if (resumenCotizacion.descuentoTotal > 0) {
+        ty += 3.8;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...PALETTE.amber600);
+        doc.text('Descuento Comercial:', totX + 3.5, ty);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`-${formatCurrency(resumenCotizacion.descuentoTotal, resumenCotizacion.moneda)}`, totX + totW - 3.5, ty, { align: 'right' });
+      }
+
+      // ITBIS 18%
+      ty += 3.8;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...PALETTE.slate600);
+      doc.text('ITBIS (18% Fiscal DGII):', totX + 3.5, ty);
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatCurrency(resumenCotizacion.itbisTotal, resumenCotizacion.moneda), totX + totW - 3.5, ty, { align: 'right' });
+
+      // Total General Destacado
+      ty += 4.5;
+      doc.setFillColor(...PALETTE.slate950);
+      doc.roundedRect(totX + 1.5, ty - 3.2, totW - 3, 5.5, 1, 1, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...PALETTE.blanco);
+      doc.text(`TOTAL (${resumenCotizacion.moneda}):`, totX + 4, ty + 0.8);
+      doc.text(formatCurrency(resumenCotizacion.totalPagar, resumenCotizacion.moneda), totX + totW - 4, ty + 0.8, { align: 'right' });
+
+      y += 26;
+    }
+
     // ─── 6. BLOQUE FORMAL DE CIERRE Y FIRMAS AUTORIZADAS ──────────────────────
     const alturaFirmas = 38;
     // Si no queda espacio suficiente para el bloque de firmas en la página actual, agregar página
@@ -655,16 +824,25 @@ export class PdfGeneratorService {
   /**
    * Genera la Data URL (base64) del PDF para previsualizar en tiempo real en un iframe o visor
    */
-  obtenerDataUri(plantilla: PlantillaDocumento, variables: VariablesPlantilla): string {
-    const doc = this.generarDocumentoPdf(plantilla, variables);
+  obtenerDataUri(
+    plantilla: PlantillaDocumento,
+    variables: VariablesPlantilla,
+    resumenCotizacion?: ResumenCotizacion
+  ): string {
+    const doc = this.generarDocumentoPdf(plantilla, variables, resumenCotizacion);
     return doc.output('datauristring');
   }
 
   /**
    * Descarga directamente el archivo PDF generado en el navegador del usuario
    */
-  descargarPdf(plantilla: PlantillaDocumento, variables: VariablesPlantilla, nombreArchivo?: string): void {
-    const doc = this.generarDocumentoPdf(plantilla, variables);
+  descargarPdf(
+    plantilla: PlantillaDocumento,
+    variables: VariablesPlantilla,
+    nombreArchivo?: string,
+    resumenCotizacion?: ResumenCotizacion
+  ): void {
+    const doc = this.generarDocumentoPdf(plantilla, variables, resumenCotizacion);
     const nombre = nombreArchivo || `${plantilla.id}_${variables.empresa.replace(/\s+/g, '_')}.pdf`;
     doc.save(nombre);
   }

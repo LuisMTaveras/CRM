@@ -24,7 +24,7 @@ import { obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
 import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import type { ParametrosTabla } from '@/core/url-sync/url-state';
-import { exportarACSV } from '@/core/export/csv-export';
+import { exportToCSV } from '@/core/export/export-engine';
 import { clienteService } from '../services/cliente.service';
 import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
@@ -234,24 +234,24 @@ const exportarClientes = async () => {
       listaParaExportar = await clienteService.obtenerTodosParaExportar(props.parametros);
     }
 
-    exportarACSV<Cliente>(
+    exportToCSV<Cliente>(
       listaParaExportar,
       [
-        { clave: 'codigo', titulo: 'Código' },
-        { clave: 'razon_social', titulo: 'Razón Social' },
-        { clave: 'nombre_comercial', titulo: 'Nombre Comercial', formateador: (_v, c) => c.nombre_comercial || '—' },
-        { clave: 'identificacion_fiscal', titulo: 'RNC / Identificación', formateador: (_v, c) => c.identificacion_fiscal || '—' },
-        { clave: 'sector', titulo: 'Sector Económico' },
-        { clave: 'estado', titulo: 'Estado', formateador: (_v, c) => etiquetaEstado(c.estado) },
-        { clave: 'prioridad', titulo: 'Prioridad', formateador: (_v, c) => (c.prioridad ? c.prioridad.toUpperCase() : '—') },
-        { clave: 'email', titulo: 'Correo Corporativo', formateador: (_v, c) => c.email || '—' },
-        { clave: 'telefono', titulo: 'Teléfono', formateador: (_v, c) => formatPhoneNumber(c.telefono) },
-        { clave: 'ciudad', titulo: 'Ciudad', formateador: (_v, c) => c.ciudad || '—' },
-        { clave: 'responsable', titulo: 'Responsable Comercial' },
-        { clave: 'valor_estimado', titulo: 'Valor Estimado (RD$)', formateador: (_v, c) => String(c.valor_estimado ?? 0) },
-        { clave: 'creado_en', titulo: 'Fecha de Registro', formateador: (_v, c) => formatDate(c.creado_en) },
+        { header: 'Código', key: 'codigo' },
+        { header: 'Razón Social', key: 'razon_social' },
+        { header: 'Nombre Comercial', key: 'nombre_comercial', formatter: (_v, c) => c.nombre_comercial || '—' },
+        { header: 'RNC / Identificación', key: 'identificacion_fiscal', formatter: (_v, c) => c.identificacion_fiscal || '—' },
+        { header: 'Sector Económico', key: 'sector' },
+        { header: 'Estado', key: 'estado', formatter: (_v, c) => etiquetaEstado(c.estado) },
+        { header: 'Prioridad', key: 'prioridad', formatter: (_v, c) => (c.prioridad ? c.prioridad.toUpperCase() : '—') },
+        { header: 'Correo Corporativo', key: 'email', formatter: (_v, c) => c.email || '—' },
+        { header: 'Teléfono', key: 'telefono', formatter: (_v, c) => formatPhoneNumber(c.telefono) },
+        { header: 'Ciudad', key: 'ciudad', formatter: (_v, c) => c.ciudad || '—' },
+        { header: 'Responsable Comercial', key: 'responsable' },
+        { header: 'Valor Estimado (RD$)', key: 'valor_estimado', formatter: (_v, c) => String(c.valor_estimado ?? 0) },
+        { header: 'Fecha de Registro', key: 'creado_en', formatter: (_v, c) => formatDate(c.creado_en) },
       ],
-      'cartera_clientes_crm'
+      'cartera_clientes_crm.csv'
     );
     toastService.exito(`Se exportaron ${listaParaExportar.length} clientes a formato CSV exitosamente.`);
   } catch (err) {

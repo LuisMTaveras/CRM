@@ -1,0 +1,112 @@
+/**
+ * ⚡ DEVFORGE Design Tokens: Light + Dark (Tailwind CSS v4)
+ * Import once from src/shared/styles/main.css:  @import './tokens.css';
+ *
+ * Paleta "Warm Slate" (heredada de Snowlr): grafito en claro, marfil en oscuro.
+ * Un sistema monocromo: el énfasis lo cargan el relleno y el peso, no el tono.
+ * Colores en OKLCH para que el contraste se mantenga entre modos.
+ *
+ * Components use SEMANTIC classes (bg-background, text-foreground, border-border,
+ * bg-surface, text-muted-foreground...) so they work in both themes without
+ * repeating `dark:` on every element.
+ */
+
+@import 'tailwindcss';
+
+/* Class-based dark mode, driven by core/theme/theme.ts */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(96.2% 0.006 88);          /* lienzo de la app */
+  --foreground: oklch(20.8% 0.006 88);          /* texto principal */
+  --surface: oklch(99% 0.002 88);               /* tarjetas, tablas, campos */
+  --surface-raised: oklch(100% 0 0);            /* popovers, menús, modales */
+  --surface-hover: oklch(93% 0.006 88);
+  --muted-foreground: oklch(44.6% 0.009 88);    /* texto secundario */
+  --dim-foreground: oklch(55.4% 0.01 88);       /* placeholders, días fuera del mes */
+  --border: oklch(20.8% 0.006 88 / 0.12);
+  --input: oklch(20.8% 0.006 88 / 0.16);
+  --ring: oklch(20.8% 0.006 88 / 0.24);         /* anillo de foco */
+  --primary: oklch(20.8% 0.006 88);             /* acción principal: grafito */
+  --primary-hover: oklch(12.9% 0.004 88);
+  --primary-foreground: oklch(98.4% 0.002 88);
+  --primary-subtle: oklch(20.8% 0.006 88 / 0.07);  /* opción elegida, rango del calendario */
+  --primary-border: oklch(20.8% 0.006 88 / 0.16);
+  --shadow-popover: 0 18px 48px -28px oklch(13% 0.004 88 / 0.24), 0 2px 8px oklch(13% 0.004 88 / 0.08);
+
+  --success: oklch(59.6% 0.145 163.2);
+  --warning: oklch(66.6% 0.179 58.3);
+  --danger: oklch(58.6% 0.253 17.5);
+}
+
+.dark {
+  --background: oklch(15.5% 0.004 88);
+  --foreground: oklch(96.3% 0.006 88);
+  --surface: oklch(17.3% 0.003 88);
+  --surface-raised: oklch(21.5% 0.004 88);      /* en oscuro, elevado es más claro */
+  --surface-hover: oklch(100% 0 0 / 0.05);
+  --muted-foreground: oklch(72.1% 0.009 88);
+  --dim-foreground: oklch(56.4% 0.009 88);
+  --border: oklch(100% 0 0 / 0.09);
+  --input: oklch(100% 0 0 / 0.16);
+  --ring: oklch(100% 0 0 / 0.28);
+  --primary: oklch(96.3% 0.006 88);             /* acción principal: marfil */
+  --primary-hover: oklch(100% 0 0);
+  --primary-foreground: oklch(12.9% 0.004 88);
+  --primary-subtle: oklch(100% 0 0 / 0.09);
+  --primary-border: oklch(100% 0 0 / 0.16);
+  --shadow-popover: 0 36px 90px -28px oklch(0% 0 0 / 0.86);
+
+  --success: oklch(76.5% 0.177 163.2);
+  --warning: oklch(76.9% 0.188 70.1);
+  --danger: oklch(71.2% 0.194 13.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-dim-foreground: var(--dim-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-border: var(--primary-border);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --shadow-popover: var(--shadow-popover);
+}
+
+/* Escala cerrada de forma y tipografía: rounded-control, text-caption... */
+@theme {
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+  --text-caption: 11px;
+  --text-small: 12px;
+  --text-body: 13px;
+  --text-title: 16px;
+  --text-display: 24px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  * {
+    @apply border-border;
+  }
+}

@@ -144,4 +144,53 @@ Sin otro particular, quedamos a su entera disposición.`,
     expect(doc).toBeDefined();
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
   });
+
+  it('renderiza la tabla económica CPQ con partidas de servicios e ITBIS desglosado', () => {
+    const cotizacionMock = {
+      moneda: 'DOP' as const,
+      subtotalBruto: 165000,
+      descuentoTotal: 10000,
+      subtotalNeto: 155000,
+      itbisTotal: 27900,
+      totalPagar: 182900,
+      lineas: [
+        {
+          id: 'l-1',
+          codigo: 'CRM-CLOUD-ENT',
+          concepto: 'Licenciamiento CRM Cloud Enterprise Anual',
+          descripcion: 'Base de datos dedicada en la nube con backups diarios',
+          cantidad: 1,
+          precioUnitario: 120000,
+          descuentoPorcentaje: 0,
+          aplicaItbis: true,
+          subtotal: 120000,
+          montoDescuento: 0,
+          montoItbis: 21600,
+          total: 141600,
+        },
+        {
+          id: 'l-2',
+          codigo: 'CAP-EQUIPO-COM',
+          concepto: 'Capacitación Especializada del Personal',
+          descripcion: 'Jornadas de inducción práctica con el equipo comercial',
+          cantidad: 1,
+          precioUnitario: 45000,
+          descuentoPorcentaje: 22.22,
+          aplicaItbis: true,
+          subtotal: 45000,
+          montoDescuento: 10000,
+          montoItbis: 6300,
+          total: 41300,
+        },
+      ],
+    };
+
+    const doc = pdfGeneratorService.generarDocumentoPdf(plantillaMuestra, variablesMuestra, cotizacionMock);
+    expect(doc).toBeDefined();
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+
+    const uri = pdfGeneratorService.obtenerDataUri(plantillaMuestra, variablesMuestra, cotizacionMock);
+    expect(uri.startsWith('data:application/pdf;')).toBe(true);
+    expect(uri.length).toBeGreaterThan(6000);
+  });
 });

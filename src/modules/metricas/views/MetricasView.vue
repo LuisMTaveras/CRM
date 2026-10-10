@@ -6,19 +6,25 @@ import {
   Award, 
   Target, 
   RefreshCw, 
-  TrendingUp
+  TrendingUp,
+  FileDown
 } from 'lucide-vue-next';
 import { formatCurrency } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { metricasService } from '../services/metricas.service';
+import { reporteEjecutivoService } from '../services/reporte-ejecutivo.service';
 import type { MetricasComerciales } from '../types/metricas.types';
 import GraficoDonutSectores from '../components/GraficoDonutSectores.vue';
 import GraficoEmbudoVentas from '../components/GraficoEmbudoVentas.vue';
 import GraficoTendenciaMensual from '../components/GraficoTendenciaMensual.vue';
 import GraficoEjecutivos from '../components/GraficoEjecutivos.vue';
+import DateRangeFilter from '@/shared/components/DateRangeFilter.vue';
+import { defaultRange, type DateRange } from '@/core/dates/date-range';
 
 const periodoSeleccionado = ref<'mes' | 'trimestre' | 'anual'>('mes');
+const rangoFecha = ref<DateRange>(defaultRange('month'));
 const cargando = ref(true);
+const exportandoPdf = ref(false);
 
 const metricas = ref<MetricasComerciales>({
   tasaConversion: 0,
@@ -46,9 +52,30 @@ const cargarMetricas = async () => {
   }
 };
 
-const cambiarPeriodo = async (p: 'mes' | 'trimestre' | 'anual') => {
-  periodoSeleccionado.value = p;
+const alCambiarRangoFecha = async () => {
+  if (['today', 'yesterday', 'week', 'month'].includes(rangoFecha.value.preset)) {
+    periodoSeleccionado.value = 'mes';
+  } else if (rangoFecha.value.preset === 'quarter') {
+    periodoSeleccionado.value = 'trimestre';
+  } else if (rangoFecha.value.preset === 'year') {
+    periodoSeleccionado.value = 'anual';
+  }
   await cargarMetricas();
+};
+
+const descargarReportePdf = () => {
+  exportandoPdf.value = true;
+  try {
+    const textoPeriodo =
+      periodoSeleccionado.value === 'mes'
+        ? 'Mes en Curso'
+        : periodoSeleccionado.value === 'trimestre'
+          ? 'Último Trimestre'
+          : 'Año Fiscal Consolidado';
+    reporteEjecutivoService.descargarInformeEjecutivo(metricas.value, textoPeriodo);
+  } finally {
+    exportandoPdf.value = false;
+  }
 };
 
 onMounted(() => {
@@ -82,45 +109,24 @@ onMounted(() => {
 
   <!-- Teleport de Controles hacia la Barra Superior -->
   <Teleport to="#header-portal-right">
-    <div class="flex items-center gap-2">
-      <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/80 p-1 rounded-xl border border-zinc-200 dark:border-white/[0.08]">
-        <button
-          @click="cambiarPeriodo('mes')"
-          :disabled="cargando"
-          :class="[
-            'px-2.5 py-1 text-xs font-medium rounded-lg transition',
-            periodoSeleccionado === 'mes'
-              ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-950/20'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
-          ]"
-        >
-          Mes
-        </button>
-        <button
-          @click="cambiarPeriodo('trimestre')"
-          :disabled="cargando"
-          :class="[
-            'px-2.5 py-1 text-xs font-medium rounded-lg transition',
-            periodoSeleccionado === 'trimestre'
-              ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-950/20'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
-          ]"
-        >
-          Trimestre
-        </button>
-        <button
-          @click="cambiarPeriodo('anual')"
-          :disabled="cargando"
-          :class="[
-            'px-2.5 py-1 text-xs font-medium rounded-lg transition',
-            periodoSeleccionado === 'anual'
-              ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-950/20'
-              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
-          ]"
-        >
-          Año
-        </button>
-      </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Selector de Rango de Fechas Devforge -->
+      <DateRangeFilter
+        v-model="rangoFecha"
+        @change="alCambiarRangoFecha"
+      />
+
+      <!-- Botón Descargar Informe Ejecutivo PDF -->
+      <button
+        type="button"
+        @click="descargarReportePdf"
+        :disabled="cargando || exportandoPdf"
+        title="Descargar Informe Gerencial Ejecutivo en PDF A4 con firmas oficiales"
+        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/40 disabled:opacity-50"
+      >
+        <FileDown class="w-3.5 h-3.5" />
+        <span class="hidden sm:inline">{{ exportandoPdf ? 'Generando...' : 'Informe PDF' }}</span>
+      </button>
 
       <button
         @click="cargarMetricas"

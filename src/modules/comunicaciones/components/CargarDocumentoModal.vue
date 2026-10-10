@@ -5,7 +5,7 @@ import { emailService } from '../services/email.service';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { pdfGeneratorService } from '../services/pdf-generator.service';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
-import { formatDate } from '@/core/formatters/formatters';
+import { formatDate, formatCurrency } from '@/core/formatters/formatters';
 import type { PlantillaDocumento, CategoriaPlantilla, VariablesPlantilla } from '../types/comunicacion.types';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { 
@@ -32,8 +32,13 @@ import {
   Heading,
   ListPlus,
   RotateCcw,
-  Trash2
+  Trash2,
+  Calculator,
+  Plus,
+  Tag
 } from 'lucide-vue-next';
+import { catalogoService } from '../services/catalogo.service';
+import type { LineaCotizacion, MonedaCotizacion } from '../types/catalogo.types';
 
 defineProps<{
   abierto: boolean;
@@ -86,6 +91,40 @@ const opcionesCategoria: Array<SelectOption<CategoriaPlantilla>> = [
 // Vista Previa de PDF
 const pdfPreviewUri = ref('');
 const generandoPreview = ref(false);
+
+// --- ESTADO DEL COTIZADOR B2B CPQ ---
+const incluirCotizador = ref(true);
+const monedaCotizacion = ref<MonedaCotizacion>('DOP');
+const catalogoDisponible = catalogoService.obtenerCatalogo();
+const servicioSeleccionadoId = ref('');
+
+const lineasCotizacion = ref<LineaCotizacion[]>([
+  catalogoService.crearLineaDesdeItem(catalogoDisponible[0], 1, 0),
+  catalogoService.crearLineaDesdeItem(catalogoDisponible[1], 1, 5),
+]);
+
+const resumenCotizacion = computed(() => {
+  return catalogoService.calcularResumen(lineasCotizacion.value, monedaCotizacion.value);
+});
+
+const agregarLineaDesdeCatalogo = () => {
+  if (!servicioSeleccionadoId.value) return;
+  const item = catalogoService.obtenerItemPorId(servicioSeleccionadoId.value);
+  if (item) {
+    lineasCotizacion.value.push(catalogoService.crearLineaDesdeItem(item, 1, 0));
+    servicioSeleccionadoId.value = '';
+  }
+};
+
+const agregarLineaPersonalizada = () => {
+  lineasCotizacion.value.push(
+    catalogoService.crearLineaPersonalizada('Servicio Profesional Adicional', 25000, 1, 0, true)
+  );
+};
+
+const eliminarLineaCotizacion = (id: string) => {
+  lineasCotizacion.value = lineasCotizacion.value.filter((l) => l.id !== id);
+};
 
 // Biblioteca de Variables Dinámicas Clasificadas
 interface VariableDef {
@@ -323,8 +362,13 @@ const generarPrevisualizacion = () => {
     direccion_empresa_emisora: datosEmpresa.direccion || 'Av. Winston Churchill No. 1099, Torre Acrópolis Piso 14, Piantini',
   };
 
+  const cotizacionActiva = incluirCotizador.value && lineasCotizacion.value.length > 0 ? resumenCotizacion.value : undefined;
+  if (cotizacionActiva) {
+    variablesMuestra.monto = formatCurrency(cotizacionActiva.totalPagar, monedaCotizacion.value);
+  }
+
   try {
-    pdfPreviewUri.value = pdfGeneratorService.obtenerDataUri(plantillaTemporal, variablesMuestra);
+    pdfPreviewUri.value = pdfGeneratorService.obtenerDataUri(plantillaTemporal, variablesMuestra, cotizacionActiva);
   } catch (e) {
     console.error('Error al generar preview en CargarDocumentoModal:', e);
   } finally {
@@ -843,6 +887,249 @@ const guardarPlantilla = (enviarInmediato = false) => {
                   <span class="w-6 h-6 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300 group-hover:bg-indigo-600 group-hover:text-white transition font-bold text-xs shrink-0">
                     +
                   </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MÓDULO CPQ: COTIZADOR B2B & PARTIDAS PRESUPUESTARIAS -->
+          <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+            <!-- Encabezado del Cotizador -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 gap-3">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <Calculator class="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-xs text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                    <span>Cotizador B2B & Desglose de Precios (CPQ)</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      ITBIS 18% Fiscal DGII
+                    </span>
+                  </h4>
+                  <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Añade partidas del catálogo maestro o conceptos personalizados para incrustar la tabla formal en el PDF
+                  </p>
+                </div>
+              </div>
+
+              <!-- Selector de Divisa & Toggle de Inclusión -->
+              <div class="flex items-center gap-3">
+                <div class="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[11px]">
+                  <button
+                    type="button"
+                    @click="monedaCotizacion = 'DOP'"
+                    :class="[
+                      'px-2.5 py-1 rounded-lg font-semibold transition',
+                      monedaCotizacion === 'DOP'
+                        ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    ]"
+                  >
+                    DOP (RD$)
+                  </button>
+                  <button
+                    type="button"
+                    @click="monedaCotizacion = 'USD'"
+                    :class="[
+                      'px-2.5 py-1 rounded-lg font-semibold transition',
+                      monedaCotizacion === 'USD'
+                        ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    ]"
+                  >
+                    USD ($)
+                  </button>
+                </div>
+
+                <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  <input
+                    v-model="incluirCotizador"
+                    type="checkbox"
+                    class="rounded text-indigo-600 focus:ring-0 bg-white dark:bg-zinc-950 border-zinc-300 dark:border-zinc-700"
+                  />
+                  <span>Incluir en PDF</span>
+                </label>
+              </div>
+            </div>
+
+            <div v-if="incluirCotizador" class="space-y-4">
+              <!-- Barra de Inserción de Líneas -->
+              <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-zinc-50 dark:bg-zinc-950/70 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800/80">
+                <div class="flex-1 flex items-center gap-2">
+                  <Tag class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                  <select
+                    v-model="servicioSeleccionadoId"
+                    class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">-- Seleccionar Servicio del Catálogo Maestro --</option>
+                    <option v-for="item in catalogoDisponible" :key="item.id" :value="item.id">
+                      [{{ item.codigo }}] {{ item.nombre }} ({{ formatCurrency(item.precioBase, item.moneda) }} / {{ item.unidadMedida }})
+                    </option>
+                  </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="agregarLineaDesdeCatalogo"
+                    :disabled="!servicioSeleccionadoId"
+                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition flex items-center gap-1 shadow-sm"
+                  >
+                    <Plus class="w-3.5 h-3.5" />
+                    <span>Agregar del Catálogo</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="agregarLineaPersonalizada"
+                    class="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-zinc-200 dark:border-zinc-700"
+                  >
+                    <Plus class="w-3.5 h-3.5" />
+                    <span>Línea Libre</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tabla de Partidas Presupuestarias -->
+              <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-zinc-100 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 text-[11px] font-semibold uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
+                      <th class="py-2.5 px-3">Concepto / Partida</th>
+                      <th class="py-2.5 px-2 text-center w-20">Cant.</th>
+                      <th class="py-2.5 px-3 text-right w-32">Precio Unit.</th>
+                      <th class="py-2.5 px-2 text-center w-24">Descto %</th>
+                      <th class="py-2.5 px-3 text-center w-20">ITBIS</th>
+                      <th class="py-2.5 px-3 text-right w-36">Total Partida</th>
+                      <th class="py-2.5 px-2 text-center w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800/80 text-xs">
+                    <tr
+                      v-for="linea in lineasCotizacion"
+                      :key="linea.id"
+                      class="hover:bg-zinc-50/70 dark:hover:bg-zinc-950/40 transition"
+                    >
+                      <!-- Concepto -->
+                      <td class="py-2 px-3">
+                        <input
+                          v-model="linea.concepto"
+                          type="text"
+                          class="w-full px-2 py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
+                        />
+                      </td>
+
+                      <!-- Cantidad -->
+                      <td class="py-2 px-2 text-center">
+                        <input
+                          v-model.number="linea.cantidad"
+                          type="number"
+                          min="1"
+                          class="w-16 px-1.5 py-1 text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded text-zinc-900 dark:text-zinc-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                        />
+                      </td>
+
+                      <!-- Precio Unitario -->
+                      <td class="py-2 px-3 text-right">
+                        <input
+                          v-model.number="linea.precioUnitario"
+                          type="number"
+                          min="0"
+                          step="100"
+                          class="w-28 px-2 py-1 text-right bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded text-zinc-900 dark:text-zinc-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                        />
+                      </td>
+
+                      <!-- Descuento % -->
+                      <td class="py-2 px-2 text-center">
+                        <input
+                          v-model.number="linea.descuentoPorcentaje"
+                          type="number"
+                          min="0"
+                          max="100"
+                          class="w-16 px-1.5 py-1 text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded text-zinc-900 dark:text-zinc-100 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                        />
+                      </td>
+
+                      <!-- Aplica ITBIS -->
+                      <td class="py-2 px-3 text-center">
+                        <span
+                          v-if="linea.aplicaItbis"
+                          class="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                        >
+                          18%
+                        </span>
+                        <span
+                          v-else
+                          class="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                        >
+                          Exento
+                        </span>
+                      </td>
+
+                      <!-- Total Partida -->
+                      <td class="py-2 px-3 text-right font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                        {{ formatCurrency(catalogoService.recalcularLinea(linea).total, monedaCotizacion) }}
+                      </td>
+
+                      <!-- Eliminar -->
+                      <td class="py-2 px-2 text-center">
+                        <button
+                          type="button"
+                          @click="eliminarLineaCotizacion(linea.id)"
+                          class="p-1 text-zinc-400 hover:text-rose-500 rounded transition"
+                          title="Eliminar partida"
+                        >
+                          <Trash2 class="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="lineasCotizacion.length === 0">
+                      <td colspan="7" class="py-6 text-center text-zinc-400">
+                        No hay partidas presupuestarias agregadas en esta propuesta.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Bloque Resumen de Totales -->
+              <div class="flex justify-end pt-2">
+                <div class="w-full sm:w-80 bg-zinc-50 dark:bg-zinc-950/80 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-2 text-xs">
+                  <div class="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>Subtotal Bruto:</span>
+                    <span class="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                      {{ formatCurrency(resumenCotizacion.subtotalBruto, monedaCotizacion) }}
+                    </span>
+                  </div>
+
+                  <div v-if="resumenCotizacion.descuentoTotal > 0" class="flex justify-between text-amber-600 dark:text-amber-400">
+                    <span>Descuento Comercial:</span>
+                    <span class="font-mono font-medium">
+                      -{{ formatCurrency(resumenCotizacion.descuentoTotal, monedaCotizacion) }}
+                    </span>
+                  </div>
+
+                  <div class="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>Subtotal Neto:</span>
+                    <span class="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                      {{ formatCurrency(resumenCotizacion.subtotalNeto, monedaCotizacion) }}
+                    </span>
+                  </div>
+
+                  <div class="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>ITBIS (18% Fiscal DGII):</span>
+                    <span class="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                      {{ formatCurrency(resumenCotizacion.itbisTotal, monedaCotizacion) }}
+                    </span>
+                  </div>
+
+                  <div class="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800 text-sm font-bold text-zinc-900 dark:text-white">
+                    <span>TOTAL A PAGAR:</span>
+                    <span class="font-mono text-indigo-600 dark:text-indigo-400">
+                      {{ formatCurrency(resumenCotizacion.totalPagar, monedaCotizacion) }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

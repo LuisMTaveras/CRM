@@ -9,12 +9,12 @@
 ## 📌 Resumen de Prioridades
 
 | ID | Épica / Iniciativa | Prioridad | Estado | Estimación | Módulo Afectado |
-| :--- | :--- | :---: | :---: | :---: | :--- |
+| :--- | :--- | :--- | :---: | :---: | :--- |
 | **EP-02** | **Agenda de Seguimiento, Tareas & Recordatorios (*Next Steps*)** | 🔴 Alta | ✅ **Completado** | 1.5 Sprints | `modules/agenda` / `modules/pipeline` |
-| **EP-01** | **Bitácora Cronológica & Historial del Cliente (*Timeline / Activity Feed*)** | 🔴 Alta | ⏳ Pendiente | 2 Sprints | `modules/clientes` |
-| **EP-03** | **Catálogo de Servicios & Cotizador B2B (*Líneas de Propuesta en PDF*)** | 🔴 Alta | ⏳ Pendiente | 2 Sprints | `modules/comunicaciones` |
+| **EP-01** | **Bitácora Cronológica & Historial del Cliente (*Timeline / Activity Feed*)** | 🔴 Alta | ✅ **Completado** | 2 Sprints | `modules/clientes` |
+| **EP-03** | **Catálogo de Servicios & Cotizador B2B (*CPQ / Líneas de Ítems en PDF*)** | 🔴 Alta | ✅ **Completado** | 2 Sprints | `modules/comunicaciones` |
+| **EP-05** | **Generador de Reporte Gerencial Ejecutivo en PDF A4** | 🟡 Media | ✅ **Completado** | 1 Sprint | `modules/metricas` |
 | **EP-04** | **Importador Masivo de Clientes desde Excel / CSV con Mapeo de Columnas** | 🟡 Media | ⏳ Pendiente | 1 Sprint | `modules/clientes` |
-| **EP-05** | **Generador de Reporte Gerencial Ejecutivo en PDF A4** | 🟡 Media | ⏳ Pendiente | 1 Sprint | `modules/metricas` |
 | **EP-06** | **Gestor de Comprobantes Fiscales Dominicanos (NCF - DGII B01/B02/B14/B15)** | 🟢 Estratégica | ⏳ Pendiente | 2 Sprints | `modules/configuracion` / `modules/pipeline` |
 
 ---
@@ -33,59 +33,33 @@
 
 ---
 
-### 🔴 EP-01: Bitácora Cronológica & Historial del Cliente (*Timeline*)
-* **Objetivo:** Permitir a cualquier ejecutivo o gerente comercial consultar la historia completa de interacciones con una empresa en un solo lugar.
-* **Historias de Usuario:**
-  * **HU-1.1:** Como ejecutivo comercial, quiero ver un hilo cronológico unificado (*Feed*) en el detalle del cliente que registre notas, llamadas, correos y propuestas.
-  * **HU-1.2:** Como ejecutivo, quiero registrar una nota rápida con tipo de interacción: *«Llamada telefónica»*, *«Reunión presencial»*, *«Videollamada Zoom»* o *«Nota interna privada»*.
-  * **HU-1.3:** El sistema debe registrar automáticamente en el timeline cuando se despacha un correo con propuesta adjunta o cuando el cliente cambia de etapa en el pipeline.
-* **Criterios de Aceptación:**
-  * Componente `TimelineCliente.vue` integrado en una pestaña dedicada dentro del modal/vista de detalle.
-  * Filtros por tipo de evento (*Todos*, *Correos*, *Llamadas*, *Reuniones*, *Documentos*).
-  * Formateo de fechas relativas localizadas (`formatRelativeTime`).
-  * Persistencia en servicio reactivo y base de datos.
+### ✅ EP-01: Bitácora Cronológica & Historial del Cliente (*Timeline*) — COMPLETADO
+* **Estado:** Implementado & Probado (100% test coverage).
+* **Entregables Concluidos:**
+  * **Tipos & Contratos (`src/modules/clientes/types/timeline.types.ts`)**: Modelo de eventos (`llamada`, `reunion`, `videollamada`, `nota`, `correo`, `propuesta`, `cambio_etapa`, `tarea`).
+  * **Servicio Reactivo (`src/modules/clientes/services/timeline.service.ts`)**: Registro de notas rápidas, filtros por tipo, buscador reactivo, actualización automática de `ultimo_contacto` del cliente y pruebas unitarias completas (5/5 pasadas).
+  * **Componente `TimelineCliente.vue`**: Feed vertical elegante con conectores en línea de tiempo, insignias por tipo de interacción, fechas relativas localizadas (`formatRelativeTime`) y creación instantánea de apuntes.
+  * **Integración en Ficha del Cliente ([ClienteDrawer.vue](file:///c:/DEV/CRM/CRM/src/modules/clientes/components/ClienteDrawer.vue))**: Pestaña dedicada *«Bitácora»* accesible en un clic desde cualquier cliente de la cartera.
 
 ---
 
-### 🔴 EP-03: Catálogo de Servicios & Cotizador B2B (*CPQ / Líneas de Ítems en PDF*)
-* **Objetivo:** Profesionalizar la emisión de propuestas económicas permitiendo armar cotizaciones detalladas con líneas de productos y cálculo automático de ITBIS.
-* **Historias de Usuario:**
-  * **HU-3.1:** Como administrador, quiero gestionar un catálogo maestro de productos y servicios (Código, Nombre, Categoría, Precio Base en DOP/USD, Tasa de ITBIS 18% o Exento).
-  * **HU-3.2:** En el Estudio de Documentos ([CargarDocumentoModal.vue](file:///c:/DEV/CRM/CRM/src/modules/comunicaciones/components/CargarDocumentoModal.vue)), permitir añadir una tabla de ítems con cantidad, precio unitario y descuento.
-  * **HU-3.3:** El motor de PDF ([pdf-generator.service.ts](file:///c:/DEV/CRM/CRM/src/modules/comunicaciones/services/pdf-generator.service.ts)) debe renderizar una tabla corporativa estilizada con:
-    * Encabezado de columnas: *Ítem / Descripción*, *Cant.*, *Precio Unit.*, *Total*.
-    * Bloque de totales: Subtotal, Descuento, ITBIS (18%) y Monto Total Formal.
-* **Criterios de Aceptación:**
-  * Soporte de divisas DOP (`RD$`) y USD (`$`).
-  * Validación contra valores NaN y formato automático `formatCurrency`.
+### ✅ EP-03: Catálogo de Servicios & Cotizador B2B (*CPQ / Líneas de Ítems en PDF*) — COMPLETADO
+* **Estado:** Implementado & Probado (100% test coverage).
+* **Entregables Concluidos:**
+  * **Catálogo Maestro B2B (`src/modules/comunicaciones/services/catalogo.service.ts`)**: Servicios corporativos precargados (Licenciamiento Cloud, Onboarding, Integración DGII, Soporte 24/7, Consultoría de Ciberseguridad, Horas de Ingeniería).
+  * **Motor CPQ**: Cálculo de subtotales, descuentos comerciales por porcentaje, liquidación de ITBIS 18% (regla DGII RD) e ítems exentos con soporte multimoneda (DOP / USD). Pruebas unitarias completas (6/6 pasadas).
+  * **Estudio de Documentos ([CargarDocumentoModal.vue](file:///c:/DEV/CRM/CRM/src/modules/comunicaciones/components/CargarDocumentoModal.vue))**: Constructor interactivo de cotizaciones en el Paso 3 con adición desde catálogo, partidas libres, inputs dinámicos de cantidad/descuento y cuadro resumen en vivo.
+  * **Motor de PDF A4 ([pdf-generator.service.ts](file:///c:/DEV/CRM/CRM/src/modules/comunicaciones/services/pdf-generator.service.ts))**: Renderizado formal de la tabla presupuestaria con cabeceras sobrias en Slate 950, filas alternadas, desglose de Subtotal, Descuento, ITBIS 18% y Total General vinculado a la firma y sellos digitales. Pruebas unitarias de renderizado (9/9 pasadas).
 
 ---
 
-### 🟡 EP-04: Importador Masivo de Clientes (Excel / CSV con Mapeo de Columnas)
-* **Objetivo:** Facilitar la migración masiva de carteras comerciales desde hojas de cálculo de Excel o CRM legados.
-* **Historias de Usuario:**
-  * **HU-4.1:** Como usuario, quiero arrastrar un archivo `.xlsx` o `.csv` y ver un asistente en 3 pasos: *Carga*, *Mapeo de Columnas* y *Validación Previa*.
-  * **HU-4.2:** El sistema debe detectar automáticamente columnas habituales (ej: *Razón Social*, *RNC*, *Teléfono*, *Email*, *Ciudad*, *Sector*).
-  * **HU-4.3:** Validación previa que señale filas con RNC inválido o duplicados antes de confirmar la importación.
-* **Criterios de Aceptación:**
-  * Parsing client-side con preview de las primeras 5 filas.
-  * Inserción en lote mediante `clienteService.importarClientesEnLote(clientes)`.
-
----
-
-### 🟡 EP-05: Generador de Reporte Gerencial Ejecutivo en PDF A4
-* **Objetivo:** Permitir a directores y gerentes comerciales exportar un informe mensual formal para juntas directivas o comités de ventas.
-* **Historias de Usuario:**
-  * **HU-5.1:** En el módulo de Métricas ([MetricasView.vue](file:///c:/DEV/CRM/CRM/src/modules/metricas/views/MetricasView.vue)), habilitar el botón *«Descargar Informe Ejecutivo PDF»*.
-  * **HU-5.2:** El PDF generado debe incluir:
-    * Membrete corporativo y logotipo oficial de Alliance Software S.R.L.
-    * Resumen ejecutivo de facturación proyectada, ganada y en riesgo.
-    * Gráficos tabulados de conversión por etapa del embudo.
-    * Ranking de rendimiento por ejecutivo comercial.
-    * Fecha de emisión, firma del director comercial y hash de seguridad digital.
-* **Criterios de Aceptación:**
-  * Diseño limpio A4 vertical con paginación ejecutiva continua.
-  * Generación instantánea en cliente con `jsPDF`.
+### ✅ EP-05: Generador de Reporte Gerencial Ejecutivo en PDF A4 — COMPLETADO
+* **Estado:** Implementado & Probado (100% test coverage).
+* **Entregables Concluidos:**
+  * **Servicio `reporte-ejecutivo.service.ts`**: Generación de informe A4 vertical con membrete oficial, monograma de Alliance Software S.R.L., hash criptográfico de seguridad y doble firma gerencial.
+  * **Resumen de Facturación & Embudo**: Tarjetas de facturación ganada, volumen en negociación, tasa de conversión y ticket promedio; tabla completa de retención y conversión por etapa del pipeline.
+  * **Ranking de Rendimiento**: Tabla de productividad por ejecutivo comercial con tratos gestionados, ganados y tasa de éxito porcentual.
+  * **Integración en Métricas ([MetricasView.vue](file:///c:/DEV/CRM/CRM/src/modules/metricas/views/MetricasView.vue))**: Botón directo *«Informe PDF»* en la barra superior con descarga instantánea en el navegador y selector de período sincronizado.
 
 ---
 

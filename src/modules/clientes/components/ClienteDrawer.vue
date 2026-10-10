@@ -12,18 +12,19 @@ import {
   Trash2,
   Briefcase,
   Users,
-  MessageSquare,
   Sparkles,
   ExternalLink,
   Plus,
   Check,
   Star,
   Loader2,
-  Edit3
+  Edit3,
+  History
 } from 'lucide-vue-next';
+import TimelineCliente from './TimelineCliente.vue';
 import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
 import Can from '@/shared/components/Can.vue';
-import type { Cliente, EstadoCliente, Oportunidad, Actividad } from '../types/cliente.types';
+import type { Cliente, EstadoCliente, Oportunidad } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import EditarClienteModal from './EditarClienteModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
@@ -45,13 +46,6 @@ const opcionesEtapaDeal: Array<SelectOption<string>> = [
   { value: 'negociacion', label: 'En Negociación' },
   { value: 'ganada', label: 'Cerrada Ganada', dotColor: 'bg-emerald-400' },
   { value: 'perdida', label: 'Cerrada Perdida', dotColor: 'bg-rose-400' },
-];
-
-const opcionesTipoActividad: Array<SelectOption<string>> = [
-  { value: 'llamada', label: 'Llamada Telefónica' },
-  { value: 'reunion', label: 'Reunión / Demostración' },
-  { value: 'correo', label: 'Correo Electrónico' },
-  { value: 'nota', label: 'Nota Interna' },
 ];
 
 const props = defineProps<{
@@ -283,80 +277,7 @@ const eliminarOportunidad = async (dealId: string) => {
   }
 };
 
-// --- ESTADO PARA ACTIVIDADES (BITÁCORA) ---
-const guardandoActividad = ref(false);
-const mostrarFormActividad = ref(false);
-const errorActividad = ref('');
 
-const formularioActividad = reactive({
-  tipo: 'llamada' as Actividad['tipo'],
-  descripcion: '',
-  realizado_por: '',
-});
-
-const abrirFormularioActividad = () => {
-  formularioActividad.tipo = 'llamada';
-  formularioActividad.descripcion = '';
-  formularioActividad.realizado_por = props.cliente?.responsable || 'Equipo Comercial';
-  errorActividad.value = '';
-  mostrarFormActividad.value = true;
-};
-
-const guardarActividad = async () => {
-  if (!props.cliente) return;
-  if (!formularioActividad.descripcion.trim()) {
-    errorActividad.value = 'Debe ingresar una descripción de la actividad realizada.';
-    return;
-  }
-
-  guardandoActividad.value = true;
-  errorActividad.value = '';
-  try {
-    const nuevaAct = await clienteService.agregarActividad(props.cliente.id, {
-      tipo: formularioActividad.tipo,
-      descripcion: formularioActividad.descripcion.trim(),
-      realizado_por: formularioActividad.realizado_por.trim() || props.cliente.responsable,
-    });
-
-    actualizarCliente({
-      actividades: [nuevaAct, ...(props.cliente.actividades ?? [])],
-      ultimo_contacto: nuevaAct.fecha,
-    });
-    mostrarFormActividad.value = false;
-    toastService.exito('Actividad registrada en la bitácora comercial.');
-    emit('actualizar');
-  } catch (err: unknown) {
-    errorActividad.value = err instanceof Error ? err.message : 'Error al registrar actividad';
-  } finally {
-    guardandoActividad.value = false;
-  }
-};
-
-const eliminarActividad = async (actividadId: string) => {
-  if (!props.cliente) return;
-  const confirmado = await dialogService.confirmar({
-    titulo: 'ELIMINAR ANOTACIÓN',
-    subtitulo: 'REMOVER REGISTRO DE BITÁCORA',
-    mensaje: '¿Confirma que desea eliminar esta anotación de la bitácora comercial?',
-    detalle: 'Este apunte del historial se borrará de forma permanente.',
-    textoConfirmar: 'ELIMINAR ANOTACIÓN',
-    textoCancelar: 'CANCELAR',
-    tipo: 'peligro',
-  });
-
-  if (!confirmado) return;
-
-  try {
-    await clienteService.eliminarActividad(props.cliente.id, actividadId);
-    actualizarCliente({
-      actividades: (props.cliente.actividades ?? []).filter((a) => a.id !== actividadId),
-    });
-    toastService.exito('Anotación eliminada.');
-    emit('actualizar');
-  } catch {
-    toastService.error('Error al eliminar anotación.');
-  }
-};
 
 const cambiarEstado = (nuevo: string) => {
   if (props.cliente) {
@@ -516,8 +437,8 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
             ]"
           >
-            <MessageSquare class="w-3.5 h-3.5" />
-            Bitácora ({{ cliente?.actividades?.length || 0 }})
+            <History class="w-3.5 h-3.5" />
+            Bitácora
           </button>
         </div>
 
@@ -976,143 +897,13 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
             </div>
           </div>
 
-          <!-- Pestaña 4: Bitácora de Actividades -->
-          <div v-else-if="pestanaActiva === 'actividades'" class="space-y-3">
-            <div class="flex items-center justify-between pb-1">
-              <div class="text-xs font-semibold text-zinc-800 dark:text-zinc-300 flex items-center gap-1.5">
-                <MessageSquare class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Historial de Interacciones & Notas</span>
-                <span class="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-300 dark:border-zinc-800">
-                  {{ cliente?.actividades?.length || 0 }}
-                </span>
-              </div>
-              <button
-                v-if="!mostrarFormActividad"
-                type="button"
-                @click="abrirFormularioActividad"
-                class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-medium transition shadow-sm"
-              >
-                <Plus class="w-3 h-3" />
-                <span>+ Registrar Actividad</span>
-              </button>
-            </div>
-
-            <!-- Formulario de Registro de Actividad -->
-            <div v-if="mostrarFormActividad" class="bg-white dark:bg-zinc-950 p-3.5 rounded-lg border border-indigo-500/40 space-y-3 shadow-sm">
-              <div class="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800/80">
-                <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                  <MessageSquare class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  Registrar Nueva Actividad
-                </span>
-                <button
-                  type="button"
-                  @click="mostrarFormActividad = false"
-                  class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                >
-                  <X class="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div v-if="errorActividad" class="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-[11px]">
-                {{ errorActividad }}
-              </div>
-
-              <div class="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Tipo de Actividad</label>
-                  <AppSelect
-                    v-model="formularioActividad.tipo"
-                    :options="opcionesTipoActividad"
-                    :full-width="true"
-                    size="sm"
-                  />
-                </div>
-
-                <div>
-                  <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Realizado Por</label>
-                  <input
-                    v-model="formularioActividad.realizado_por"
-                    type="text"
-                    placeholder="Nombre del ejecutivo"
-                    class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Detalle o Minuta de la Interacción *</label>
-                <textarea
-                  v-model="formularioActividad.descripcion"
-                  rows="3"
-                  placeholder="Ej: Se acordó enviar cotización actualizada y coordinar demo para el jueves..."
-                  class="w-full px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 resize-none"
-                ></textarea>
-              </div>
-
-              <div class="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                <button
-                  type="button"
-                  @click="mostrarFormActividad = false"
-                  class="px-2.5 py-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded text-[11px] transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  @click="guardarActividad"
-                  :disabled="guardandoActividad"
-                  class="inline-flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-medium transition disabled:opacity-50"
-                >
-                  <Loader2 v-if="guardandoActividad" class="w-3 h-3 animate-spin" />
-                  <Check v-else class="w-3 h-3" />
-                  <span>{{ guardandoActividad ? 'Guardando...' : 'Guardar en Bitácora' }}</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Listado de Actividades -->
-            <template v-if="cliente?.actividades && cliente?.actividades?.length > 0">
-              <div class="space-y-3">
-                <div
-                  v-for="actividad in cliente.actividades"
-                  :key="actividad.id"
-                  class="bg-white dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5 group hover:border-zinc-300 dark:hover:border-zinc-700 transition shadow-sm"
-                >
-                  <div class="flex items-center justify-between text-[11px]">
-                    <div class="flex items-center gap-1.5">
-                      <span class="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
-                      <span class="uppercase font-semibold text-indigo-600 dark:text-indigo-400 tracking-wider">
-                        {{ actividad.tipo }}
-                      </span>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <span class="text-zinc-400 dark:text-zinc-500 font-mono text-[10px]">
-                        {{ formatDate(actividad.fecha, 'datetime') }}
-                      </span>
-                      <button
-                        @click="eliminarActividad(actividad.id)"
-                        class="p-0.5 text-zinc-400 hover:text-rose-500 rounded transition"
-                        title="Eliminar anotación"
-                      >
-                        <Trash2 class="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <p class="text-zinc-700 dark:text-zinc-300 leading-relaxed text-xs">
-                    {{ actividad.descripcion }}
-                  </p>
-
-                  <div class="text-[10px] text-zinc-400 dark:text-zinc-500 text-right">
-                    Por: {{ actividad.realizado_por }}
-                  </div>
-                </div>
-              </div>
-            </template>
-            <div v-else-if="!mostrarFormActividad" class="text-center py-8 text-zinc-500">
-              Sin registros en la bitácora de actividad comercial.
-            </div>
+          <!-- Pestaña 4: Bitácora de Actividades (Timeline Unificado) -->
+          <div v-else-if="pestanaActiva === 'actividades'">
+            <TimelineCliente
+              v-if="cliente"
+              :cliente-id="cliente.id"
+              :cliente-nombre="cliente.nombre_comercial || cliente.razon_social"
+            />
           </div>
         </div>
 
