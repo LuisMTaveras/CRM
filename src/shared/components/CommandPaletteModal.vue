@@ -141,7 +141,7 @@ onUnmounted(() => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4">
     <!-- Backdrop con desenfoque elegante -->
-    <div @click="cerrar" class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Box de la Paleta de Comandos -->
     <div class="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden z-10 flex flex-col text-xs transition-colors">

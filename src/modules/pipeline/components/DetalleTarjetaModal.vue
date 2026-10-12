@@ -204,7 +204,6 @@ const marcarComoBloqueada = async () => {
   <div
     v-if="abierto && tarjeta"
     class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-sm animate-in fade-in duration-200"
-    @click.self="emit('cerrar')"
   >
     <div
       class="bg-white dark:bg-[#0c0c0e] border border-zinc-200 dark:border-white/[0.1] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"

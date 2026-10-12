@@ -130,7 +130,6 @@ onMounted(() => {
     <!-- Backdrop oscuro -->
     <div
       class="fixed inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-sm transition-opacity"
-      @click="emit('cerrar')"
     ></div>
 
     <!-- Modal Card -->

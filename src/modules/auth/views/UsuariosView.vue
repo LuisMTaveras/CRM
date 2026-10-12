@@ -723,7 +723,7 @@ onMounted(async () => {
 
     <!-- MODAL 1: EDITAR FICHA & EXCEPCIONES DE PERMISOS POR USUARIO -->
     <div v-if="modalUsuarioAbierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div @click="modalUsuarioAbierto = false" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm"></div>
 
       <div class="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl z-10 overflow-hidden text-xs flex flex-col max-h-[90vh]">
         <!-- Cabecera del Modal -->
@@ -978,7 +978,7 @@ onMounted(async () => {
 
     <!-- MODAL 2: CREAR / EDITAR ROL PERSONALIZADO -->
     <div v-if="modalRolAbierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div @click="modalRolAbierto = false" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm"></div>
 
       <div class="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl z-10 overflow-hidden text-xs flex flex-col max-h-[90vh]">
         <!-- Cabecera del Modal -->

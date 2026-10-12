@@ -678,7 +678,6 @@ const esDeHoy = (act: ActividadSeguimiento) => {
     <div
       v-if="modalCompletarAbierto"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm animate-in fade-in duration-200"
-      @click.self="modalCompletarAbierto = false"
     >
       <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 text-xs">
         <div class="flex items-center gap-3">

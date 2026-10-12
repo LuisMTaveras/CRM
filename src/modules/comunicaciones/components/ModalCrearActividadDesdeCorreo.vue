@@ -122,7 +122,6 @@ const guardarActividad = () => {
   <div
     v-if="abierto"
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm"
-    @click.self="emit('cerrar')"
   >
     <div
       class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col text-zinc-900 dark:text-zinc-100"

@@ -89,7 +89,6 @@ onUnmounted(() => {
       <div
         v-if="estado.abierto"
         class="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none"
-        @click.self="dialogService.cancelar()"
       >
         <transition
           enter-active-class="transition duration-200 ease-out"

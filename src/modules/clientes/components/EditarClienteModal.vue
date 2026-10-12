@@ -184,7 +184,6 @@ const guardar = async () => {
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop oscuro -->
     <div
-      @click="emit('cerrar')"
       class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
     ></div>
 

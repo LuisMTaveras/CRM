@@ -152,7 +152,6 @@ const registrarClienteRapido = async () => {
     <!-- Backdrop con opacidad sutil -->
     <div
       class="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-      @click="cerrar"
     ></div>
 
     <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">

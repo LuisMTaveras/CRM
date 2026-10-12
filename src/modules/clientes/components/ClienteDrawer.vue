@@ -296,7 +296,6 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
     <!-- Backdrop oscuro con blur sutil -->
     <div
       v-if="abierto"
-      @click="emit('cerrar')"
       class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-40 transition-opacity"
     ></div>
 

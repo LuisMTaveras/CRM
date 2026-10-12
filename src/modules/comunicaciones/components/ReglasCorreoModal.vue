@@ -334,7 +334,6 @@ const ejecutarReglasAhora = async () => {
   <div
     v-if="abierto"
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm transition-opacity"
-    @click.self="emit('close')"
   >
     <div
       class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden transition-all text-zinc-900 dark:text-zinc-100"
@@ -964,7 +963,6 @@ const ejecutarReglasAhora = async () => {
   <div
     v-if="carpetaAEliminarModal"
     class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm"
-    @click.self="carpetaAEliminarModal = null"
   >
     <div
       class="bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900/50 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4"

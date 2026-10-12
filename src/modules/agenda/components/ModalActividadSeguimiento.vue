@@ -247,7 +247,6 @@ const guardar = () => {
   <div
     v-if="abierto"
     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm animate-in fade-in duration-200"
-    @click.self="cerrarModal"
   >
     <div
       class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all"

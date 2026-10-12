@@ -1,5 +1,37 @@
 [
   {
+    "id": "msg-imap-2604",
+    "uid": 2604,
+    "carpeta": "inbox",
+    "de": {
+      "nombre": "BillHub",
+      "correo": "no-reply@billhub.do"
+    },
+    "para": [
+      {
+        "nombre": "jmrodriguez@alliance.do",
+        "correo": "jmrodriguez@alliance.do"
+      },
+      {
+        "nombre": "luismiguel@alliance.do",
+        "correo": "luismiguel@alliance.do"
+      },
+      {
+        "nombre": "victor.gonzalez@alliance.do",
+        "correo": "victor.gonzalez@alliance.do"
+      }
+    ],
+    "asunto": "Alerta DGII: indisponibilidad detectada (Producción)",
+    "extracto": "Outage DGII SE DETECTÓ UN OUTAGE DGII EN PRODUCCIÓN Se detectó una indisponibilidad de DGII. Ambiente: Producción Inicio: 2026-10-12T18:37:56.579Z Último error:",
+    "cuerpoTexto": "Outage DGII\n\n\nSE DETECTÓ UN OUTAGE DGII EN PRODUCCIÓN\n\nSe detectó una indisponibilidad de DGII.\n\nAmbiente: Producción\n\nInicio: 2026-10-12T18:37:56.579Z\n\nÚltimo error: No se pudo obtener el token después de 5 intentos: Error: Ha ocurrido un error en el proceso de autenticación con la DGII. Favor intente de nuevo!\n\nComportamiento de cola: La cola no fue pausada automáticamente porque el modo actual solo notifica.\n\nRevisa el monitor y las reglas de notificación para validar el alcance del incidente.\n\n© 2026 BillHub. Todos los derechos reservados.",
+    "cuerpoHtml": "<!doctype html>\n<html lang=\"es\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>Alerta DGII: indisponibilidad detectada (Producción)</title>\n  </head>\n  <body style=\"font-family: Arial, sans-serif; background-color:#F4F5F6; margin:0; padding:0;\">\n    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"background-color:#F4F5F6; padding:40px 0;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:#fff; border-radius:8px; overflow:hidden; width:600px;\">\n            <tr>\n              <td style=\"padding:20px; text-align:center; background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);\">\n                <img src=\"https://i.imgur.com/JjcRYyS.png\" alt=\"BillHub\" width=\"158\" height=\"40\" style=\"display:block; margin:0 auto;\" />\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:30px; color:#2f356e; line-height:1.5;\">\n                <div style=\"display:inline-block; padding:6px 10px; border-radius:999px; background:#fef2f2; border:1px solid #b91c1c; color:#991b1b; font-size:12px; font-weight:700;\">Outage DGII</div>\n                <h2 style=\"margin:16px 0 10px; color:#111827;\">Se detectó un outage DGII en Producción</h2>\n                <p>Se detectó una indisponibilidad de DGII.</p>\n                <p><strong>Ambiente:</strong> Producción</p>\n                <p><strong>Inicio:</strong> 2026-10-12T18:37:56.579Z</p>\n                <p><strong>Último error:</strong> No se pudo obtener el token después de 5 intentos: Error: Ha ocurrido un error en el proceso de autenticación con la DGII. Favor intente de nuevo!</p>\n                <p><strong>Comportamiento de cola:</strong> La cola no fue pausada automáticamente porque el modo actual solo notifica.</p>\n                <p style=\"margin-top:20px; color:#4b5563; font-size:13px;\">Revisa el monitor y las reglas de notificación para validar el alcance del incidente.</p>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"background-color:#1e8355; padding:20px; text-align:center; font-size:12px; color:white;\">\n                © 2026 BillHub. Todos los derechos reservados.\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>",
+    "fecha": "2026-10-12T18:37:57.000Z",
+    "leido": false,
+    "destacado": false,
+    "tieneAdjuntos": false,
+    "esCoincidenciaServidor": false
+  },
+  {
     "id": "msg-imap-2603",
     "uid": 2603,
     "carpeta": "inbox",

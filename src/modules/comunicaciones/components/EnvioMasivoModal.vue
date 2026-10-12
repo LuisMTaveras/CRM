@@ -339,7 +339,7 @@ const cerrarModal = () => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop oscuro -->
-    <div @click="cerrarModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
+    <div class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Card -->
     <div class="relative bg-white dark:bg-[#0e0e12] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">

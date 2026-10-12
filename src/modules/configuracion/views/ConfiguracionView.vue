@@ -1037,7 +1037,7 @@ onMounted(() => {
 
     <!-- MODAL DE CREACIÓN / EDICIÓN DE SECTOR ECONÓMICO -->
     <div v-if="modalSectorAbierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div @click="modalSectorAbierto = false" class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
+      <div class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
 
       <div class="relative bg-white dark:bg-[#0e0e12] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">
         <!-- Cabecera del Modal -->

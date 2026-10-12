@@ -528,7 +528,6 @@ onMounted(() => {
       <div
         v-if="modalEditarPipelineAbierto"
         class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none"
-        @click.self="modalEditarPipelineAbierto = false"
       >
         <div class="relative w-full max-w-md bg-white dark:bg-[#0c0c0e] border border-zinc-200 dark:border-white/[0.09] rounded-2xl shadow-2xl p-6 space-y-4">
           <div class="flex items-center justify-between border-b border-zinc-200 dark:border-white/[0.07] pb-3">

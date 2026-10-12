@@ -136,7 +136,7 @@ const guardarTodo = () => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop oscuro -->
-    <div @click="emit('cerrar')" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity"></div>
+    <div class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Card -->
     <div class="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col z-10 overflow-hidden text-xs">

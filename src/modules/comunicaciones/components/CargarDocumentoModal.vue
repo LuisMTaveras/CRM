@@ -441,7 +441,7 @@ const guardarPlantilla = (enviarInmediato = false) => {
 <template>
   <div v-if="abierto" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
     <!-- Backdrop oscuro con desenfoque -->
-    <div @click="emit('cerrar')" class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
+    <div class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"></div>
 
     <!-- Modal Card Amplio (Studio Container) -->
     <div class="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-5xl lg:max-w-6xl h-[90vh] flex flex-col z-10 overflow-hidden text-xs transition-colors">
