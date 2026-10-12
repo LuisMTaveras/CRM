@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { emailService } from '../services/email.service';
 import { smtpService } from '../services/smtp.service';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
@@ -23,14 +24,17 @@ import {
   UploadCloud, 
   Trash2, 
   RefreshCw,
-  Sliders,
-  Inbox
+  Sliders
 } from 'lucide-vue-next';
 import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
 
-// Pestaña principal activa: por defecto la bandeja de entrada
-const pestanaActiva = ref<'bandeja' | 'despacho'>('bandeja');
+const route = useRoute();
+
+// Modo activo determinado directamente por la ruta del menú
+const esModoDespacho = computed(() => {
+  return route.path.startsWith('/despacho') || route.query.tab === 'despacho' || route.name === 'despacho';
+});
 
 const plantillas = ref<PlantillaDocumento[]>(emailService.obtenerPlantillas());
 const historial = ref<RegistroEnvio[]>([]);
@@ -98,106 +102,81 @@ onMounted(() => {
 
 <template>
   <!-- Teleport del Encabezado hacia la Barra Superior Principal (HeaderBar) -->
-    <Teleport to="#header-portal-left">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-          <Mail class="w-5 h-5" />
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
-              Comunicaciones & Centro de Correo
-            </h1>
+  <Teleport to="#header-portal-left">
+    <div class="flex items-center gap-3 min-w-0">
+      <div
+        class="p-2 rounded-xl shrink-0 border"
+        :class="esModoDespacho ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'"
+      >
+        <Send v-if="esModoDespacho" class="w-5 h-5" />
+        <Mail v-else class="w-5 h-5" />
+      </div>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+            {{ esModoDespacho ? 'Despacho Masivo & Cotizaciones PDF' : 'Bandeja de Correo (Webmail)' }}
+          </h1>
+          <span
+            class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0"
+            :class="servidorEmailActivo ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'"
+          >
             <span
-              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0"
-              :class="servidorEmailActivo ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'"
-            >
-              <span
-                :class="[
-                  'w-1.5 h-1.5 rounded-full',
-                  servidorEmailActivo ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse' : 'bg-amber-500 dark:bg-amber-400'
-                ]"
-              ></span>
-              {{ servidorEmailActivo ? 'Servidor Activo (SMTP/IMAP)' : 'Servidor en Espera' }}
-            </span>
-          </div>
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
-            Bandeja de entrada empresarial, respuestas con firma configurada y despacho masivo
-          </p>
+              :class="[
+                'w-1.5 h-1.5 rounded-full',
+                servidorEmailActivo ? 'bg-emerald-500 dark:bg-emerald-400 animate-pulse' : 'bg-amber-500 dark:bg-amber-400'
+              ]"
+            ></span>
+            {{ servidorEmailActivo ? 'Servidor Activo (SMTP/IMAP)' : 'Servidor en Espera' }}
+          </span>
         </div>
-      </div>
-    </Teleport>
-
-    <!-- Teleport de Acciones hacia la Barra Superior -->
-    <Teleport to="#header-portal-right">
-      <div class="flex items-center gap-2">
-        <router-link
-          to="/configuracion?tab=correo"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
-          title="Abrir Configuración General de Correo, Servidores y Firma"
-        >
-          <Sliders class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span class="hidden sm:inline">Ajustes de Correo</span>
-        </router-link>
-
-        <button
-          v-if="pestanaActiva === 'despacho'"
-          type="button"
-          @click="modalCargarDocumentoAbierto = true"
-          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
-        >
-          <UploadCloud class="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-          <span>+ Cargar Word</span>
-        </button>
-
-        <button
-          v-if="pestanaActiva === 'despacho'"
-          type="button"
-          @click="abrirEnvioConPlantilla()"
-          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-sm shadow-emerald-950/20 active:scale-95"
-        >
-          <Send class="w-3.5 h-3.5" />
-          <span>Lanzar Campaña</span>
-        </button>
-      </div>
-    </Teleport>
-
-  <div class="w-full space-y-4">
-    <!-- Barra de Pestañas Principales (Segmented Control adaptativo) -->
-    <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
-      <div class="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800">
-        <button
-          type="button"
-          @click="pestanaActiva = 'bandeja'"
-          class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition"
-          :class="pestanaActiva === 'bandeja' 
-            ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-700' 
-            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
-        >
-          <Inbox class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>Bandeja de Correo (Webmail)</span>
-        </button>
-
-        <button
-          type="button"
-          @click="pestanaActiva = 'despacho'"
-          class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition"
-          :class="pestanaActiva === 'despacho' 
-            ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-700' 
-            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
-        >
-          <Send class="w-4 h-4 text-sky-600 dark:text-sky-400" />
-          <span>Despacho Masivo & Cotizaciones PDF</span>
-        </button>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
+          {{ esModoDespacho ? 'Campañas comerciales por correo, plantillas personalizadas y cotizaciones en lote' : 'Bandeja de entrada empresarial, filtros inteligentes y sincronización en tiempo real' }}
+        </p>
       </div>
     </div>
+  </Teleport>
 
-    <!-- PESTAÑA 1: BANDEJA DE CORREO (WEBMAIL CLIENT) -->
-    <div v-if="pestanaActiva === 'bandeja'" class="w-full">
+  <!-- Teleport de Acciones hacia la Barra Superior -->
+  <Teleport to="#header-portal-right">
+    <div class="flex items-center gap-2">
+      <router-link
+        to="/configuracion?tab=correo"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
+        title="Abrir Configuración General de Correo, Servidores y Firma"
+      >
+        <Sliders class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+        <span class="hidden sm:inline">Ajustes de Correo</span>
+      </router-link>
+
+      <button
+        v-if="esModoDespacho"
+        type="button"
+        @click="modalCargarDocumentoAbierto = true"
+        class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
+      >
+        <UploadCloud class="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
+        <span>+ Cargar Word</span>
+      </button>
+
+      <button
+        v-if="esModoDespacho"
+        type="button"
+        @click="abrirEnvioConPlantilla()"
+        class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-sm shadow-emerald-950/20 active:scale-95"
+      >
+        <Send class="w-3.5 h-3.5" />
+        <span>Lanzar Campaña</span>
+      </button>
+    </div>
+  </Teleport>
+
+  <div class="w-full">
+    <!-- VISTA 1: BANDEJA DE CORREO (WEBMAIL CLIENT) -->
+    <div v-if="!esModoDespacho" class="w-full">
       <BandejaCorreo />
     </div>
 
-    <!-- PESTAÑA 2: DESPACHO MASIVO & COTIZACIONES -->
+    <!-- VISTA 2: DESPACHO MASIVO & COTIZACIONES -->
     <div v-else class="space-y-5 w-full">
       <!-- Contenido Protegido con Flickerless Surface -->
       <FlickerlessSurface

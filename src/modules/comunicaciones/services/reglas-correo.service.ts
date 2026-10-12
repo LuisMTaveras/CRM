@@ -240,16 +240,35 @@ class ReglasCorreoService {
   }
 
   /**
-   * Elimina una carpeta personalizada
+   * Sincroniza la lista de carpetas locales con las persistidas en el backend
+   */
+  sincronizarCarpetasDesdeBackend(carpetas: CarpetaPersonalizada[]): void {
+    this.guardarCarpetasEnStorage(carpetas);
+  }
+
+  /**
+   * Elimina una carpeta personalizada y actualiza las reglas asociadas
    */
   eliminarCarpetaPersonalizada(id: string): boolean {
     const carpetas = this.obtenerCarpetasPersonalizadas();
     const filtradas = carpetas.filter((c) => c.id !== id);
-    if (filtradas.length !== carpetas.length) {
-      this.guardarCarpetasEnStorage(filtradas);
-      return true;
+    this.guardarCarpetasEnStorage(filtradas);
+
+    // Actualizar reglas que apuntaban a esta carpeta para que apunten a 'inbox'
+    const reglas = this.obtenerReglas();
+    let reglasModificadas = false;
+    for (const r of reglas) {
+      if (r.acciones.moverACarpeta === id) {
+        r.acciones.moverACarpeta = 'inbox';
+        r.acciones.nombreCarpetaDestino = 'Bandeja de entrada';
+        reglasModificadas = true;
+      }
     }
-    return false;
+    if (reglasModificadas) {
+      this.guardarReglasEnStorage(reglas);
+    }
+
+    return true;
   }
 
   /**

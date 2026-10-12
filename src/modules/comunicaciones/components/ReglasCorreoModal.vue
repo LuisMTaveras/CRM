@@ -8,11 +8,15 @@ import {
   Play,
   CheckCircle2,
   Folder,
+  FolderPlus,
   Star,
   Building2,
-  Sparkles
+  Sparkles,
+  AlertTriangle,
+  Loader2
 } from 'lucide-vue-next';
 import { reglasCorreoService } from '../services/reglas-correo.service';
+import { webmailService } from '../services/webmail.service';
 import type {
   ReglaCorreo,
   CampoCondicionRegla,
@@ -46,6 +50,70 @@ const carpetasPersonalizadas = ref<CarpetaPersonalizada[]>([]);
 const vistaFormulario = ref(false);
 const ejecutando = ref(false);
 const resumenEjecucion = ref<ResumenEjecucionReglas | null>(null);
+const pestanaModal = ref<'reglas' | 'carpetas'>('reglas');
+
+// Gestión de carpetas personalizadas
+const nuevaCarpetaNombre = ref('');
+const nuevaCarpetaColor = ref<CarpetaPersonalizada['color']>('indigo');
+const creandoCarpeta = ref(false);
+const carpetaAEliminarModal = ref<CarpetaPersonalizada | null>(null);
+const textoConfirmacionModal = ref('');
+const eliminandoCarpetaModal = ref(false);
+
+const solicitarEliminarCarpetaModal = (carp: CarpetaPersonalizada) => {
+  carpetaAEliminarModal.value = carp;
+  textoConfirmacionModal.value = '';
+};
+
+const confirmarEliminarCarpetaModal = async () => {
+  if (!carpetaAEliminarModal.value) return;
+  const carp = carpetaAEliminarModal.value;
+  if (textoConfirmacionModal.value.trim() !== carp.nombre.trim()) {
+    toastService.advertencia('El nombre escrito no coincide exactamente con el de la carpeta.');
+    return;
+  }
+
+  eliminandoCarpetaModal.value = true;
+  try {
+    const res = await webmailService.eliminarCarpeta(carp.id);
+    if (res.exito) {
+      reglasCorreoService.eliminarCarpetaPersonalizada(carp.id);
+      toastService.exito(res.mensaje || `Carpeta "${carp.nombre}" eliminada exitosamente.`);
+      carpetaAEliminarModal.value = null;
+      textoConfirmacionModal.value = '';
+      cargarDatos();
+      emit('reglas-actualizadas');
+    } else {
+      toastService.error(res.error || 'No se pudo eliminar la carpeta.');
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error al eliminar carpeta.';
+    toastService.error(msg);
+  } finally {
+    eliminandoCarpetaModal.value = false;
+  }
+};
+
+const crearCarpetaDirecta = async () => {
+  if (!nuevaCarpetaNombre.value.trim()) {
+    toastService.advertencia('Ingresa el nombre de la nueva carpeta.');
+    return;
+  }
+  creandoCarpeta.value = true;
+  try {
+    const c = reglasCorreoService.crearCarpetaPersonalizada(nuevaCarpetaNombre.value.trim(), nuevaCarpetaColor.value);
+    await webmailService.crearCarpeta(c.nombre, c.color);
+    toastService.exito(`Carpeta "${c.nombre}" creada y persistida exitosamente.`);
+    nuevaCarpetaNombre.value = '';
+    cargarDatos();
+    emit('reglas-actualizadas');
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error al crear la carpeta.';
+    toastService.error(msg);
+  } finally {
+    creandoCarpeta.value = false;
+  }
+};
 
 // Formulario de edición / creación
 const reglaEditandoId = ref<string | null>(null);
@@ -64,9 +132,9 @@ const formVincularCliente = ref(false);
 const formNombreCliente = ref('');
 
 const opcionesCampos: { valor: CampoCondicionRegla; etiqueta: string; ejemplo: string }[] = [
-  { valor: 'dominio_remitente', etiqueta: 'Dominio del remitente', ejemplo: 'ej. @verafeca.com o empresa.com' },
-  { valor: 'correo_remitente', etiqueta: 'Correo exacto del remitente', ejemplo: 'ej. facturas@empresa.com' },
-  { valor: 'nombre_remitente', etiqueta: 'Nombre del remitente', ejemplo: 'ej. Juan Pérez o Banco BHD' },
+  { valor: 'dominio_remitente', etiqueta: 'Dominio del remitente', ejemplo: 'ej. @cliente.com o dominio.com' },
+  { valor: 'correo_remitente', etiqueta: 'Correo exacto del remitente', ejemplo: 'ej. contacto@cliente.com' },
+  { valor: 'nombre_remitente', etiqueta: 'Nombre del remitente', ejemplo: 'ej. Nombre del remitente o contacto' },
   { valor: 'asunto_contiene', etiqueta: 'Asunto contiene palabra', ejemplo: 'ej. Factura, Cotización, Urgente' },
   { valor: 'cuerpo_contiene', etiqueta: 'Cuerpo del correo contiene', ejemplo: 'ej. Comprobante, Orden de compra' },
   { valor: 'tiene_adjuntos', etiqueta: 'Tiene archivos adjuntos', ejemplo: 'Sin valor necesario' },
@@ -180,7 +248,7 @@ const eliminarRegla = (id: string) => {
   toastService.exito('Regla eliminada exitosamente.');
 };
 
-const guardarRegla = () => {
+const guardarRegla = async () => {
   if (!formNombre.value.trim()) {
     toastService.advertencia('Por favor ingresa un nombre para la regla.');
     return;
@@ -205,6 +273,7 @@ const guardarRegla = () => {
       formNuevoNombreCarpeta.value.trim(),
       formNuevoColorCarpeta.value
     );
+    await webmailService.crearCarpeta(nueva.nombre, nueva.color);
     destinoFinal = nueva.id;
     nombreDestino = nueva.nombre;
   }
@@ -299,9 +368,32 @@ const ejecutarReglasAhora = async () => {
         </button>
       </div>
 
+      <!-- Pestañas de Navegación del Modal -->
+      <div class="px-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-6 bg-zinc-50/50 dark:bg-zinc-950/30 text-xs font-semibold">
+        <button
+          type="button"
+          @click="pestanaModal = 'reglas'; vistaFormulario = false"
+          class="py-3 border-b-2 transition flex items-center gap-2"
+          :class="pestanaModal === 'reglas' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'"
+        >
+          <SlidersHorizontal class="w-3.5 h-3.5" />
+          <span>Reglas de Enrutamiento ({{ reglas.length }})</span>
+        </button>
+
+        <button
+          type="button"
+          @click="pestanaModal = 'carpetas'; vistaFormulario = false"
+          class="py-3 border-b-2 transition flex items-center gap-2"
+          :class="pestanaModal === 'carpetas' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'"
+        >
+          <FolderPlus class="w-3.5 h-3.5" />
+          <span>Gestión de Carpetas ({{ carpetasPersonalizadas.length }})</span>
+        </button>
+      </div>
+
       <!-- Resumen de ejecución retroactiva si ocurrió -->
       <div
-        v-if="resumenEjecucion && resumenEjecucion.totalModificados > 0"
+        v-if="pestanaModal === 'reglas' && resumenEjecucion && resumenEjecucion.totalModificados > 0"
         class="mx-6 mt-4 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl flex items-start gap-3"
       >
         <CheckCircle2 class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
@@ -321,10 +413,12 @@ const ejecutarReglasAhora = async () => {
         </div>
       </div>
 
-      <!-- Cuerpo Principal: Lista vs Formulario -->
+      <!-- Cuerpo Principal: Lista vs Formulario vs Carpetas -->
       <div class="p-6 overflow-y-auto flex-1 space-y-5">
-        <!-- ==================== VISTA: LISTA DE REGLAS ==================== -->
-        <div v-if="!vistaFormulario" class="space-y-4">
+        <!-- ==================== PESTAÑA: REGLAS DE CORREO ==================== -->
+        <template v-if="pestanaModal === 'reglas'">
+          <!-- ==================== VISTA: LISTA DE REGLAS ==================== -->
+          <div v-if="!vistaFormulario" class="space-y-4">
           <!-- Barra de Acciones de la Lista -->
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -360,7 +454,7 @@ const ejecutarReglasAhora = async () => {
             <SlidersHorizontal class="w-10 h-10 text-zinc-400 mx-auto mb-3 opacity-60" />
             <h4 class="font-semibold text-sm text-zinc-800 dark:text-zinc-200">No tienes reglas configuradas</h4>
             <p class="text-xs text-zinc-500 max-w-sm mx-auto mt-1">
-              Crea tu primera regla para mover automáticamente correos de clientes como @verafeca.com a su propia carpeta.
+              Crea tu primera regla para mover automáticamente correos por cliente o palabras clave a su propia carpeta.
             </p>
             <button
               type="button"
@@ -507,7 +601,7 @@ const ejecutarReglasAhora = async () => {
             <input
               type="text"
               v-model="formNombre"
-              placeholder="ej. Organizar correos de @verafeca.com"
+              placeholder="ej. Clasificar correos de clientes prioritarios"
               class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500"
             />
           </div>
@@ -540,7 +634,7 @@ const ejecutarReglasAhora = async () => {
                   v-model="cond.campo"
                   :options="opcionesCampos.map(o => ({ value: o.valor, label: o.etiqueta }))"
                   size="sm"
-                  minWidthClass="min-w-[190px]"
+                  min-width-class="min-w-[190px]"
                 />
 
                 <!-- Operador -->
@@ -549,7 +643,7 @@ const ejecutarReglasAhora = async () => {
                   :options="opcionesOperadores.map(o => ({ value: o.valor, label: o.etiqueta }))"
                   :disabled="cond.campo === 'tiene_adjuntos'"
                   size="sm"
-                  minWidthClass="min-w-[170px]"
+                  min-width-class="min-w-[170px]"
                 />
 
                 <!-- Valor -->
@@ -627,7 +721,7 @@ const ejecutarReglasAhora = async () => {
                   <input
                     type="text"
                     v-model="formNuevoNombreCarpeta"
-                    placeholder="ej. Verafeca SRL, Cotizaciones VIP..."
+                    placeholder="ej. Clientes Prioritarios, Cotizaciones VIP..."
                     class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -693,7 +787,7 @@ const ejecutarReglasAhora = async () => {
                   <input
                     type="text"
                     v-model="formNombreCliente"
-                    placeholder="Nombre comercial o razón social en el CRM (ej. Verafeca SRL)"
+                    placeholder="Nombre comercial o razón social en el CRM (ej. Empresa Cliente SRL)"
                     class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
@@ -719,21 +813,213 @@ const ejecutarReglasAhora = async () => {
             </button>
           </div>
         </div>
-      </div>
+      </template>
 
-      <!-- Pie del Modal -->
-      <div class="px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-between text-xs text-zinc-500">
-        <div class="flex items-center gap-1.5">
-          <Sparkles class="w-3.5 h-3.5 text-indigo-500" />
-          <span>Las reglas se sincronizan con el servidor y se aplican a los correos en tiempo real.</span>
+      <!-- ==================== PESTAÑA: GESTIÓN DE CARPETAS ==================== -->
+      <div v-else-if="pestanaModal === 'carpetas'" class="space-y-6">
+        <!-- Formulario de creación de carpeta rápida -->
+        <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-4">
+          <div class="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+            <FolderPlus class="w-4 h-4 text-indigo-500" />
+            <span>Crear Nueva Carpeta Personalizada</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div class="sm:col-span-7 space-y-1">
+              <label class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                Nombre de la carpeta
+              </label>
+              <input
+                type="text"
+                v-model="nuevaCarpetaNombre"
+                placeholder="ej. Clientes Prioritarios, Facturación, Proyectos..."
+                class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 shadow-sm"
+                @keyup.enter="crearCarpetaDirecta"
+              />
+            </div>
+
+            <div class="sm:col-span-3 space-y-1">
+              <label class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                Color distintivo
+              </label>
+              <div class="flex items-center gap-1.5 pt-0.5">
+                <button
+                  v-for="col in coloresCarpeta"
+                  :key="col.valor"
+                  type="button"
+                  @click="nuevaCarpetaColor = col.valor"
+                  :class="[
+                    'w-6 h-6 rounded-full transition-transform',
+                    col.bg,
+                    nuevaCarpetaColor === col.valor ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : 'opacity-70 hover:opacity-100'
+                  ]"
+                  :title="col.etiqueta"
+                />
+              </div>
+            </div>
+
+            <div class="sm:col-span-2">
+              <button
+                type="button"
+                @click="crearCarpetaDirecta"
+                :disabled="creandoCarpeta || !nuevaCarpetaNombre.trim()"
+                class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Loader2 v-if="creandoCarpeta" class="w-3.5 h-3.5 animate-spin" />
+                <Plus v-else class="w-3.5 h-3.5" />
+                <span>Crear</span>
+              </button>
+            </div>
+          </div>
         </div>
 
+        <!-- Listado de carpetas personalizadas -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-mono">
+              Carpetas Existentes ({{ carpetasPersonalizadas.length }})
+            </h4>
+            <span class="text-[11px] text-zinc-400">
+              Eliminación protegida: no se pierden correos
+            </span>
+          </div>
+
+          <!-- Empty state -->
+          <div
+            v-if="carpetasPersonalizadas.length === 0"
+            class="text-center py-10 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-2xl p-6"
+          >
+            <Folder class="w-8 h-8 text-zinc-400 mx-auto mb-2 opacity-50" />
+            <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              No hay carpetas personalizadas todavía
+            </p>
+            <p class="text-[11px] text-zinc-500 max-w-xs mx-auto mt-0.5">
+              Crea una carpeta arriba para organizar correos por cliente o tema.
+            </p>
+          </div>
+
+          <!-- Lista de carpetas -->
+          <div v-else class="space-y-2">
+            <div
+              v-for="carp in carpetasPersonalizadas"
+              :key="carp.id"
+              class="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <div
+                  class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  :class="[
+                    carp.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                    carp.color === 'amber' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+                    carp.color === 'rose' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' :
+                    carp.color === 'purple' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' :
+                    carp.color === 'sky' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' :
+                    'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                  ]"
+                >
+                  <Folder class="w-4 h-4" />
+                </div>
+
+                <div class="min-w-0">
+                  <div class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                    {{ carp.nombre }}
+                  </div>
+                  <div class="text-[10px] text-zinc-400 flex items-center gap-2 mt-0.5">
+                    <span class="font-mono">ID: {{ carp.id }}</span>
+                    <span>•</span>
+                    <span>Reubicación segura a Bandeja de Entrada al eliminar</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                @click="solicitarEliminarCarpetaModal(carp)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition border border-transparent hover:border-rose-200 dark:hover:border-rose-500/20 shrink-0"
+                title="Eliminar carpeta con confirmación segura"
+              >
+                <Trash2 class="w-3.5 h-3.5" />
+                <span>Eliminar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pie del Modal informativo (sin botón confuso de Listo) -->
+    <div
+      v-if="!vistaFormulario"
+      class="px-6 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-between text-xs text-zinc-500"
+    >
+      <div class="flex items-center gap-1.5">
+        <Sparkles class="w-3.5 h-3.5 text-indigo-500" />
+        <span>Las reglas y carpetas se sincronizan con el servidor en tiempo real.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmación protegida de eliminación de carpeta (GitHub / Stripe style) -->
+  <div
+    v-if="carpetaAEliminarModal"
+    class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-sm"
+    @click.self="carpetaAEliminarModal = null"
+  >
+    <div
+      class="bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900/50 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4"
+    >
+      <div class="flex items-start gap-3">
+        <div class="p-2.5 rounded-xl bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
+          <AlertTriangle class="w-5 h-5" />
+        </div>
+        <div>
+          <h4 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+            Confirmación estricta de eliminación
+          </h4>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+            Esta acción eliminará la carpeta
+            <span class="font-bold text-zinc-900 dark:text-zinc-100">"{{ carpetaAEliminarModal.nombre }}"</span>.
+            <span class="text-emerald-600 dark:text-emerald-400 block mt-1 font-medium">
+              ✓ Tus correos están protegidos: todos volverán a la Bandeja de Entrada sin perderse.
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-2">
+        <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+          Para confirmar, escribe exactamente el nombre de la carpeta:
+          <span class="font-bold text-red-600 dark:text-red-400 select-all">{{ carpetaAEliminarModal.nombre }}</span>
+        </label>
+        <input
+          type="text"
+          v-model="textoConfirmacionModal"
+          :placeholder="carpetaAEliminarModal.nombre"
+          class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-red-500 font-mono"
+          @keyup.enter="confirmarEliminarCarpetaModal"
+          autofocus
+        />
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
         <button
           type="button"
-          @click="emit('close')"
-          class="font-semibold text-zinc-700 dark:text-zinc-300 hover:underline"
+          @click="carpetaAEliminarModal = null"
+          class="px-3.5 py-2 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+          :disabled="eliminandoCarpetaModal"
         >
-          Listo
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="confirmarEliminarCarpetaModal"
+          :disabled="eliminandoCarpetaModal || textoConfirmacionModal.trim() !== carpetaAEliminarModal.nombre.trim()"
+          class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <Loader2 v-if="eliminandoCarpetaModal" class="w-3.5 h-3.5 animate-spin" />
+          <Trash2 v-else class="w-3.5 h-3.5" />
+          <span>{{ eliminandoCarpetaModal ? 'Eliminando...' : 'Eliminar Carpeta' }}</span>
         </button>
       </div>
     </div>

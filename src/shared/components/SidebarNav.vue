@@ -9,6 +9,7 @@ import {
   Settings, 
   Users,
   Mail,
+  Send,
   CalendarClock
 } from 'lucide-vue-next';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
@@ -21,7 +22,8 @@ const enlaces = [
   { nombre: 'Cartera Clientes', ruta: '/clientes', icono: Building2 },
   { nombre: 'Pipeline Kanban', ruta: '/pipeline', icono: Kanban },
   { nombre: 'Agenda & Tareas', ruta: '/agenda', icono: CalendarClock },
-  { nombre: 'Envíos & Documentos', ruta: '/comunicaciones', icono: Mail },
+  { nombre: 'Bandeja de Correo', ruta: '/comunicaciones', icono: Mail },
+  { nombre: 'Despacho Masivo', ruta: '/despacho', icono: Send },
   { nombre: 'Usuarios & Roles', ruta: '/usuarios', icono: Users },
   { nombre: 'Empresa & Ajustes', ruta: '/configuracion', icono: Settings },
 ];
@@ -29,6 +31,20 @@ const enlaces = [
 const esRutaActiva = (ruta: string) => {
   if (ruta === '/') {
     return route.path === '/' || route.path === '/metricas';
+  }
+  if (ruta === '/comunicaciones') {
+    return (
+      route.path === '/comunicaciones' ||
+      route.path === '/correo' ||
+      route.path === '/webmail'
+    );
+  }
+  if (ruta === '/despacho') {
+    return (
+      route.path === '/despacho' ||
+      route.path.startsWith('/despacho') ||
+      route.path.startsWith('/comunicaciones/despacho')
+    );
   }
   return route.path === ruta || route.path.startsWith(ruta);
 };

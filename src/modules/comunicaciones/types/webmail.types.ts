@@ -32,6 +32,9 @@ export interface MensajeCorreo {
   tieneAdjuntos: boolean;
   adjuntos?: AdjuntoCorreo[];
   clienteNombreRelacionado?: string;
+  asuntoRaiz?: string;
+  totalEnHilo?: number;
+  mensajesDelHilo?: MensajeCorreo[];
 }
 
 export interface CarpetaCorreo {
@@ -39,6 +42,8 @@ export interface CarpetaCorreo {
   nombre: string;
   total: number;
   noLeidos: number;
+  color?: string;
+  esPersonalizada?: boolean;
 }
 
 export interface RespuestaMensajesPaginada {
@@ -48,6 +53,23 @@ export interface RespuestaMensajesPaginada {
   tamanoPagina: number;
   totalPaginas: number;
   noLeidos: number;
+  esBusquedaGlobal?: boolean;
+  mensajes: MensajeCorreo[];
+}
+
+export interface RespuestaNovedadesCorreo {
+  ok: boolean;
+  carpeta: string;
+  total: number;
+  noLeidos: number;
+  ultimoMensajeId: string | null;
+  ultimaFecha: string | null;
+}
+
+export interface RespuestaHiloCorreo {
+  ok: boolean;
+  asuntoRaiz: string;
+  totalMensajes: number;
   mensajes: MensajeCorreo[];
 }
 

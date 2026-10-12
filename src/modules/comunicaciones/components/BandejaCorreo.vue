@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { webmailService } from '../services/webmail.service';
 import { smtpService } from '../services/smtp.service';
 import type { 
@@ -12,8 +12,13 @@ import type {
 import RedactarCorreoModal from './RedactarCorreoModal.vue';
 import ReglasCorreoModal from './ReglasCorreoModal.vue';
 import EmailViewer from './EmailViewer.vue';
+import ModalCrearOportunidadDesdeCorreo from './ModalCrearOportunidadDesdeCorreo.vue';
+import ModalCrearActividadDesdeCorreo from './ModalCrearActividadDesdeCorreo.vue';
+import FichaClienteDrawer from './FichaClienteDrawer.vue';
 import { reglasCorreoService } from '../services/reglas-correo.service';
 import type { CarpetaPersonalizada } from '../types/reglas-correo.types';
+import type { Cliente } from '@/modules/clientes/types/cliente.types';
+import type { ActividadSeguimiento } from '@/modules/agenda/types/actividad.types';
 import { 
   Inbox, 
   Send, 
@@ -40,14 +45,19 @@ import {
   Image as ImageIcon,
   KeyRound,
   Download,
-  ExternalLink,
   FileSpreadsheet,
   FolderArchive,
   Folder,
   FolderPlus,
   SlidersHorizontal,
   Check,
-  X
+  X,
+  Kanban,
+  CalendarClock,
+  UserCheck,
+  Globe,
+  Bell,
+  GitMerge
 } from 'lucide-vue-next';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
 import { toastService } from '@/core/notifications/toast.service';
@@ -64,11 +74,26 @@ const cargando = ref(true);
 const sincronizando = ref(false);
 
 const busqueda = ref('');
+const busquedaGlobal = ref(false);
 const filtroEstado = ref<'todos' | 'noLeidos' | 'destacados' | 'conAdjuntos'>('todos');
 const pagina = ref(1);
 const limite = ref(15);
 const total = ref(0);
 const totalPaginas = ref(1);
+
+// Modales CRM y Ficha 360°
+const modalOportunidadAbierto = ref(false);
+const modalActividadAbierto = ref(false);
+const drawerClienteAbierto = ref(false);
+
+// Hilos de conversación
+const hiloMensajes = ref<MensajeCorreo[]>([]);
+const cargandoHilo = ref(false);
+const modoVerHilo = ref(false);
+
+// Sincronización silenciosa periódica
+const nuevosCorreosDetectados = ref(0);
+let intervaloNovedades: ReturnType<typeof setInterval> | null = null;
 
 // Modal Redactar / Reenviar
 const modalRedactarAbierto = ref(false);
@@ -124,8 +149,31 @@ const actualizarCuentaConfigurada = () => {
 };
 
 const cargarCarpetas = async () => {
-  carpetas.value = await webmailService.obtenerCarpetas();
-  carpetasPersonalizadas.value = reglasCorreoService.obtenerCarpetasPersonalizadas();
+  const lista = await webmailService.obtenerCarpetas();
+  carpetas.value = lista;
+
+  const persDelBackend = lista
+    .filter((c) => c.esPersonalizada)
+    .map((c) => ({
+      id: c.id,
+      nombre: c.nombre,
+      color: (c.color as CarpetaPersonalizada['color']) || 'indigo',
+      creadaEn: new Date().toISOString(),
+    }));
+
+  if (persDelBackend.length > 0) {
+    carpetasPersonalizadas.value = persDelBackend;
+    reglasCorreoService.sincronizarCarpetasDesdeBackend(persDelBackend);
+  } else {
+    carpetasPersonalizadas.value = reglasCorreoService.obtenerCarpetasPersonalizadas();
+  }
+
+  // Si la carpeta activa fue eliminada, regresar automáticamente a inbox
+  if (carpetaActiva.value !== 'inbox' && !lista.some((c) => c.id === carpetaActiva.value)) {
+    carpetaActiva.value = 'inbox';
+    pagina.value = 1;
+  }
+
   const listReglas = reglasCorreoService.obtenerReglas();
   totalReglasActivas.value = listReglas.filter((r) => r.activa).length;
 };
@@ -137,7 +185,11 @@ const cargarMensajes = async (aplicarReglas = false) => {
       carpetaActiva.value,
       pagina.value,
       limite.value,
-      busqueda.value
+      busqueda.value,
+      {
+        global: busquedaGlobal.value,
+        filtro: filtroEstado.value,
+      }
     );
     mensajes.value = resp.mensajes || [];
     total.value = resp.total || 0;
@@ -208,10 +260,12 @@ const seleccionarCarpeta = (id: CarpetaCorreoId) => {
 
 // Clientes CRM cargados para asociar emails a expedientes
 const clientesCrm = ref<Array<{ id: string; nombre: string; sector?: string; estado?: string }>>([]);
+const clientesCompletos = ref<Cliente[]>([]);
 
 const cargarClientesCrm = async () => {
   try {
     const list = await clienteService.obtenerTodosLosClientes();
+    clientesCompletos.value = list;
     clientesCrm.value = list.map((c) => ({
       id: c.id,
       nombre: c.nombre_comercial || c.razon_social,
@@ -223,10 +277,53 @@ const cargarClientesCrm = async () => {
   }
 };
 
+const clienteCompletoVinculado = computed<Cliente | null>(() => {
+  if (!mensajeSeleccionado.value) return null;
+  const remitenteCorreo = (mensajeSeleccionado.value.de.correo || '').toLowerCase().trim();
+  const remitenteNombre = (mensajeSeleccionado.value.de.nombre || '').toLowerCase().trim();
+  const textoGeneral = `${mensajeSeleccionado.value.asunto} ${remitenteNombre} ${remitenteCorreo}`.toLowerCase();
+
+  // 1. Por coincidencia de correo principal o contactos
+  for (const c of clientesCompletos.value) {
+    if (c.email && c.email.toLowerCase().trim() === remitenteCorreo) return c;
+    if (c.contactos?.some((cnt) => cnt.email && cnt.email.toLowerCase().trim() === remitenteCorreo)) {
+      return c;
+    }
+  }
+
+  // 2. Por coincidencia en razón social o nombre comercial
+  for (const c of clientesCompletos.value) {
+    const rz = (c.razon_social || '').toLowerCase();
+    const nc = (c.nombre_comercial || '').toLowerCase();
+    if (rz.length >= 4 && (remitenteNombre.includes(rz) || textoGeneral.includes(rz))) return c;
+    if (nc.length >= 4 && (remitenteNombre.includes(nc) || textoGeneral.includes(nc))) return c;
+  }
+
+  // 3. Casos por dominios conocidos (como verafeca / fergreens)
+  if (textoGeneral.includes('verafeca') || textoGeneral.includes('fergreens')) {
+    const cVerafeca = clientesCompletos.value.find(c => 
+      c.razon_social.toLowerCase().includes('verafeca') || 
+      c.razon_social.toLowerCase().includes('fergreens')
+    );
+    if (cVerafeca) return cVerafeca;
+  }
+
+  return null;
+});
+
 const clienteVinculado = computed(() => {
+  if (clienteCompletoVinculado.value) {
+    return {
+      id: clienteCompletoVinculado.value.id,
+      nombre: clienteCompletoVinculado.value.nombre_comercial || clienteCompletoVinculado.value.razon_social,
+      sector: clienteCompletoVinculado.value.sector,
+      estado: clienteCompletoVinculado.value.estado,
+    };
+  }
+
   if (!mensajeSeleccionado.value) return null;
 
-  // 1. Si ya viene con nombre explícito del backend
+  // Si ya viene con nombre explícito del backend
   if (mensajeSeleccionado.value.clienteNombreRelacionado) {
     const directMatch = clientesCrm.value.find((c) =>
       c.nombre.toLowerCase().includes(mensajeSeleccionado.value!.clienteNombreRelacionado!.toLowerCase())
@@ -236,27 +333,6 @@ const clienteVinculado = computed(() => {
       id: 'crm-detectado',
       nombre: mensajeSeleccionado.value.clienteNombreRelacionado,
       sector: 'Empresa Vinculada',
-      estado: 'activo',
-    };
-  }
-
-  // 2. Detección heurística por asunto o remitente contra los clientes registrados en el CRM
-  const textoParaBuscar = `${mensajeSeleccionado.value.asunto} ${mensajeSeleccionado.value.de.nombre} ${mensajeSeleccionado.value.de.correo}`.toLowerCase();
-  for (const c of clientesCrm.value) {
-    if (c.nombre && c.nombre.length >= 3) {
-      const nom = c.nombre.toLowerCase();
-      if (textoParaBuscar.includes(nom) || (nom.includes('4k racing') && textoParaBuscar.includes('4k racing'))) {
-        return c;
-      }
-    }
-  }
-
-  // 3. Casos comunes por dominio o remitente
-  if (textoParaBuscar.includes('verafeca') || textoParaBuscar.includes('fergreens')) {
-    return {
-      id: 'crm-verafeca',
-      nombre: 'VERAFECA S.R.L. / Portal Fergreens',
-      sector: 'Distribución & Comercio B2B',
       estado: 'activo',
     };
   }
@@ -340,50 +416,6 @@ const obtenerIconoAdjunto = (nombre: string) => {
   if (['xlsx', 'xls', 'csv'].includes(ext)) return FileSpreadsheet;
   if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return FolderArchive;
   return Paperclip;
-};
-
-const obtenerEstiloAdjunto = (nombre: string) => {
-  const ext = nombre.split('.').pop()?.toLowerCase() || '';
-  if (['pdf'].includes(ext)) {
-    return {
-      bgIcono: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-      badgeTexto: 'PDF',
-      badgeColor: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/40',
-    };
-  }
-  if (['p12', 'pem', 'crt', 'key', 'cer'].includes(ext)) {
-    return {
-      bgIcono: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-      badgeTexto: 'CERT / CLAVE',
-      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40',
-    };
-  }
-  if (['xlsx', 'xls', 'csv'].includes(ext)) {
-    return {
-      bgIcono: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-      badgeTexto: 'EXCEL / HOJA',
-      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40',
-    };
-  }
-  if (['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(ext)) {
-    return {
-      bgIcono: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
-      badgeTexto: 'IMAGEN',
-      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/40',
-    };
-  }
-  if (['zip', 'rar', '7z'].includes(ext)) {
-    return {
-      bgIcono: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
-      badgeTexto: 'COMPRIMIDO',
-      badgeColor: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/40',
-    };
-  }
-  return {
-    bgIcono: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
-    badgeTexto: ext.toUpperCase() || 'DOC',
-    badgeColor: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700',
-  };
 };
 
 const modoVistaCuerpo = ref<'html' | 'texto'>('html');
@@ -471,6 +503,60 @@ const seleccionarMensaje = async (mensaje: MensajeCorreo) => {
       mensajeSeleccionado.value.adjuntos = mensaje.adjuntos;
     }
   }
+
+  // 3. Cargar hilo cronológico de la conversación
+  cargarHiloActual(mensaje.id);
+};
+
+const cargarHiloActual = async (mensajeId: string) => {
+  cargandoHilo.value = true;
+  try {
+    const res = await webmailService.obtenerHiloConversacion(mensajeId);
+    if (res && res.ok && Array.isArray(res.mensajes)) {
+      hiloMensajes.value = res.mensajes;
+    } else {
+      hiloMensajes.value = [];
+    }
+  } catch {
+    hiloMensajes.value = [];
+  } finally {
+    cargandoHilo.value = false;
+  }
+};
+
+const onClienteCreado = async (nuevo: Cliente) => {
+  toastService.exito(`Ficha B2B creada para "${nuevo.razon_social}"`);
+  await cargarClientesCrm();
+};
+
+const onOportunidadCreada = async (_tarjetaId: string) => {
+  toastService.exito('Oportunidad registrada exitosamente en el Pipeline');
+  modalOportunidadAbierto.value = false;
+  await cargarClientesCrm();
+};
+
+const onActividadCreada = async (act: ActividadSeguimiento) => {
+  toastService.exito(`Tarea "${act.titulo}" agendada exitosamente`);
+  modalActividadAbierto.value = false;
+};
+
+const chequearNovedadesSilencioso = async () => {
+  if (sincronizando.value || cargando.value) return;
+  try {
+    const res = await webmailService.verificarNovedades(carpetaActiva.value);
+    if (res && res.ok && res.total > total.value) {
+      nuevosCorreosDetectados.value = res.total - total.value;
+    }
+  } catch {
+    // Silencioso
+  }
+};
+
+const aplicarNuevosCorreos = async () => {
+  nuevosCorreosDetectados.value = 0;
+  await cargarCarpetas();
+  await cargarMensajes();
+  toastService.info('Bandeja de correos actualizada');
 };
 
 const toggleDestacado = async (mensaje: MensajeCorreo, event?: Event) => {
@@ -628,7 +714,7 @@ const totalNoLeidos = computed(() => {
   return carpetas.value.find((c) => c.id === 'inbox')?.noLeidos || 0;
 });
 
-watch(busqueda, () => {
+watch([busqueda, busquedaGlobal], () => {
   pagina.value = 1;
   cargarMensajes();
 });
@@ -638,6 +724,9 @@ onMounted(async () => {
   await cargarClientesCrm();
   await cargarCarpetas();
   await cargarMensajes();
+
+  // Sincronización silenciosa en background cada 45 segundos
+  intervaloNovedades = setInterval(chequearNovedadesSilencioso, 45000);
 
   // Si hay cuenta IMAP configurada, intentar sincronización inicial
   const config = smtpService.obtenerConfiguracion();
@@ -653,28 +742,51 @@ onMounted(async () => {
     sincronizarCorreos(true);
   }
 });
+
+onUnmounted(() => {
+  if (intervaloNovedades) {
+    clearInterval(intervaloNovedades);
+    intervaloNovedades = null;
+  }
+});
 </script>
 
 <template>
   <div class="space-y-4 w-full">
     <!-- Barra de Control Superior Moderna (Superhuman / Linear Style) -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
-      <!-- Búsqueda rápida con botón de limpiar -->
-      <div class="relative flex-1 max-w-lg">
-        <Search class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          v-model="busqueda"
-          placeholder="Buscar correos por asunto, remitente o extracto..."
-          class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
-        />
+      <!-- Búsqueda rápida con botón de limpiar y selector global -->
+      <div class="flex items-center gap-2 flex-1 max-w-xl">
+        <div class="relative flex-1">
+          <Search class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            v-model="busqueda"
+            :placeholder="busquedaGlobal ? 'Buscar en TODAS las carpetas por asunto, cuerpo, remitente...' : `Buscar en ${nombreCarpetaActiva}...`"
+            class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
+          />
+          <button
+            v-if="busqueda"
+            type="button"
+            @click="busqueda = ''"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+          >
+            <X class="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <!-- Botón Toggle de Búsqueda Global -->
         <button
-          v-if="busqueda"
           type="button"
-          @click="busqueda = ''"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+          @click="busquedaGlobal = !busquedaGlobal"
+          class="px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border shrink-0 cursor-pointer"
+          :class="busquedaGlobal 
+            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/80 hover:bg-zinc-200 dark:hover:bg-zinc-700'"
+          :title="busquedaGlobal ? 'Búsqueda global activa: busca en todas las carpetas del servidor' : 'Hacer clic para buscar en todas las carpetas'"
         >
-          <X class="w-3.5 h-3.5" />
+          <Globe class="w-3.5 h-3.5" :class="busquedaGlobal ? 'text-white' : 'text-zinc-500'" />
+          <span class="hidden md:inline">{{ busquedaGlobal ? 'Todas las carpetas' : 'Esta carpeta' }}</span>
         </button>
       </div>
 
@@ -696,7 +808,7 @@ onMounted(async () => {
         <button
           type="button"
           @click="modalReglasAbierto = true"
-          title="Configurar reglas automáticas por dominio (@verafeca.com) o asunto"
+          title="Configurar reglas automáticas por dominio de cliente o asunto"
           class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs font-semibold transition"
         >
           <SlidersHorizontal class="w-3.5 h-3.5 text-indigo-500" />
@@ -870,7 +982,7 @@ onMounted(async () => {
               </span>
             </button>
 
-            <!-- Botón Configurar Reglas Automáticas -->
+            <!-- Botón Configurar Reglas Automáticas y Gestión de Carpetas -->
             <button
               type="button"
               @click="modalReglasAbierto = true"
@@ -878,7 +990,7 @@ onMounted(async () => {
             >
               <span class="flex items-center gap-2 min-w-0">
                 <SlidersHorizontal class="w-3.5 h-3.5 shrink-0" />
-                <span class="truncate">Administrar Reglas</span>
+                <span class="truncate">Administrar Reglas & Carpetas</span>
               </span>
               <span
                 v-if="totalReglasActivas > 0"
@@ -1001,6 +1113,24 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- Alerta flotante de nuevos correos recibidos en segundo plano -->
+        <div
+          v-if="nuevosCorreosDetectados > 0"
+          class="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 border-b border-indigo-200 dark:border-indigo-500/30 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300 animate-in fade-in duration-300 shrink-0"
+        >
+          <span class="flex items-center gap-1.5 font-semibold text-[11px]">
+            <Bell class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 animate-bounce" />
+            <span>{{ nuevosCorreosDetectados }} nuevo(s) correo(s) recibido(s)</span>
+          </span>
+          <button
+            type="button"
+            @click="aplicarNuevosCorreos"
+            class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] transition shadow-xs cursor-pointer"
+          >
+            Actualizar lista
+          </button>
+        </div>
+
         <!-- Lista scrolleable de mensajes -->
         <div class="flex-1 overflow-y-auto divide-y divide-zinc-200/80 dark:divide-zinc-800/60">
           <div v-if="cargando && mensajes.length === 0" class="p-10 text-center text-zinc-500 text-xs">
@@ -1090,7 +1220,7 @@ onMounted(async () => {
               {{ msg.extracto }}
             </p>
 
-            <!-- Badges inferiores (Cliente CRM / Adjuntos) -->
+            <!-- Badges inferiores (Cliente CRM / Hilo / Carpeta / Adjuntos) -->
             <div class="flex items-center gap-2 mt-2.5 flex-wrap">
               <span
                 v-if="msg.clienteNombreRelacionado"
@@ -1098,6 +1228,23 @@ onMounted(async () => {
               >
                 <Building2 class="w-3 h-3" />
                 <span class="truncate max-w-[150px]">{{ msg.clienteNombreRelacionado }}</span>
+              </span>
+
+              <span
+                v-if="msg.totalEnHilo && msg.totalEnHilo > 1"
+                class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20"
+                title="Respuestas en esta conversación"
+              >
+                <GitMerge class="w-3 h-3 text-indigo-500" />
+                <span>{{ msg.totalEnHilo }}</span>
+              </span>
+
+              <span
+                v-if="busquedaGlobal && msg.carpeta"
+                class="inline-flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60 font-mono"
+              >
+                <Folder class="w-2.5 h-2.5" />
+                <span>{{ nombreCarpetaDeMensaje(msg.carpeta) }}</span>
               </span>
 
               <span
@@ -1209,13 +1356,70 @@ onMounted(async () => {
                 :model-value="mensajeSeleccionado.carpeta"
                 :options="opcionesCarpetaMovimiento"
                 size="sm"
-                min-width-class="min-w-[150px]"
+                min-width-class="min-w-[130px]"
                 @change="(v) => moverACarpetaDirecto(mensajeSeleccionado, String(v))"
               />
+
+              <!-- Separador vertical sutil -->
+              <div class="h-4 w-px bg-zinc-200 dark:border-zinc-800 hidden sm:block"></div>
+
+              <!-- Acciones CRM Directas -->
+              <button
+                type="button"
+                @click="modalOportunidadAbierto = true"
+                class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                title="Crear oportunidad de venta en el Pipeline desde este correo"
+              >
+                <Kanban class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>+ Trato</span>
+              </button>
+
+              <button
+                type="button"
+                @click="modalActividadAbierto = true"
+                class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                title="Agendar tarea o reunión de seguimiento desde este correo"
+              >
+                <CalendarClock class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>+ Tarea</span>
+              </button>
+
+              <button
+                type="button"
+                @click="drawerClienteAbierto = true"
+                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                :class="clienteCompletoVinculado 
+                  ? 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-500/30' 
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'"
+                :title="clienteCompletoVinculado ? 'Abrir Ficha 360° del Cliente' : 'Registrar como nuevo cliente comercial'"
+              >
+                <UserCheck v-if="clienteCompletoVinculado" class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <UserPlus v-else class="w-3.5 h-3.5 text-zinc-500" />
+                <span>{{ clienteCompletoVinculado ? 'Ficha 360°' : 'Vincular Cliente' }}</span>
+              </button>
             </div>
 
-            <!-- Acciones secundarias (Imprimir / Fecha) -->
+            <!-- Acciones secundarias (Selector HTML/Texto, Imprimir, Fecha) -->
             <div class="flex items-center gap-2">
+              <div class="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700/80">
+                <button
+                  type="button"
+                  @click="modoVistaCuerpo = 'html'"
+                  class="px-2 py-1 rounded-md text-[11px] font-medium transition cursor-pointer"
+                  :class="modoVistaCuerpo === 'html' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+                >
+                  HTML
+                </button>
+                <button
+                  type="button"
+                  @click="modoVistaCuerpo = 'texto'"
+                  class="px-2 py-1 rounded-md text-[11px] font-medium transition cursor-pointer"
+                  :class="modoVistaCuerpo === 'texto' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+                >
+                  Texto
+                </button>
+              </div>
+
               <button
                 type="button"
                 @click="imprimir"
@@ -1224,123 +1428,101 @@ onMounted(async () => {
               >
                 <Printer class="w-4 h-4" />
               </button>
-              <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+
+              <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono hidden xl:inline">
                 {{ formatDate(mensajeSeleccionado.fecha) }}
               </span>
             </div>
           </div>
 
-          <!-- Cabecera del Mensaje (Información Esencial al Frente) -->
-          <div class="px-6 py-4.5 border-b border-zinc-200 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-950/50 shrink-0 space-y-4">
-            <!-- Título de Asunto Principal -->
-            <div class="flex items-start justify-between gap-4">
-              <h2 class="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100 leading-snug tracking-tight">
-                {{ mensajeSeleccionado.asunto }}
-              </h2>
-              <button
-                type="button"
-                @click="copiarAsunto(mensajeSeleccionado.asunto)"
-                class="p-1.5 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition shrink-0"
-                title="Copiar asunto"
-              >
-                <Copy class="w-3.5 h-3.5" />
-              </button>
-            </div>
+          <!-- Cabecera Compacta del Mensaje -->
+          <div class="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 space-y-2">
+            <!-- Fila 1: Asunto, Destacado, Carpeta, Cliente y Copiar -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <button
+                  type="button"
+                  @click="toggleDestacado(mensajeSeleccionado, $event)"
+                  class="text-zinc-400 hover:text-amber-500 transition shrink-0"
+                  :title="mensajeSeleccionado.destacado ? 'Quitar de destacados' : 'Marcar como destacado'"
+                >
+                  <Star
+                    class="w-4 h-4"
+                    :class="mensajeSeleccionado.destacado ? 'text-amber-500 fill-amber-500' : ''"
+                  />
+                </button>
 
-            <!-- Badges de Carpeta y Estado -->
-            <div class="flex items-center gap-2 flex-wrap text-xs">
-              <span
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium text-[11px] border border-zinc-200/80 dark:border-zinc-700/80"
-              >
-                <Folder class="w-3.5 h-3.5 text-indigo-500" />
-                <span>Carpeta: <strong class="text-zinc-900 dark:text-zinc-100">{{ nombreCarpetaDeMensaje(mensajeSeleccionado.carpeta) }}</strong></span>
-              </span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 leading-snug tracking-tight truncate">
+                  {{ mensajeSeleccionado.asunto }}
+                </h2>
 
-              <span
-                v-if="mensajeSeleccionado.destacado"
-                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium text-[11px] border border-amber-200/80 dark:border-amber-500/20"
-              >
-                <Star class="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span>Destacado</span>
-              </span>
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-medium text-[10px] border border-zinc-200/80 dark:border-zinc-700/80 shrink-0"
+                >
+                  <Folder class="w-3 h-3 text-indigo-500" />
+                  <span>{{ nombreCarpetaDeMensaje(mensajeSeleccionado.carpeta) }}</span>
+                </span>
 
-              <span
-                v-if="mensajeSeleccionado.tieneAdjuntos || (mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0)"
-                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-medium text-[11px] border border-indigo-200/80 dark:border-indigo-500/20"
-              >
-                <Paperclip class="w-3.5 h-3.5 text-indigo-500" />
-                <span>{{ mensajeSeleccionado.adjuntos?.length || 1 }} archivo(s) adjunto(s)</span>
-              </span>
-            </div>
-
-            <!-- EXPEDIENTE DE CLIENTE CRM DETECTADO / VINCULADO (FRONT & CENTER) -->
-            <div
-              v-if="clienteVinculado"
-              class="p-3.5 rounded-xl border border-indigo-200/80 dark:border-indigo-500/25 bg-gradient-to-r from-indigo-50/90 via-white to-indigo-50/50 dark:from-indigo-950/40 dark:via-zinc-900 dark:to-indigo-950/20 shadow-sm flex items-center justify-between gap-3 flex-wrap"
-            >
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="p-2 rounded-xl bg-indigo-600 text-white shrink-0 shadow-sm">
-                  <Building2 class="w-4 h-4" />
-                </div>
-                <div class="min-w-0">
-                  <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                    <span class="truncate">{{ clienteVinculado.nombre }}</span>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                      {{ clienteVinculado.estado === 'activo' ? 'Cliente Activo' : 'En Seguimiento' }}
-                    </span>
-                  </div>
-                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                    {{ clienteVinculado.sector || 'Cuenta Corporativa B2B' }} · Conversación trazable en CRM
-                  </div>
-                </div>
+                <router-link
+                  v-if="clienteVinculado"
+                  to="/clientes"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0 hover:bg-emerald-500/20 transition"
+                  :title="`Expediente CRM: ${clienteVinculado.nombre}`"
+                >
+                  <Building2 class="w-3 h-3 text-emerald-600" />
+                  <span class="truncate max-w-[140px]">{{ clienteVinculado.nombre }}</span>
+                </router-link>
               </div>
 
-              <div class="flex items-center gap-2 shrink-0">
+              <div class="flex items-center gap-1.5 shrink-0">
                 <button
+                  v-if="clienteVinculado"
                   type="button"
                   @click="registrarEnBitacora"
                   :disabled="registrandoEnBitacora"
-                  class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 active:scale-95 cursor-pointer"
-                  title="Registrar este correo en la bitácora del cliente"
+                  class="px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20 text-[11px] font-semibold transition flex items-center gap-1 cursor-pointer"
+                  title="Registrar en bitácora del cliente"
                 >
-                  <Check v-if="!registrandoEnBitacora" class="w-3.5 h-3.5" />
-                  <Loader2 v-else class="w-3.5 h-3.5 animate-spin" />
-                  <span>Registrar en Bitácora</span>
+                  <Check v-if="!registrandoEnBitacora" class="w-3 h-3" />
+                  <Loader2 v-else class="w-3 h-3 animate-spin" />
+                  <span>Bitácora CRM</span>
                 </button>
 
-                <router-link
-                  to="/clientes"
-                  class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition flex items-center gap-1"
-                  title="Abrir expediente del cliente"
+                <button
+                  type="button"
+                  @click="copiarAsunto(mensajeSeleccionado.asunto)"
+                  class="p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
+                  title="Copiar asunto"
                 >
-                  <span>Ver Ficha</span>
-                  <ExternalLink class="w-3 h-3" />
-                </router-link>
+                  <Copy class="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            <!-- Fila del Remitente con Avatar, Destinatarios y Seguridad -->
-            <div class="flex items-start justify-between gap-4 flex-wrap">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 font-bold flex items-center justify-center text-xs shrink-0 shadow-sm">
+            <!-- Fila 2: Remitente, Destinatario y Fecha -->
+            <div class="flex items-center justify-between gap-3 text-xs">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-500/20 font-bold flex items-center justify-center text-[11px] shrink-0">
                   {{ (mensajeSeleccionado.de.nombre || mensajeSeleccionado.de.correo).substring(0, 2).toUpperCase() }}
                 </div>
-                <div class="space-y-0.5 min-w-0">
-                  <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                <div class="min-w-0 flex items-center gap-2 flex-wrap">
+                  <span class="font-bold text-zinc-900 dark:text-zinc-100 text-xs">
                     {{ mensajeSeleccionado.de.nombre }}
-                    <span class="font-normal text-zinc-500 dark:text-zinc-400 text-[11px] ml-1">&lt;{{ mensajeSeleccionado.de.correo }}&gt;</span>
-                  </div>
-                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                    Para: <span class="text-zinc-700 dark:text-zinc-300 font-medium">{{ mensajeSeleccionado.para.map(p => p.nombre || p.correo).join(', ') }}</span>
-                  </div>
+                  </span>
+                  <span class="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                    &lt;{{ mensajeSeleccionado.de.correo }}&gt;
+                  </span>
+                  <span class="text-zinc-300 dark:text-zinc-700 hidden sm:inline">·</span>
+                  <span class="text-zinc-500 dark:text-zinc-400 text-[11px] truncate max-w-md hidden sm:inline">
+                    Para: <span class="text-zinc-700 dark:text-zinc-300">{{ mensajeSeleccionado.para.map(p => p.nombre || p.correo).join(', ') }}</span>
+                  </span>
                 </div>
               </div>
 
-              <!-- Badges de Seguridad & Certificación -->
               <div class="flex items-center gap-2 shrink-0">
-                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span class="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                   <ShieldCheck class="w-3 h-3" />
-                  <span>Cifrado SSL/TLS</span>
+                  <span>SSL</span>
                 </span>
                 <span class="text-[11px] text-zinc-400 font-mono">
                   {{ formatRelativeTime(mensajeSeleccionado.fecha) }}
@@ -1348,113 +1530,102 @@ onMounted(async () => {
               </div>
             </div>
 
-            <!-- SECCIÓN DESTACADA DE ARCHIVOS ADJUNTOS (ALTA PRIORIDAD) -->
+            <!-- Fila 3: Fila de Adjuntos horizontal compacta (si existen) -->
             <div
               v-if="mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0"
-              class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-3.5 space-y-3 shadow-sm"
+              class="flex items-center gap-2 pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800/60 flex-wrap"
             >
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
-                  <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    <Paperclip class="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                      <span>Archivos Adjuntos Disponibles</span>
-                      <span class="px-2 py-0.2 rounded-full text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold border border-zinc-200 dark:border-zinc-700">
-                        {{ mensajeSeleccionado.adjuntos.length }}
-                      </span>
-                    </div>
-                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
-                      Peso acumulado: {{ tamanoTotalAdjuntos }}
-                    </div>
-                  </div>
-                </div>
+              <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1 shrink-0">
+                <Paperclip class="w-3.5 h-3.5 text-indigo-500" />
+                <span>{{ mensajeSeleccionado.adjuntos.length }} adjunto(s) ({{ tamanoTotalAdjuntos }}):</span>
+              </span>
 
-                <button
-                  type="button"
-                  @click="descargarTodosLosAdjuntos"
-                  :disabled="descargandoTodos"
-                  class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
-                >
-                  <Loader2 v-if="descargandoTodos" class="w-3.5 h-3.5 animate-spin" />
-                  <Download v-else class="w-3.5 h-3.5" />
-                  <span>Descargar todos</span>
-                </button>
+              <div
+                v-for="att in mensajeSeleccionado.adjuntos"
+                :key="att.id"
+                @click="descargarAdjunto(att)"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-zinc-700 hover:text-indigo-600 dark:text-zinc-300 dark:hover:text-indigo-400 border border-zinc-200 dark:border-zinc-700 hover:border-indigo-300 text-xs transition cursor-pointer shadow-xs group"
+                :title="`Descargar ${att.nombre}`"
+              >
+                <component :is="obtenerIconoAdjunto(att.nombre)" class="w-3.5 h-3.5 text-zinc-400 group-hover:text-indigo-600" />
+                <span class="font-medium text-[11px] truncate max-w-[150px]">{{ att.nombre }}</span>
+                <span class="text-[10px] text-zinc-400 font-mono">({{ formatearTamanoBytes(att.tamanoBytes) }})</span>
+                <Download class="w-3 h-3 text-zinc-400 group-hover:text-indigo-600 opacity-60 group-hover:opacity-100" />
               </div>
 
-              <!-- Grilla de Tarjetas de Archivos con Descarga Inmediata -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                <div
-                  v-for="att in mensajeSeleccionado.adjuntos"
-                  :key="att.id"
-                  @click="descargarAdjunto(att)"
-                  class="group relative flex items-center justify-between gap-3 p-3 bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 hover:border-indigo-500 dark:hover:border-indigo-500/60 rounded-xl transition cursor-pointer shadow-sm hover:shadow"
-                >
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div
-                      class="size-9 rounded-lg flex items-center justify-center shrink-0 border"
-                      :class="obtenerEstiloAdjunto(att.nombre).bgIcono"
-                    >
-                      <component :is="obtenerIconoAdjunto(att.nombre)" class="w-4 h-4" />
-                    </div>
-                    <div class="min-w-0">
-                      <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition" :title="att.nombre">
-                        {{ att.nombre }}
-                      </div>
-                      <div class="flex items-center gap-2 text-[10px] text-zinc-400 font-mono mt-0.5">
-                        <span>{{ formatearTamanoBytes(att.tamanoBytes) }}</span>
-                        <span class="px-1.5 py-0.2 rounded border text-[9px] font-semibold" :class="obtenerEstiloAdjunto(att.nombre).badgeColor">
-                          {{ obtenerEstiloAdjunto(att.nombre).badgeTexto }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Botón Descargar Individual -->
-                  <button
-                    type="button"
-                    @click.stop="descargarAdjunto(att)"
-                    :disabled="descargandoAdjuntoId === att.id"
-                    class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-zinc-700 hover:text-indigo-600 dark:text-zinc-300 dark:hover:text-indigo-400 border border-zinc-200 dark:border-zinc-700 hover:border-indigo-300 text-xs font-medium transition flex items-center gap-1 shrink-0 shadow-sm"
-                    title="Descargar este archivo a tu equipo"
-                  >
-                    <Loader2 v-if="descargandoAdjuntoId === att.id" class="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                    <Download v-else class="w-3.5 h-3.5" />
-                    <span class="hidden sm:inline">Descargar</span>
-                  </button>
-                </div>
-              </div>
+              <button
+                v-if="mensajeSeleccionado.adjuntos.length > 1"
+                type="button"
+                @click="descargarTodosLosAdjuntos"
+                :disabled="descargandoTodos"
+                class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 ml-auto shrink-0"
+              >
+                <Download class="w-3 h-3" />
+                <span>Descargar todos (.zip)</span>
+              </button>
             </div>
           </div>
 
-          <!-- Cuerpo Scrolleable del Mensaje -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <!-- Barra superior del cuerpo con selector de vista (HTML / Texto) -->
-            <div class="flex items-center justify-between text-xs text-zinc-500">
-              <span class="font-medium text-zinc-400">Contenido del correo:</span>
-              <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
-                <button
-                  type="button"
-                  @click="modoVistaCuerpo = 'html'"
-                  class="px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer"
-                  :class="modoVistaCuerpo === 'html' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
-                >
-                  Vista HTML
-                </button>
-                <button
-                  type="button"
-                  @click="modoVistaCuerpo = 'texto'"
-                  class="px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer"
-                  :class="modoVistaCuerpo === 'texto' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
-                >
-                  Texto Limpio
-                </button>
-              </div>
+          <!-- Ribbon de Hilo / Conversación si hay más de 1 mensaje -->
+          <div
+            v-if="hiloMensajes.length > 1"
+            class="px-5 py-2.5 bg-indigo-50/70 dark:bg-zinc-800/60 border-b border-indigo-100 dark:border-zinc-800 flex items-center justify-between text-xs shrink-0"
+          >
+            <div class="flex items-center gap-2">
+              <GitMerge class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span class="font-bold text-zinc-900 dark:text-zinc-100">
+                Conversación en hilo ({{ hiloMensajes.length }} mensajes)
+              </span>
             </div>
+            <button
+              type="button"
+              @click="modoVerHilo = !modoVerHilo"
+              class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer text-[11px]"
+            >
+              <span>{{ modoVerHilo ? 'Ocultar historial' : 'Ver todos los intercambios' }}</span>
+            </button>
+          </div>
 
-            <!-- Contenedor del contenido -->
-            <div class="bg-zinc-50/70 dark:bg-zinc-950/60 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 shadow-inner overflow-hidden text-zinc-900 dark:text-zinc-100">
+          <!-- Historial desplegable de mensajes en el hilo -->
+          <div
+            v-if="hiloMensajes.length > 1 && modoVerHilo"
+            class="px-5 py-3 bg-zinc-50 dark:bg-zinc-950/80 border-b border-zinc-200 dark:border-zinc-800 space-y-2 max-h-56 overflow-y-auto shrink-0"
+          >
+            <div
+              v-for="msgHilo in hiloMensajes"
+              :key="msgHilo.id"
+              @click="seleccionarMensaje(msgHilo)"
+              class="p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-start justify-between gap-3"
+              :class="msgHilo.id === mensajeSeleccionado.id 
+                ? 'bg-indigo-50/90 dark:bg-zinc-800 border-indigo-400 dark:border-indigo-500 shadow-xs' 
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'"
+            >
+              <div class="min-w-0 space-y-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                    {{ msgHilo.de.nombre || msgHilo.de.correo }}
+                  </span>
+                  <span class="text-[10px] text-zinc-400 font-mono">
+                    {{ formatDate(msgHilo.fecha) }}
+                  </span>
+                  <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 uppercase font-mono">
+                    {{ nombreCarpetaDeMensaje(msgHilo.carpeta) }}
+                  </span>
+                </div>
+                <p class="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-1">
+                  {{ msgHilo.extracto }}
+                </p>
+              </div>
+              <span v-if="msgHilo.id === mensajeSeleccionado.id" class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                Leyendo ahora
+              </span>
+            </div>
+          </div>
+
+          <!-- Cuerpo Scrolleable del Mensaje (¡Visible inmediatamente arriba!) -->
+          <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+            <!-- Contenedor del contenido del correo -->
+            <div class="bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100">
               <EmailViewer
                 v-if="modoVistaCuerpo === 'html'"
                 :html="mensajeSeleccionado.cuerpoHtml"
@@ -1560,8 +1731,40 @@ onMounted(async () => {
       :abierto="modalReglasAbierto"
       :mensajes-actuales="mensajes"
       @close="modalReglasAbierto = false"
-      @reglas-actualizadas="async () => { await cargarCarpetas(); }"
+      @reglas-actualizadas="async () => { await cargarCarpetas(); await cargarMensajes(); }"
       @ejecutar-reglas="async () => { await cargarCarpetas(); await cargarMensajes(); }"
+    />
+
+    <!-- Modal para Crear Oportunidad Comercial desde Correo -->
+    <ModalCrearOportunidadDesdeCorreo
+      :abierto="modalOportunidadAbierto"
+      :mensaje="mensajeSeleccionado"
+      :cliente="clienteCompletoVinculado"
+      :todos-los-clientes="clientesCompletos"
+      @cerrar="modalOportunidadAbierto = false"
+      @creado="onOportunidadCreada"
+    />
+
+    <!-- Modal para Agendar Tarea o Actividad desde Correo -->
+    <ModalCrearActividadDesdeCorreo
+      :abierto="modalActividadAbierto"
+      :mensaje="mensajeSeleccionado"
+      :cliente="clienteCompletoVinculado"
+      :todos-los-clientes="clientesCompletos"
+      @cerrar="modalActividadAbierto = false"
+      @creado="onActividadCreada"
+    />
+
+    <!-- Drawer Lateral 360° del Cliente -->
+    <FichaClienteDrawer
+      :abierto="drawerClienteAbierto"
+      :cliente="clienteCompletoVinculado"
+      :correo-remitente="mensajeSeleccionado?.de.correo"
+      :nombre-remitente="mensajeSeleccionado?.de.nombre"
+      @update:abierto="drawerClienteAbierto = $event"
+      @cliente-creado="onClienteCreado"
+      @abrir-nueva-oportunidad="() => { drawerClienteAbierto = false; modalOportunidadAbierto = true; }"
+      @abrir-nueva-actividad="() => { drawerClienteAbierto = false; modalActividadAbierto = true; }"
     />
   </div>
 </template>

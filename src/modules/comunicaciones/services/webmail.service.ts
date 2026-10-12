@@ -3,6 +3,8 @@ import type {
   CarpetaCorreoId,
   MensajeCorreo,
   RespuestaMensajesPaginada,
+  RespuestaHiloCorreo,
+  RespuestaNovedadesCorreo,
   EnviarRespuestaInput,
   RedactarCorreoInput,
 } from '../types/webmail.types';
@@ -91,16 +93,19 @@ class WebmailService {
   }
 
   /**
-   * Obtiene la lista de correos paginados para una carpeta específica
+   * Obtiene la lista de correos paginados para una carpeta específica o búsqueda global
    */
   async obtenerMensajes(
     carpeta: CarpetaCorreoId = 'inbox',
     pagina: number = 1,
     limite: number = 20,
     busqueda: string = '',
-    sincronizar: boolean = false
+    opcionesOsync?: boolean | { global?: boolean; filtro?: 'todos' | 'noLeidos' | 'destacados' | 'conAdjuntos'; sincronizar?: boolean }
   ): Promise<RespuestaMensajesPaginada> {
     const imapConfig = smtpService.obtenerConfiguracion();
+    const sincronizar = typeof opcionesOsync === 'boolean' ? opcionesOsync : (opcionesOsync?.sincronizar ?? false);
+    const opciones = typeof opcionesOsync === 'object' ? opcionesOsync : undefined;
+
     try {
       const resp = await fetch(`${API_BASE_URL}/mensajes`, {
         method: 'POST',
@@ -112,6 +117,8 @@ class WebmailService {
           limite,
           busqueda: busqueda.trim(),
           sincronizar,
+          global: opciones?.global,
+          filtro: opciones?.filtro,
         }),
         signal: AbortSignal.timeout(15000),
       });
@@ -133,6 +140,40 @@ class WebmailService {
       noLeidos: 0,
       mensajes: [],
     };
+  }
+
+  /**
+   * Obtiene la conversación completa agrupada en hilo (mensajes concatenados)
+   */
+  async obtenerHiloConversacion(id: string): Promise<RespuestaHiloCorreo | null> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/hilo/${encodeURIComponent(id)}`, {
+        signal: AbortSignal.timeout(6000),
+      });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (err) {
+      console.warn('Error al obtener hilo:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Consulta ligera de novedades en segundo plano para sincronización silenciosa
+   */
+  async verificarNovedades(carpeta: CarpetaCorreoId = 'inbox'): Promise<RespuestaNovedadesCorreo | null> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/novedades?carpeta=${encodeURIComponent(carpeta)}`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch {
+      // fallo silencioso
+    }
+    return null;
   }
 
   /**
@@ -387,6 +428,67 @@ class WebmailService {
     setTimeout(() => {
       if (url.startsWith('blob:')) URL.revokeObjectURL(url);
     }, 2000);
+  }
+
+  /**
+   * Crea una nueva carpeta personalizada persistida en la base de datos
+   */
+  async crearCarpeta(nombre: string, color: string = 'indigo'): Promise<{ exito: boolean; carpeta?: CarpetaCorreo; error?: string }> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/carpetas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, color }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { exito: true, carpeta: data.carpeta };
+      }
+      const errJson = await resp.json().catch(() => ({}));
+      return { exito: false, error: errJson.error || 'Error al crear la carpeta.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de comunicación.';
+      return { exito: false, error: msg };
+    }
+  }
+
+  /**
+   * Elimina una carpeta personalizada y reubica sus correos a la Bandeja de entrada
+   */
+  async eliminarCarpeta(id: string): Promise<{ exito: boolean; mensaje?: string; reubicados?: number; error?: string }> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/carpetas/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { exito: true, mensaje: data.mensaje, reubicados: data.reubicados };
+      }
+      const errJson = await resp.json().catch(() => ({}));
+      return { exito: false, error: errJson.error || 'No se pudo eliminar la carpeta.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con el servidor.';
+      return { exito: false, error: msg };
+    }
+  }
+
+  /**
+   * Elimina un mensaje o lo mueve a la papelera en la base de datos
+   */
+  async eliminarMensaje(id: string): Promise<{ exito: boolean; mensaje?: string; error?: string }> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/mensajes/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { exito: true, mensaje: data.mensaje };
+      }
+      return { exito: false, error: 'Error al eliminar el mensaje.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de conexión.';
+      return { exito: false, error: msg };
+    }
   }
 }
 

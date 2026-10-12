@@ -49,6 +49,13 @@ const router = createRouter({
       path: '/comunicaciones',
       name: 'comunicaciones',
       component: ComunicacionesView,
+      alias: ['/correo', '/webmail'],
+    },
+    {
+      path: '/despacho',
+      name: 'despacho',
+      component: ComunicacionesView,
+      alias: ['/despacho-masivo', '/comunicaciones/despacho'],
     },
     {
       path: '/usuarios',

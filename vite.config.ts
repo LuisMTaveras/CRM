@@ -1,10 +1,56 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import path from 'path';
+import { spawn, type ChildProcess } from 'child_process';
+import http from 'http';
+
+function emailServerPlugin(): Plugin {
+  let emailProcess: ChildProcess | null = null;
+
+  return {
+    name: 'email-server-launcher',
+    apply: 'serve',
+    configureServer(server) {
+      // Verificar si el servidor ya está activo en el puerto 3002
+      const req = http.get('http://localhost:3002/api/email/estado', (res) => {
+        if (res.statusCode === 200) {
+          console.log('\x1b[32m✔ [Email Server] Ya se encuentra activo en http://localhost:3002\x1b[0m');
+        }
+      });
+
+      req.on('error', () => {
+        console.log('\x1b[36m🚀 [Email Server] Iniciando automáticamente servidor de correo en http://localhost:3002...\x1b[0m');
+        emailProcess = spawn(process.execPath, [path.resolve(__dirname, 'server/email-server.js')], {
+          stdio: 'inherit',
+          windowsHide: false,
+        });
+
+        emailProcess.on('error', (err) => {
+          console.error('\x1b[31m✖ [Email Server] Error al iniciar:\x1b[0m', err.message);
+        });
+      });
+
+      const detenerServidorCorreo = () => {
+        if (emailProcess && !emailProcess.killed) {
+          console.log('\x1b[33m🛑 [Email Server] Deteniendo servidor de correo...\x1b[0m');
+          try {
+            emailProcess.kill();
+          } catch {}
+          emailProcess = null;
+        }
+      };
+
+      server.httpServer?.on('close', detenerServidorCorreo);
+      process.on('exit', detenerServidorCorreo);
+      process.on('SIGINT', detenerServidorCorreo);
+      process.on('SIGTERM', detenerServidorCorreo);
+    },
+  };
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), emailServerPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -32,6 +32,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_FILE = path.join(__dirname, 'email-config.json');
 const EMPRESA_FILE = path.join(__dirname, 'empresa-config.json');
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+}
+const EMAILS_DB_FILE = path.join(DATA_DIR, 'emails-db.json');
+const CARPETAS_DB_FILE = path.join(DATA_DIR, 'carpetas-db.json');
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -209,8 +215,132 @@ function resolverConfigSmtp(req) {
   return null;
 }
 
-// ─── ALMACÉN EN MEMORIA DE CORREOS REALES (Sin correos hardcodeados) ─────────
+// ─── PERSISTENCIA DE BASE DE DATOS DE CORREOS Y CARPETAS ─────────────────────
 let correosEnMemoria = [];
+let carpetasPersonalizadasDb = [];
+
+const CARPETAS_PREDETERMINADAS = [
+  { id: 'facturacion', nombre: 'Facturación y Pagos', color: 'emerald', creadaEn: new Date().toISOString() },
+  { id: 'verafeca', nombre: 'Verafeca SRL', color: 'indigo', creadaEn: new Date().toISOString() },
+  { id: 'licitaciones', nombre: 'Licitaciones Públicas', color: 'amber', creadaEn: new Date().toISOString() },
+  { id: 'proveedores', nombre: 'Proveedores', color: 'sky', creadaEn: new Date().toISOString() },
+];
+
+function cargarCarpetasDb() {
+  try {
+    if (fs.existsSync(CARPETAS_DB_FILE)) {
+      const data = fs.readFileSync(CARPETAS_DB_FILE, 'utf8');
+      carpetasPersonalizadasDb = JSON.parse(data);
+      console.log(`[CARPETAS DB] ${carpetasPersonalizadasDb.length} carpetas personalizadas cargadas de la base de datos.`);
+    } else {
+      carpetasPersonalizadasDb = [...CARPETAS_PREDETERMINADAS];
+      fs.writeFileSync(CARPETAS_DB_FILE, JSON.stringify(carpetasPersonalizadasDb, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.warn('[CARPETAS DB] Error al leer carpetas-db.json:', err.message);
+    carpetasPersonalizadasDb = [...CARPETAS_PREDETERMINADAS];
+  }
+}
+cargarCarpetasDb();
+
+function guardarCarpetasDb() {
+  try {
+    fs.writeFileSync(CARPETAS_DB_FILE, JSON.stringify(carpetasPersonalizadasDb, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[CARPETAS DB] Error al guardar carpetas-db.json:', err.message);
+    return false;
+  }
+}
+
+function cargarCorreosDb() {
+  try {
+    if (fs.existsSync(EMAILS_DB_FILE)) {
+      const data = fs.readFileSync(EMAILS_DB_FILE, 'utf8');
+      correosEnMemoria = JSON.parse(data);
+      console.log(`[EMAILS DB] ${correosEnMemoria.length} correos cargados exitosamente de la base de datos local.`);
+    } else {
+      correosEnMemoria = [];
+      fs.writeFileSync(EMAILS_DB_FILE, JSON.stringify([], null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.warn('[EMAILS DB] Error al leer emails-db.json:', err.message);
+    correosEnMemoria = [];
+  }
+}
+cargarCorreosDb();
+
+let timerGuardadoEmails = null;
+function guardarCorreosDb(inmediato = false) {
+  const ejecutar = () => {
+    try {
+      fs.writeFileSync(EMAILS_DB_FILE, JSON.stringify(correosEnMemoria, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[EMAILS DB] Error al guardar emails-db.json:', err.message);
+    }
+  };
+  if (inmediato) {
+    if (timerGuardadoEmails) clearTimeout(timerGuardadoEmails);
+    ejecutar();
+  } else {
+    if (timerGuardadoEmails) clearTimeout(timerGuardadoEmails);
+    timerGuardadoEmails = setTimeout(ejecutar, 300);
+  }
+}
+
+function obtenerListaCarpetas() {
+  const carpetas = [
+    {
+      id: 'inbox',
+      nombre: 'Bandeja de entrada',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'inbox').length,
+      noLeidos: correosEnMemoria.filter((c) => c.carpeta === 'inbox' && !c.leido).length,
+      esPersonalizada: false,
+    },
+    {
+      id: 'enviados',
+      nombre: 'Enviados',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'enviados').length,
+      noLeidos: 0,
+      esPersonalizada: false,
+    },
+    {
+      id: 'borradores',
+      nombre: 'Borradores',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'borradores').length,
+      noLeidos: 0,
+      esPersonalizada: false,
+    },
+    {
+      id: 'archivados',
+      nombre: 'Archivados',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'archivados').length,
+      noLeidos: 0,
+      esPersonalizada: false,
+    },
+    {
+      id: 'papelera',
+      nombre: 'Papelera',
+      total: correosEnMemoria.filter((c) => c.carpeta === 'papelera').length,
+      noLeidos: 0,
+      esPersonalizada: false,
+    },
+  ];
+
+  for (const c of carpetasPersonalizadasDb) {
+    carpetas.push({
+      id: c.id,
+      nombre: c.nombre,
+      color: c.color || 'indigo',
+      creadaEn: c.creadaEn,
+      total: correosEnMemoria.filter((m) => m.carpeta === c.id).length,
+      noLeidos: correosEnMemoria.filter((m) => m.carpeta === c.id && !m.leido).length,
+      esPersonalizada: true,
+    });
+  }
+
+  return carpetas;
+}
 
 // ─── BÚSQUEDA DE MAILBOX SEGÚN CARPETA ───────────────────────────────────────
 function mapearMailbox(list, carpetaId) {
@@ -257,8 +387,8 @@ function mapearMailbox(list, carpetaId) {
   return 'INBOX';
 }
 
-// ─── LÓGICA DE SINCRONIZACIÓN IMAP REAL ──────────────────────────────────────
-async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) {
+// ─── LÓGICA DE SINCRONIZACIÓN IMAP INCREMENTAL (DELTA SYNC A BASE DE DATOS) ──
+async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limite = 35) {
   if (!config || esConfiguracionDemo(config)) {
     return {
       exito: false,
@@ -267,6 +397,10 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
       modo: 'demo',
     };
   }
+
+  // Si la carpeta solicitada es personalizada, sincronizamos la Bandeja de entrada remota
+  const esEstandar = ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'].includes(carpetaSolicitada);
+  const carpetaEfectiva = esEstandar ? carpetaSolicitada : 'inbox';
 
   const client = new ImapFlow({
     host: config.servidorImap,
@@ -278,21 +412,24 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
     },
     logger: false,
     tls: { rejectUnauthorized: false },
+    connectionTimeout: 12000,
+    socketTimeout: 20000,
   });
 
-  const mensajesSincronizados = [];
+  const mensajesNuevos = [];
+  let flagsActualizados = 0;
 
   try {
     await client.connect();
 
     const mailboxes = await client.list();
-    const mailboxTarget = mapearMailbox(mailboxes, carpetaId);
+    const mailboxTarget = mapearMailbox(mailboxes, carpetaEfectiva);
 
     if (!mailboxTarget) {
       await client.logout();
       return {
         exito: true,
-        mensaje: `No se encontró carpeta remota para "${carpetaId}" en el servidor.`,
+        mensaje: `No se encontró carpeta remota para "${carpetaEfectiva}" en el servidor.`,
         sincronizados: 0,
       };
     }
@@ -310,6 +447,22 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
           envelope: true,
           source: true,
         })) {
+          // Comprobar si ya existe en la base de datos local
+          const yaGuardado = correosEnMemoria.find((c) => c.uid === msg.uid || c.id === `msg-imap-${msg.uid}`);
+          if (yaGuardado) {
+            // Actualizar solo banderas (leído, destacado) en milisegundos
+            if (msg.flags) {
+              const nuevoLeido = msg.flags.has('\\Seen');
+              const nuevoDestacado = msg.flags.has('\\Flagged');
+              if (yaGuardado.leido !== nuevoLeido || yaGuardado.destacado !== nuevoDestacado) {
+                yaGuardado.leido = nuevoLeido;
+                yaGuardado.destacado = nuevoDestacado;
+                flagsActualizados++;
+              }
+            }
+            continue; // Saltar descarga pesada y parseo
+          }
+
           let parsed = null;
           if (msg.source) {
             try {
@@ -354,7 +507,7 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
             tamanoBytes: att.size || att.content?.length || 0,
             tipoContenido: att.contentType || 'application/octet-stream',
             base64:
-              att.content && att.content.length < 15000000
+              att.content && att.content.length < 5000000
                 ? `data:${att.contentType};base64,${att.content.toString('base64')}`
                 : undefined,
           }));
@@ -362,7 +515,7 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
           const mensajeMapeado = {
             id: `msg-imap-${msg.uid}`,
             uid: msg.uid,
-            carpeta: carpetaId,
+            carpeta: carpetaEfectiva, // Nunca corrompe las carpetas personalizadas
             de: { nombre: deNombre || deCorreo, correo: deCorreo },
             para: paraList.length > 0 ? paraList : [{ nombre: config.usuarioImap, correo: config.usuarioImap }],
             cc: ccList.length > 0 ? ccList : undefined,
@@ -377,7 +530,7 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
             adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
           };
 
-          mensajesSincronizados.push(mensajeMapeado);
+          mensajesNuevos.push(mensajeMapeado);
         }
       }
     } finally {
@@ -386,25 +539,26 @@ async function sincronizarCorreosImap(config, carpetaId = 'inbox', limite = 35) 
 
     await client.logout();
 
-    // Actualizar almacén en memoria
-    for (const msg of mensajesSincronizados) {
-      const idx = correosEnMemoria.findIndex((c) => c.id === msg.id || c.uid === msg.uid);
-      if (idx >= 0) {
-        correosEnMemoria[idx] = { ...correosEnMemoria[idx], ...msg };
-      } else {
+    // Guardar en la base de datos persistente
+    if (mensajesNuevos.length > 0) {
+      for (const msg of mensajesNuevos) {
         correosEnMemoria.unshift(msg);
       }
+      correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      guardarCorreosDb(true);
+    } else if (flagsActualizados > 0) {
+      guardarCorreosDb(true);
     }
 
-    correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-
-    console.log(`[IMAP SYNC OK] ${mensajesSincronizados.length} correos sincronizados desde ${config.usuarioImap} (Carpeta: ${carpetaId})`);
+    console.log(`[IMAP SYNC OK] ${mensajesNuevos.length} correos nuevos guardados en DB (${flagsActualizados} estados actualizados). Total en base de datos: ${correosEnMemoria.length}`);
 
     return {
       exito: true,
-      mensaje: `Sincronización completada exitosamente: ${mensajesSincronizados.length} correos obtenidos de ${config.usuarioImap}.`,
-      sincronizados: mensajesSincronizados.length,
-      carpeta: carpetaId,
+      mensaje: mensajesNuevos.length > 0
+        ? `Se guardaron ${mensajesNuevos.length} correos nuevos en la base de datos.`
+        : 'Bandeja al día: no hay correos nuevos pendientes.',
+      sincronizados: mensajesNuevos.length,
+      carpeta: carpetaSolicitada,
       modo: 'real',
     };
   } catch (err) {
@@ -439,44 +593,13 @@ app.post('/api/email/sincronizar', async (req, res) => {
   }
 
   const resultado = await sincronizarCorreosImap(config, carpeta, limite);
-
-  const carpetas = [
-    {
-      id: 'inbox',
-      nombre: 'Bandeja de entrada',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'inbox').length,
-      noLeidos: correosEnMemoria.filter((c) => c.carpeta === 'inbox' && !c.leido).length,
-    },
-    {
-      id: 'enviados',
-      nombre: 'Enviados',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'enviados').length,
-      noLeidos: 0,
-    },
-    {
-      id: 'borradores',
-      nombre: 'Borradores',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'borradores').length,
-      noLeidos: 0,
-    },
-    {
-      id: 'archivados',
-      nombre: 'Archivados',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'archivados').length,
-      noLeidos: 0,
-    },
-    {
-      id: 'papelera',
-      nombre: 'Papelera',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'papelera').length,
-      noLeidos: 0,
-    },
-  ];
+  const carpetas = obtenerListaCarpetas();
 
   res.json({
     ...resultado,
     carpetas,
     totalEnMemoria: correosEnMemoria.length,
+    totalEnDb: correosEnMemoria.length,
   });
 });
 
@@ -614,54 +737,44 @@ app.post('/api/email/probar-imap', async (req, res) => {
 });
 
 // ─── CARPETAS Y CONTADORES ───────────────────────────────────────────────────
+// ─── CARPETAS Y CONTADORES ───────────────────────────────────────────────────
 app.all(['/api/email/carpetas'], async (req, res) => {
-  const standardIds = ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'];
-  const carpetas = [
-    {
-      id: 'inbox',
-      nombre: 'Bandeja de entrada',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'inbox').length,
-      noLeidos: correosEnMemoria.filter((c) => c.carpeta === 'inbox' && !c.leido).length,
-    },
-    {
-      id: 'enviados',
-      nombre: 'Enviados',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'enviados').length,
-      noLeidos: 0,
-    },
-    {
-      id: 'borradores',
-      nombre: 'Borradores',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'borradores').length,
-      noLeidos: 0,
-    },
-    {
-      id: 'archivados',
-      nombre: 'Archivados',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'archivados').length,
-      noLeidos: 0,
-    },
-    {
-      id: 'papelera',
-      nombre: 'Papelera',
-      total: correosEnMemoria.filter((c) => c.carpeta === 'papelera').length,
-      noLeidos: 0,
-    },
-  ];
+  // Si envían POST con { nombre }, crear carpeta personalizada
+  if (req.method === 'POST' && req.body?.nombre && typeof req.body.nombre === 'string') {
+    const { nombre, color } = req.body;
+    const nombreLimpio = nombre.trim();
+    if (!nombreLimpio) {
+      return res.status(400).json({ ok: false, error: 'Nombre de carpeta requerido.' });
+    }
+    const id = nombreLimpio
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || `carpeta-${Date.now()}`;
 
-  // Carpetas personalizadas adicionales detectadas en los correos en memoria
-  const customIds = [...new Set(correosEnMemoria.map((c) => c.carpeta).filter(Boolean))].filter(
-    (id) => !standardIds.includes(id)
-  );
-  for (const cid of customIds) {
-    carpetas.push({
-      id: cid,
-      nombre: cid.charAt(0).toUpperCase() + cid.slice(1),
-      total: correosEnMemoria.filter((c) => c.carpeta === cid).length,
-      noLeidos: correosEnMemoria.filter((c) => c.carpeta === cid && !c.leido).length,
+    let existente = carpetasPersonalizadasDb.find((c) => c.id === id);
+    if (!existente) {
+      existente = {
+        id,
+        nombre: nombreLimpio,
+        color: color || 'indigo',
+        creadaEn: new Date().toISOString(),
+      };
+      carpetasPersonalizadasDb.push(existente);
+      guardarCarpetasDb();
+    }
+
+    return res.json({
+      ok: true,
+      carpeta: existente,
+      carpetas: obtenerListaCarpetas(),
+      mensaje: `Carpeta "${existente.nombre}" creada y persistida exitosamente.`,
     });
   }
 
+  const carpetas = obtenerListaCarpetas();
   res.json({
     ok: true,
     carpetas,
@@ -671,43 +784,270 @@ app.all(['/api/email/carpetas'], async (req, res) => {
   });
 });
 
-// ─── LISTAR MENSAJES PAGINADOS (Bandeja / Carpetas) ──────────────────────────
+// ─── CREAR CARPETA PERSONALIZADA DIRECTAMENTE ────────────────────────────────
+app.post(['/api/email/carpetas/crear'], (req, res) => {
+  const { nombre, color } = req.body || {};
+  const nombreLimpio = (nombre || '').trim();
+  if (!nombreLimpio) {
+    return res.status(400).json({ ok: false, error: 'El nombre de la carpeta es requerido.' });
+  }
+
+  const id = nombreLimpio
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || `carpeta-${Date.now()}`;
+
+  let existente = carpetasPersonalizadasDb.find((c) => c.id === id);
+  if (!existente) {
+    existente = {
+      id,
+      nombre: nombreLimpio,
+      color: color || 'indigo',
+      creadaEn: new Date().toISOString(),
+    };
+    carpetasPersonalizadasDb.push(existente);
+    guardarCarpetasDb();
+  }
+
+  res.json({
+    ok: true,
+    carpeta: existente,
+    carpetas: obtenerListaCarpetas(),
+    mensaje: `Carpeta "${existente.nombre}" guardada exitosamente en la base de datos.`,
+  });
+});
+
+// ─── ELIMINAR CARPETA PERSONALIZADA (REUBICANDO CORREOS A BANDEJA) ───────────
+app.delete('/api/email/carpetas/:id', (req, res) => {
+  const { id } = req.params;
+  const standardIds = ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'];
+
+  if (standardIds.includes(id.toLowerCase())) {
+    return res.status(400).json({
+      ok: false,
+      error: 'No se pueden eliminar las carpetas principales del sistema.',
+    });
+  }
+
+  const idx = carpetasPersonalizadasDb.findIndex((c) => c.id === id);
+  if (idx === -1) {
+    // Si no está en la lista de carpetas pero hay correos con esa carpeta, aún así reubicar
+    let reubicados = 0;
+    for (const c of correosEnMemoria) {
+      if (c.carpeta === id) {
+        c.carpeta = 'inbox';
+        reubicados++;
+      }
+    }
+    if (reubicados > 0) guardarCorreosDb(true);
+    return res.json({
+      ok: true,
+      mensaje: `Carpeta eliminada y ${reubicados} correo(s) reubicados en Bandeja.`,
+      carpetas: obtenerListaCarpetas(),
+      reubicados,
+    });
+  }
+
+  const [eliminada] = carpetasPersonalizadasDb.splice(idx, 1);
+  guardarCarpetasDb();
+
+  // Reubicar todos los correos que pertenecían a esta carpeta a la Bandeja de entrada
+  let reubicados = 0;
+  for (const c of correosEnMemoria) {
+    if (c.carpeta === id) {
+      c.carpeta = 'inbox';
+      reubicados++;
+    }
+  }
+
+  if (reubicados > 0) {
+    guardarCorreosDb(true);
+  }
+
+  console.log(`[CARPETAS DB] Carpeta "${eliminada.nombre}" (${id}) eliminada. ${reubicados} correos reubicados a inbox.`);
+
+  res.json({
+    ok: true,
+    mensaje: `Carpeta "${eliminada.nombre}" eliminada exitosamente. ${reubicados} correo(s) se movieron a la Bandeja de entrada.`,
+    reubicados,
+    carpetaId: id,
+    carpetas: obtenerListaCarpetas(),
+  });
+});
+
+// ─── ELIMINAR MENSAJE (O MOVER A PAPELERA) ───────────────────────────────────
+app.delete('/api/email/mensajes/:id', (req, res) => {
+  const { id } = req.params;
+  const idx = correosEnMemoria.findIndex((c) => c.id === id || String(c.uid) === id);
+
+  if (idx === -1) {
+    return res.status(404).json({ ok: false, error: 'Mensaje de correo no encontrado.' });
+  }
+
+  const msg = correosEnMemoria[idx];
+  // Si ya está en la papelera, eliminación definitiva
+  if (msg.carpeta === 'papelera') {
+    correosEnMemoria.splice(idx, 1);
+    guardarCorreosDb(true);
+    return res.json({
+      ok: true,
+      mensaje: 'Mensaje eliminado definitivamente de la base de datos.',
+      eliminadoDefinitivo: true,
+      id,
+    });
+  }
+
+  // Si no está en papelera, mover a papelera
+  msg.carpeta = 'papelera';
+  guardarCorreosDb(true);
+
+  res.json({
+    ok: true,
+    mensaje: 'Mensaje movido a la papelera.',
+    eliminadoDefinitivo: false,
+    id,
+    carpeta: 'papelera',
+  });
+});
+
+// ─── UTILIDAD: NORMALIZAR RAÍZ DE ASUNTO PARA HILOS ─────────────────────────
+function normalizarRaizAsunto(asunto) {
+  if (!asunto) return '';
+  return asunto
+    .replace(/^(\s*(re|rv|fwd|fw)\s*:\s*)+/gi, '')
+    .trim();
+}
+
+// ─── NOVEDADES RÁPIDAS (Polling Ligero en Segundo Plano) ─────────────────────
+app.get('/api/email/novedades', (req, res) => {
+  const carpeta = (req.query.carpeta || 'inbox').toLowerCase();
+  const enCarpeta = correosEnMemoria.filter((c) => c.carpeta === carpeta);
+  const noLeidos = enCarpeta.filter((c) => !c.leido).length;
+  const masReciente = enCarpeta[0] || null;
+
+  res.json({
+    ok: true,
+    carpeta,
+    total: enCarpeta.length,
+    noLeidos,
+    ultimoMensajeId: masReciente?.id || null,
+    ultimaFecha: masReciente?.fecha || null,
+  });
+});
+
+// ─── OBTENER HILO COMPLETO DE CONVERSACIÓN ──────────────────────────────────
+app.get('/api/email/hilo/:id', (req, res) => {
+  const { id } = req.params;
+  const msgOriginal = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
+
+  if (!msgOriginal) {
+    return res.status(404).json({ ok: false, error: 'Mensaje original no encontrado' });
+  }
+
+  const raiz = normalizarRaizAsunto(msgOriginal.asunto).toLowerCase();
+  const participantes = [
+    msgOriginal.de?.correo?.toLowerCase(),
+    ...(msgOriginal.para || []).map((p) => p.correo?.toLowerCase()),
+  ].filter(Boolean);
+
+  // Encontrar todos los mensajes con la misma raíz de asunto y al menos 1 participante en común
+  const mensajesHilo = correosEnMemoria.filter((c) => {
+    const raizC = normalizarRaizAsunto(c.asunto).toLowerCase();
+    if (raizC !== raiz) return false;
+
+    const partC = [
+      c.de?.correo?.toLowerCase(),
+      ...(c.para || []).map((p) => p.correo?.toLowerCase()),
+    ].filter(Boolean);
+
+    return participantes.some((p) => partC.includes(p));
+  });
+
+  // Orden cronológico para lectura natural de conversación
+  mensajesHilo.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+  res.json({
+    ok: true,
+    asuntoRaiz: normalizarRaizAsunto(msgOriginal.asunto),
+    totalMensajes: mensajesHilo.length,
+    mensajes: mensajesHilo,
+  });
+});
+
+// ─── LISTAR MENSAJES PAGINADOS (Bandeja / Carpetas / Búsqueda Global) ───────
 app.all(['/api/email/mensajes'], async (req, res) => {
   const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
   const carpeta = (params.carpeta || 'inbox').toLowerCase();
   const pagina = parseInt(params.pagina || '1');
   const limite = parseInt(params.limite || '20');
   const busqueda = (params.busqueda || '').toLowerCase().trim();
+  const esBusquedaGlobal = params.global === 'true' || carpeta === 'todas';
+  const filtro = params.filtro || 'todos'; // todos | noLeidos | destacados | conAdjuntos
 
-  // Si se solicita sincronización explícita o la memoria está vacía y hay credenciales válidas
+  // Si se solicita sincronización explícita
   const config = resolverConfigImap(req);
   if (params.sincronizar === 'true' && config && !esConfiguracionDemo(config)) {
     try {
-      await sincronizarCorreosImap(config, carpeta, Math.max(limite * 2, 40));
+      await sincronizarCorreosImap(config, carpeta === 'todas' ? 'inbox' : carpeta, Math.max(limite * 2, 40));
     } catch (e) {
       console.warn('[AUTO SYNC WARN]', e.message);
     }
   }
 
-  let filtrados = correosEnMemoria.filter((c) => c.carpeta === carpeta);
+  // Filtrar por carpeta o global
+  let filtrados = esBusquedaGlobal 
+    ? [...correosEnMemoria] 
+    : correosEnMemoria.filter((c) => c.carpeta === carpeta);
 
+  // Filtro adicional de estado
+  if (filtro === 'noLeidos') {
+    filtrados = filtrados.filter((c) => !c.leido);
+  } else if (filtro === 'destacados') {
+    filtrados = filtrados.filter((c) => !!c.destacado);
+  } else if (filtro === 'conAdjuntos') {
+    filtrados = filtrados.filter((c) => c.tieneAdjuntos || (c.adjuntos && c.adjuntos.length > 0));
+  }
+
+  // Búsqueda profunda en asunto, remitente, destinatarios, extracto y cuerpo
   if (busqueda) {
-    filtrados = filtrados.filter(
-      (c) =>
-        c.asunto.toLowerCase().includes(busqueda) ||
-        (c.de?.nombre || '').toLowerCase().includes(busqueda) ||
-        (c.de?.correo || '').toLowerCase().includes(busqueda) ||
-        (c.extracto || '').toLowerCase().includes(busqueda)
-    );
+    filtrados = filtrados.filter((c) => {
+      const enAsunto = (c.asunto || '').toLowerCase().includes(busqueda);
+      const enDeNombre = (c.de?.nombre || '').toLowerCase().includes(busqueda);
+      const enDeCorreo = (c.de?.correo || '').toLowerCase().includes(busqueda);
+      const enPara = (c.para || []).some(
+        (p) => (p.nombre || '').toLowerCase().includes(busqueda) || (p.correo || '').toLowerCase().includes(busqueda)
+      );
+      const enExtracto = (c.extracto || '').toLowerCase().includes(busqueda);
+      const enCuerpo = (c.cuerpoTexto || '').toLowerCase().includes(busqueda);
+
+      return enAsunto || enDeNombre || enDeCorreo || enPara || enExtracto || enCuerpo;
+    });
   }
 
   filtrados.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-  const total = filtrados.length;
+  // Añadir metadatos de hilo calculados
+  const enriquecidos = filtrados.map((c) => {
+    const raiz = normalizarRaizAsunto(c.asunto);
+    const totalEnHilo = correosEnMemoria.filter(
+      (m) => normalizarRaizAsunto(m.asunto).toLowerCase() === raiz.toLowerCase()
+    ).length;
+    return {
+      ...c,
+      asuntoRaiz: raiz,
+      totalEnHilo,
+    };
+  });
+
+  const total = enriquecidos.length;
   const totalPaginas = Math.ceil(total / limite) || 1;
   const inicio = (pagina - 1) * limite;
-  const paginados = filtrados.slice(inicio, inicio + limite);
-  const noLeidos = correosEnMemoria.filter((c) => c.carpeta === carpeta && !c.leido).length;
+  const paginados = enriquecidos.slice(inicio, inicio + limite);
+  const noLeidos = (esBusquedaGlobal ? correosEnMemoria : correosEnMemoria.filter((c) => c.carpeta === carpeta))
+    .filter((c) => !c.leido).length;
 
   res.json({
     ok: true,
@@ -716,6 +1056,7 @@ app.all(['/api/email/mensajes'], async (req, res) => {
     tamanoPagina: limite,
     totalPaginas,
     noLeidos,
+    esBusquedaGlobal,
     mensajes: paginados,
   });
 });
@@ -729,7 +1070,10 @@ app.get('/api/email/mensajes/:id', (req, res) => {
     return res.status(404).json({ ok: false, error: 'Mensaje de correo no encontrado.' });
   }
 
-  mensaje.leido = true;
+  if (!mensaje.leido) {
+    mensaje.leido = true;
+    guardarCorreosDb();
+  }
 
   res.json({
     ok: true,
@@ -790,6 +1134,8 @@ app.patch('/api/email/mensajes/:id', async (req, res) => {
     mensaje.carpeta = carpeta.toLowerCase().trim();
   }
 
+  guardarCorreosDb(true);
+
   // Si tiene UID y configuración IMAP real, sincronizar flag al servidor remoto
   if (mensaje.uid && configuracionActiva && !esConfiguracionDemo(configuracionActiva)) {
     try {
@@ -845,6 +1191,10 @@ app.post('/api/email/mensajes/lote/mover', (req, res) => {
     }
   }
 
+  if (actualizados > 0) {
+    guardarCorreosDb(true);
+  }
+
   res.json({
     ok: true,
     actualizados,
@@ -855,9 +1205,10 @@ app.post('/api/email/mensajes/lote/mover', (req, res) => {
 // ─── LIMPIAR MEMORIA DE CORREOS (REINICIO DESDE CERO) ─────────────────────────
 app.post(['/api/email/limpiar-memoria', '/api/email/vaciar'], (_req, res) => {
   correosEnMemoria = [];
+  guardarCorreosDb(true);
   res.json({
     ok: true,
-    mensaje: 'Bandeja y memoria de correos vaciada exitosamente para empezar desde 0.',
+    mensaje: 'Bandeja y base de datos de correos vaciada exitosamente para empezar desde 0.',
     totalCorreos: 0,
   });
 });
@@ -957,6 +1308,7 @@ app.post('/api/email/responder', async (req, res) => {
   };
 
   correosEnMemoria.unshift(mensajeEnviado);
+  guardarCorreosDb(true);
 
   res.json({
     exito: true,
@@ -1042,6 +1394,7 @@ app.post('/api/email/redactar', async (req, res) => {
   };
 
   correosEnMemoria.unshift(mensajeEnviado);
+  guardarCorreosDb(true);
 
   res.json({
     exito: true,
@@ -1260,7 +1613,7 @@ function traducirErrorSmtp(code, mensaje) {
 }
 
 // ─── START ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\n🚀 CRM Email Server activo en http://localhost:${PORT}`);
   console.log(`   GET   /api/email/estado          → Health check`);
   console.log(`   POST  /api/email/configuracion   → Guardar configuración`);
@@ -1271,4 +1624,12 @@ app.listen(PORT, () => {
   console.log(`   POST  /api/email/redactar        → Redactar nuevo correo`);
   console.log(`   POST  /api/email/probar-conexion → Test SMTP handshake`);
   console.log(`   POST  /api/email/probar-imap     → Test IMAP handshake\n`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`⚠️  [EMAIL SERVER] El puerto ${PORT} ya está en uso. Otra instancia ya se encuentra activa.`);
+  } else {
+    console.error('❌ [EMAIL SERVER] Error inesperado en el servidor:', err);
+  }
 });

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "email-server": "node server/email-server.js",
+    "server:email": "node server/email-server.js",
+    "dev:email": "node server/email-server.js",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
