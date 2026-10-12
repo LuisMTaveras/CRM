@@ -89,7 +89,7 @@ const resolverColorTipo = (tipo: TipoEventoTimeline) => {
     case 'cambio_etapa':
       return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
     case 'tarea':
-      return 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20';
+      return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20';
     case 'nota':
     default:
       return 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20';

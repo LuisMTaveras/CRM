@@ -35,7 +35,8 @@ import {
   BellRing,
   Check,
   List,
-  Kanban
+  Kanban,
+  X
 } from 'lucide-vue-next';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
@@ -223,103 +224,28 @@ const esDeHoy = (act: ActividadSeguimiento) => {
 <template>
   <!-- Teleport del Encabezado hacia la Barra Superior (HeaderBar) -->
   <Teleport to="#header-portal-left">
-    <div class="flex items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
-          <CalendarClock class="w-4 h-4" />
-        </span>
-        <h1 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
-          Agenda Comercial & Next Steps
-        </h1>
-
-        <!-- Badge Destacado de Tareas para Hoy -->
-        <span
-          v-if="metricas.pendientesHoy > 0"
-          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
-          title="Tareas y compromisos comerciales programados para hoy"
-        >
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-          <span>{{ metricas.pendientesHoy }} {{ metricas.pendientesHoy === 1 ? 'para hoy' : 'para hoy' }}</span>
-        </span>
-      </div>
-
-      <span class="text-zinc-300 dark:text-zinc-700 hidden sm:inline">/</span>
-
-      <!-- Conmutador de Vistas: Lista / Tablero / Calendario -->
-      <div class="inline-flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-white/[0.08] shadow-xs shrink-0">
-        <button
-          type="button"
-          @click="vistaActiva = 'lista'"
-          :class="[
-            vistaActiva === 'lista'
-              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
-          ]"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
-          title="Vista Lista"
-        >
-          <List class="w-3.5 h-3.5" />
-          <span class="hidden md:inline">Lista</span>
-        </button>
-
-        <button
-          type="button"
-          @click="vistaActiva = 'tablero'"
-          :class="[
-            vistaActiva === 'tablero'
-              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
-            ]"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
-          title="Vista Tablero Kanban"
-        >
-          <Kanban class="w-3.5 h-3.5" />
-          <span class="hidden md:inline">Tablero</span>
-        </button>
-
-        <button
-          type="button"
-          @click="vistaActiva = 'calendario'"
-          :class="[
-            vistaActiva === 'calendario'
-              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
-          ]"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
-          title="Vista Calendario"
-        >
-          <Calendar class="w-3.5 h-3.5" />
-          <span class="hidden md:inline">Calendario</span>
-        </button>
-      </div>
-
-      <!-- Badge de Total Actividades -->
-      <span class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] shrink-0">
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-        {{ actividades.length }} Actividades
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+        <CalendarClock class="w-5 h-5" />
       </span>
-    </div>
-  </Teleport>
-
-  <!-- Teleport de Acciones hacia la Barra Superior -->
-  <Teleport to="#header-portal-right">
-    <div class="flex items-center gap-2">
-      <button
-        @click="sincronizarAlertasManual"
-        title="Verificar y sincronizar recordatorios en el Centro de Notificaciones"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition shadow-sm"
-      >
-        <BellRing class="w-3.5 h-3.5 text-zinc-500" />
-        <span class="hidden sm:inline">Sincronizar Alertas</span>
-      </button>
-
-      <button
-        @click="abrirModalNueva"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition active:scale-95 shadow-indigo-950/20"
-      >
-        <Plus class="w-3.5 h-3.5" />
-        <span>Nueva Actividad</span>
-      </button>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+            Agenda Comercial & Next Steps
+          </h1>
+          <span
+            v-if="metricas.pendientesHoy > 0"
+            class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
+            title="Tareas y compromisos comerciales programados para hoy"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            {{ metricas.pendientesHoy }} para hoy
+          </span>
+        </div>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
+          Gestión de llamadas, reuniones presenciales, visitas técnicas y tareas con clientes
+        </p>
+      </div>
     </div>
   </Teleport>
 
@@ -396,64 +322,148 @@ const esDeHoy = (act: ActividadSeguimiento) => {
       </div>
     </div>
 
-    <!-- Barra de Filtros y Búsqueda -->
-    <div class="bg-white dark:bg-zinc-900/70 p-3 rounded-2xl border border-zinc-200 dark:border-white/[0.06] flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-      <!-- Pestañas de Rango de Fecha -->
-      <div class="flex items-center gap-1 overflow-x-auto w-full md:w-auto p-1 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-white/[0.04]">
-        <button
-          v-for="r in [
-            { id: 'todas', label: 'Todas' },
-            { id: 'hoy', label: 'Hoy' },
-            { id: 'vencidas', label: 'Vencidas' },
-            { id: 'esta_semana', label: 'Esta Semana' },
-            { id: 'completadas', label: 'Completadas' }
-          ]"
-          :key="r.id"
-          @click="rangoSeleccionado = r.id as RangoFiltroFecha"
-          class="px-3 py-1.5 rounded-lg font-medium transition inline-flex items-center gap-1.5"
-          :class="rangoSeleccionado === r.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
-        >
-          <span v-if="r.id === 'hoy' && metricas.pendientesHoy > 0" class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-          <span>{{ r.label }}</span>
-          <span
-            v-if="r.id === 'hoy' && metricas.pendientesHoy > 0"
-            class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono"
+    <!-- Barra de Herramientas, Búsqueda, Filtros y Vistas -->
+    <div class="bg-white dark:bg-zinc-900/70 p-3 rounded-2xl border border-zinc-200 dark:border-white/[0.06] flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 text-xs shadow-sm">
+      <!-- LADO IZQUIERDO: Búsqueda PRIMERO + Filtros de Selección + Pestañas de Fecha -->
+      <div class="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+        <!-- 1. BUSCADOR PRIMERO -->
+        <div class="relative w-full sm:w-64 md:w-72 shrink-0">
+          <Search class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            v-model="busquedaTexto"
+            type="text"
+            placeholder="Buscar por cliente, título o notas..."
+            class="w-full pl-8 pr-7 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <button
+            v-if="busquedaTexto"
+            @click="busquedaTexto = ''"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+            title="Limpiar búsqueda"
           >
-            {{ metricas.pendientesHoy }}
-          </span>
-        </button>
-      </div>
+            <X class="w-3 h-3" />
+          </button>
+        </div>
 
-      <!-- Filtros de Tipo, Prioridad y Búsqueda -->
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <!-- Filtro por Tipo -->
+        <!-- 2. Filtro por Tipo -->
         <AppSelect
           v-model="tipoSeleccionado"
           :options="opcionesTipo"
           labelPrefix="Tipo:"
           size="sm"
-          minWidthClass="min-w-[160px]"
+          minWidthClass="min-w-[150px]"
         />
 
-        <!-- Filtro por Prioridad -->
+        <!-- 3. Filtro por Prioridad -->
         <AppSelect
           v-model="prioridadSeleccionada"
           :options="opcionesPrioridad"
           labelPrefix="Prioridad:"
           size="sm"
-          minWidthClass="min-w-[170px]"
+          minWidthClass="min-w-[160px]"
         />
 
-        <!-- Buscador -->
-        <div class="relative flex-1 md:w-60">
-          <Search class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-          <input
-            v-model="busquedaTexto"
-            type="text"
-            placeholder="Buscar por cliente o título..."
-            class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.08] rounded-xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
+        <!-- 4. Pestañas de Rango de Fecha -->
+        <div class="flex items-center gap-1 overflow-x-auto p-0.5 bg-zinc-100 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-white/[0.04]">
+          <button
+            v-for="r in [
+              { id: 'todas', label: 'Todas' },
+              { id: 'hoy', label: 'Hoy' },
+              { id: 'vencidas', label: 'Vencidas' },
+              { id: 'esta_semana', label: 'Esta Semana' },
+              { id: 'completadas', label: 'Completadas' }
+            ]"
+            :key="r.id"
+            @click="rangoSeleccionado = r.id as RangoFiltroFecha"
+            class="px-2.5 py-1 rounded-lg font-medium transition inline-flex items-center gap-1 text-xs"
+            :class="rangoSeleccionado === r.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xs' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
+          >
+            <span v-if="r.id === 'hoy' && metricas.pendientesHoy > 0" class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span>{{ r.label }}</span>
+            <span
+              v-if="r.id === 'hoy' && metricas.pendientesHoy > 0"
+              class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono"
+            >
+              {{ metricas.pendientesHoy }}
+            </span>
+          </button>
         </div>
+      </div>
+
+      <!-- LADO DERECHO: Conmutador de Vistas + Badge Contador + Acciones Principales -->
+      <div class="flex flex-wrap items-center gap-2 shrink-0 pt-2 xl:pt-0 border-t xl:border-t-0 border-zinc-200 dark:border-white/[0.05]">
+        <!-- Conmutador de Vistas: Lista | Tablero | Calendario -->
+        <div class="inline-flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-950/80 border border-zinc-200 dark:border-white/[0.08] shadow-xs">
+          <button
+            type="button"
+            @click="vistaActiva = 'lista'"
+            :class="[
+              vistaActiva === 'lista'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition"
+            title="Vista Lista"
+          >
+            <List class="w-3.5 h-3.5" />
+            <span>Lista</span>
+          </button>
+
+          <button
+            type="button"
+            @click="vistaActiva = 'tablero'"
+            :class="[
+              vistaActiva === 'tablero'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition"
+            title="Vista Tablero Kanban"
+          >
+            <Kanban class="w-3.5 h-3.5" />
+            <span>Tablero</span>
+          </button>
+
+          <button
+            type="button"
+            @click="vistaActiva = 'calendario'"
+            :class="[
+              vistaActiva === 'calendario'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition"
+            title="Vista Calendario"
+          >
+            <Calendar class="w-3.5 h-3.5" />
+            <span>Calendario</span>
+          </button>
+        </div>
+
+        <!-- Badge de Total Actividades -->
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          {{ actividades.length }} Actividades
+        </span>
+
+        <!-- Botón Sincronizar Alertas -->
+        <button
+          @click="sincronizarAlertasManual"
+          title="Verificar y sincronizar recordatorios en el Centro de Notificaciones"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition shadow-sm"
+        >
+          <BellRing class="w-3.5 h-3.5 text-zinc-500" />
+          <span class="hidden sm:inline">Sincronizar Alertas</span>
+        </button>
+
+        <!-- Botón Nueva Actividad -->
+        <button
+          @click="abrirModalNueva"
+          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition active:scale-95 shadow-indigo-950/20"
+        >
+          <Plus class="w-3.5 h-3.5" />
+          <span>Nueva Actividad</span>
+        </button>
       </div>
     </div>
 

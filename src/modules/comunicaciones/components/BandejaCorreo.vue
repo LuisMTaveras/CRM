@@ -128,8 +128,8 @@ const obtenerColorPuntoCarpeta = (color?: string) => {
     case 'amber': return 'bg-amber-500';
     case 'rose': return 'bg-rose-500';
     case 'purple': return 'bg-purple-500';
-    case 'sky': return 'bg-sky-500';
-    case 'teal': return 'bg-teal-500';
+    case 'sky':
+    case 'teal': return 'bg-sky-500';
     default: return 'bg-indigo-500';
   }
 };
