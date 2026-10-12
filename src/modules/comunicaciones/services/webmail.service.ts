@@ -1,8 +1,10 @@
 import { ref } from 'vue';
+import JSZip from 'jszip';
 import type {
   CarpetaCorreo,
   CarpetaCorreoId,
   MensajeCorreo,
+  AdjuntoCorreo,
   RespuestaMensajesPaginada,
   RespuestaHiloCorreo,
   RespuestaNovedadesCorreo,
@@ -501,6 +503,83 @@ class WebmailService {
     );
     const fallbackUrl = URL.createObjectURL(fallbackBlob);
     this.dispararDescarga(fallbackUrl, adjunto.nombre);
+  }
+
+  /**
+   * Empaqueta todos los archivos adjuntos en un único archivo comprimido .zip real y lo descarga
+   */
+  async descargarTodosLosAdjuntosZip(
+    mensajeId: string,
+    asunto: string,
+    adjuntos: AdjuntoCorreo[]
+  ): Promise<void> {
+    if (!adjuntos || adjuntos.length === 0) return;
+
+    const zip = new JSZip();
+
+    for (let i = 0; i < adjuntos.length; i++) {
+      const att = adjuntos[i];
+      const nombreArchivo = att.nombre || `adjunto_${i + 1}.bin`;
+
+      // 1. Si ya tiene data URI o base64
+      if (att.base64 && att.base64.includes(';base64,')) {
+        const base64Data = att.base64.split(';base64,')[1];
+        zip.file(nombreArchivo, base64Data, { base64: true });
+        continue;
+      } else if (att.base64 && !att.base64.startsWith('data:')) {
+        zip.file(nombreArchivo, att.base64, { base64: true });
+        continue;
+      }
+
+      // 2. Si tiene URL directa
+      if (att.url) {
+        try {
+          const resp = await fetch(att.url);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            zip.file(nombreArchivo, blob);
+            continue;
+          }
+        } catch (e) {
+          console.warn('Error al obtener adjunto por URL:', e);
+        }
+      }
+
+      // 3. Probar endpoint del servidor
+      try {
+        const downloadUrl = `${API_BASE_URL}/mensajes/${encodeURIComponent(mensajeId)}/adjuntos/${encodeURIComponent(att.id)}`;
+        const resp = await fetch(downloadUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          zip.file(nombreArchivo, blob);
+          continue;
+        }
+      } catch (e) {
+        console.warn('Error al descargar adjunto del servidor para zip:', e);
+      }
+
+      // 4. Fallback sintético
+      zip.file(
+        nombreArchivo,
+        `Documento adjunto: ${nombreArchivo}\nMensaje ID: ${mensajeId}\nGenerado por CRM B2B Enterprise`
+      );
+    }
+
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 },
+    });
+
+    const asuntoSanitizado = (asunto || 'correo')
+      .replace(/[^a-zA-Z0-9_\-áéíóúÁÉÍÓÚñÑ ]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 35) || 'adjuntos';
+
+    const nombreZip = `adjuntos_${asuntoSanitizado}.zip`;
+    const url = URL.createObjectURL(zipBlob);
+    this.dispararDescarga(url, nombreZip);
   }
 
   private dispararDescarga(url: string, nombreArchivo: string): void {

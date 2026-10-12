@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { 
   X, 
   Building2, 
@@ -21,6 +21,7 @@ import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import SectorBadge from '@/shared/components/SectorBadge.vue';
 import { sectoresService } from '../services/sectores.service';
+import { authService } from '@/modules/auth/services/auth.service';
 
 defineProps<{
   abierto: boolean;
@@ -52,16 +53,8 @@ const opcionesPrioridad: Array<SelectOption<string>> = [
   { value: 'baja', label: 'Baja', dotColor: 'bg-sky-400' },
 ];
 
-const opcionesResponsables: Array<SelectOption<string>> = [
-  { value: 'Camila Morales', label: 'Camila Morales' },
-  { value: 'Ignacio Silva', label: 'Ignacio Silva' },
-  { value: 'Felipe Guzmán', label: 'Felipe Guzmán' },
-  { value: 'Roberto Méndez', label: 'Roberto Méndez' },
-  { value: 'Valentina Castillo', label: 'Valentina Castillo' },
-  { value: 'Marcos Almonte', label: 'Marcos Almonte' },
-  { value: 'Daniela Rosario', label: 'Daniela Rosario' },
-  { value: 'Laura Peña', label: 'Laura Peña' },
-];
+// Responsables dinámicos desde el directorio de usuarios del sistema
+const opcionesResponsables = ref<Array<SelectOption<string>>>([]);
 
 // Estado del formulario localizado para República Dominicana
 const formulario = reactive<NuevoClienteInput>({
@@ -77,11 +70,30 @@ const formulario = reactive<NuevoClienteInput>({
   ciudad: 'Santo Domingo',
   direccion: '',
   valor_estimado: 0,
-  responsable: 'Camila Morales',
+  responsable: '',
   contacto_nombre: '',
   contacto_cargo: '',
   contacto_email: '',
   contacto_telefono: '',
+});
+
+onMounted(async () => {
+  try {
+    const usuarios = await authService.obtenerUsuarios();
+    opcionesResponsables.value = usuarios
+      .filter((u) => u.activo)
+      .map((u) => ({
+        value: u.nombre,
+        label: u.nombre,
+        description: u.cargo || u.rolNombre,
+      }));
+    // Si hay un solo usuario activo, pre-seleccionarlo automáticamente
+    if (opcionesResponsables.value.length === 1 && !formulario.responsable) {
+      formulario.responsable = opcionesResponsables.value[0].value;
+    }
+  } catch {
+    toastService.error('No se pudo cargar el directorio de ejecutivos.');
+  }
 });
 
 // Formateador de teléfono en tiempo real para República Dominicana (+1 809/829/849)
@@ -125,7 +137,10 @@ const reiniciarFormulario = () => {
   formulario.ciudad = 'Santo Domingo';
   formulario.direccion = '';
   formulario.valor_estimado = 0;
-  formulario.responsable = 'Camila Morales';
+  // Mantener el responsable si ya hay uno seleccionado, de lo contrario pre-seleccionar el primero disponible
+  formulario.responsable = opcionesResponsables.value.length === 1
+    ? opcionesResponsables.value[0].value
+    : '';
   formulario.contacto_nombre = '';
   formulario.contacto_cargo = '';
   formulario.contacto_email = '';
@@ -195,13 +210,16 @@ const guardar = async () => {
       }
     }
 
-    // Regresar al paso que contiene el primer error
+    // Regresar al paso que contiene el primer error (en orden de prioridad)
     if (errores.value.razon_social || errores.value.identificacion_fiscal || errores.value.sector) {
       pasoActual.value = 1;
+      toastService.advertencia('Revisa los datos de identificación de la empresa.');
     } else if (errores.value.valor_estimado || errores.value.responsable) {
       pasoActual.value = 2;
-    } else {
+      toastService.advertencia('Revisa la clasificación y el responsable asignado.');
+    } else if (errores.value.email || errores.value.telefono || errores.value.ciudad) {
       pasoActual.value = 3;
+      toastService.advertencia('Revisa los datos de contacto y ubicación.');
     }
     return;
   }
@@ -214,7 +232,7 @@ const guardar = async () => {
     emit('creado');
     emit('cerrar');
   } catch (err: unknown) {
-    toastService.error(err instanceof Error ? err.message : 'Error al guardar el nuevo cliente');
+    toastService.error(err instanceof Error ? err.message : 'Error al guardar el nuevo cliente.');
   } finally {
     guardando.value = false;
   }

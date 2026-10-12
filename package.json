@@ -23,6 +23,7 @@
     "clsx": "^2.1.1",
     "imapflow": "^2.2.11",
     "jspdf": "^4.2.1",
+    "jszip": "^3.10.2",
     "lucide-vue-next": "^0.475.0",
     "mailparser": "^3.9.37",
     "mammoth": "^1.13.0",

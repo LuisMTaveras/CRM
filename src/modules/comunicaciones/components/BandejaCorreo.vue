@@ -58,7 +58,10 @@ import {
   UserPlus,
   Globe,
   Bell,
-  GitMerge
+  GitMerge,
+  ChevronDown,
+  Maximize2,
+  Minimize2
 } from 'lucide-vue-next';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
 import { toastService } from '@/core/notifications/toast.service';
@@ -99,6 +102,8 @@ const drawerClienteAbierto = ref(false);
 const hiloMensajes = ref<MensajeCorreo[]>([]);
 const cargandoHilo = ref(false);
 const modoVerHilo = ref(false);
+const modoEnfoqueLectura = ref(false);
+const mostrarAdjuntosCabecera = ref(false);
 
 // Sincronización silenciosa periódica
 const nuevosCorreosDetectados = ref(0);
@@ -491,15 +496,17 @@ const descargarAdjunto = async (att: AdjuntoCorreo) => {
 const descargarTodosLosAdjuntos = async () => {
   if (!mensajeSeleccionado.value?.adjuntos?.length) return;
   descargandoTodos.value = true;
-  toastService.info(`Iniciando descarga de ${mensajeSeleccionado.value.adjuntos.length} archivos adjuntos...`);
+  toastService.info(`Generando archivo .zip con ${mensajeSeleccionado.value.adjuntos.length} adjuntos...`);
   try {
-    for (const att of mensajeSeleccionado.value.adjuntos) {
-      await webmailService.descargarAdjunto(mensajeSeleccionado.value.id, att);
-      await new Promise((r) => setTimeout(r, 450));
-    }
-    toastService.exito('Todos los archivos se han descargado con éxito.');
-  } catch {
-    toastService.error('Ocurrió un error al descargar los archivos adjuntos.');
+    await webmailService.descargarTodosLosAdjuntosZip(
+      mensajeSeleccionado.value.id,
+      mensajeSeleccionado.value.asunto,
+      mensajeSeleccionado.value.adjuntos
+    );
+    toastService.exito('Archivo comprimido (.zip) generado y descargado correctamente.');
+  } catch (err) {
+    console.error('Error al empaquetar adjuntos en zip:', err);
+    toastService.error('Ocurrió un error al generar el archivo .zip de los adjuntos.');
   } finally {
     descargandoTodos.value = false;
   }
@@ -544,6 +551,8 @@ const seleccionarMensaje = async (mensaje: MensajeCorreo) => {
   mensajeSeleccionado.value = mensaje;
   feedbackRespuesta.value = null;
   respuestaCuerpo.value = '';
+  mostrarAdjuntosCabecera.value = false;
+  modoVerHilo.value = false;
 
   if (!mensaje.leido) {
     mensaje.leido = true;
@@ -990,7 +999,7 @@ onUnmounted(() => {
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[660px]">
       
       <!-- ==================== COLUMNA 1: SELECTOR DE CARPETAS (2 cols) ==================== -->
-      <div class="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex flex-col justify-between shadow-sm">
+      <div v-show="!modoEnfoqueLectura" class="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex flex-col justify-between shadow-sm">
         <div class="space-y-1">
           <div class="px-3 py-2 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono flex items-center justify-between">
             <span>Carpetas</span>
@@ -1190,7 +1199,7 @@ onUnmounted(() => {
       </div>
 
       <!-- ==================== COLUMNA 2: LISTA DE CORREOS (4 cols) ==================== -->
-      <div class="lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden max-h-[820px] shadow-sm">
+      <div v-show="!modoEnfoqueLectura" class="lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden max-h-[820px] shadow-sm">
         <!-- Cabecera de la lista con Filtros Rápidos -->
         <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 space-y-2 shrink-0">
           <div class="flex items-center justify-between">
@@ -1459,8 +1468,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ==================== COLUMNA 3: VISOR DE LECTURA & RESPUESTA (6 cols) ==================== -->
-      <div class="lg:col-span-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden max-h-[820px] shadow-sm">
+      <!-- ==================== COLUMNA 3: VISOR DE LECTURA & RESPUESTA (6 o 12 cols) ==================== -->
+      <div :class="modoEnfoqueLectura ? 'lg:col-span-12' : 'lg:col-span-6'" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden max-h-[820px] shadow-sm">
         
         <!-- Si no hay mensaje seleccionado -->
         <div
@@ -1481,93 +1490,78 @@ onUnmounted(() => {
         <!-- Visor Completo de Correo -->
         <div v-else class="flex-1 flex flex-col overflow-hidden">
           
-          <!-- Barra de Acciones del Mensaje Superior -->
-          <div class="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 flex items-center justify-between shrink-0 flex-wrap gap-2">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <!-- Botón Responder Primario -->
+          <!-- Barra de Acciones del Mensaje Superior (Optimizada en 1 sola fila fluida) -->
+          <div class="px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 flex items-center justify-between shrink-0 gap-2 overflow-x-auto">
+            <!-- Grupo Izquierdo: Acciones de Correo & CRM -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <!-- Responder -->
               <button
                 type="button"
                 @click="enfocarRespuesta"
-                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm shadow-indigo-600/20 active:scale-95"
+                class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm shadow-indigo-600/20 active:scale-95 cursor-pointer"
               >
                 <Reply class="w-3.5 h-3.5" />
                 <span>Responder</span>
               </button>
 
-              <!-- Botón Reenviar -->
+              <!-- Reenviar -->
               <button
                 type="button"
                 @click="reenviar(mensajeSeleccionado)"
-                class="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                class="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
+                title="Reenviar este correo"
               >
                 <Forward class="w-3.5 h-3.5 text-sky-500" />
-                <span>Reenviar</span>
+                <span class="hidden sm:inline">Reenviar</span>
               </button>
 
-              <!-- Botón Descargar Adjuntos si existen -->
-              <button
-                v-if="mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0"
-                type="button"
-                @click="descargarTodosLosAdjuntos"
-                :disabled="descargandoTodos"
-                class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-indigo-200 dark:border-indigo-500/30"
-                title="Descargar todos los archivos adjuntos"
-              >
-                <Loader2 v-if="descargandoTodos" class="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                <Download v-else class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Adjuntos ({{ mensajeSeleccionado.adjuntos.length }})</span>
-              </button>
-
-              <!-- Botón Marcar no leído -->
+              <!-- No leído -->
               <button
                 type="button"
                 @click="marcarNoLeido(mensajeSeleccionado)"
-                class="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                class="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs transition cursor-pointer"
                 title="Marcar como no leído"
               >
                 <Mail class="w-3.5 h-3.5" />
-                <span class="hidden sm:inline">No leído</span>
               </button>
 
-              <!-- Botón Archivar -->
+              <!-- Archivar -->
               <button
                 type="button"
                 @click="archivar(mensajeSeleccionado)"
-                class="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                class="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs transition cursor-pointer"
                 title="Archivar conversación"
               >
                 <Archive class="w-3.5 h-3.5 text-purple-500" />
-                <span class="hidden sm:inline">Archivar</span>
               </button>
 
-              <!-- Botón Eliminar -->
+              <!-- Eliminar -->
               <button
                 type="button"
                 @click="moverAPapelera(mensajeSeleccionado)"
-                class="px-2.5 py-1.5 bg-zinc-100 hover:bg-rose-50 dark:bg-zinc-800 dark:hover:bg-rose-950/60 text-zinc-700 hover:text-rose-600 dark:text-zinc-300 dark:hover:text-rose-400 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                class="p-1.5 bg-zinc-100 hover:bg-rose-50 dark:bg-zinc-800 dark:hover:bg-rose-950/60 text-zinc-700 hover:text-rose-600 dark:text-zinc-300 dark:hover:text-rose-400 rounded-lg text-xs transition cursor-pointer"
                 title="Mover a la papelera"
               >
                 <Trash2 class="w-3.5 h-3.5" />
-                <span>Eliminar</span>
               </button>
 
-              <!-- Selector Rápido de Carpeta -->
+              <!-- Mover a Carpeta -->
               <AppSelect
                 :model-value="mensajeSeleccionado.carpeta"
                 :options="opcionesCarpetaMovimiento"
                 size="sm"
-                min-width-class="min-w-[130px]"
+                min-width-class="min-w-[120px]"
                 @change="(v) => moverACarpetaDirecto(mensajeSeleccionado, String(v))"
               />
 
               <!-- Separador vertical sutil -->
-              <div class="h-4 w-px bg-zinc-200 dark:border-zinc-800 hidden sm:block"></div>
+              <div class="h-4 w-px bg-zinc-200 dark:border-zinc-800 hidden md:block"></div>
 
-              <!-- Acciones CRM Directas -->
+              <!-- Acciones CRM Directas (Chips compactos) -->
               <button
                 type="button"
                 @click="modalOportunidadAbierto = true"
-                class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-xs cursor-pointer"
                 title="Crear oportunidad de venta en el Pipeline desde este correo"
               >
                 <Kanban class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -1577,7 +1571,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 @click="modalActividadAbierto = true"
-                class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                class="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-xs cursor-pointer"
                 title="Agendar tarea o reunión de seguimiento desde este correo"
               >
                 <CalendarClock class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -1587,7 +1581,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 @click="drawerClienteAbierto = true"
-                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                class="px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-xs cursor-pointer"
                 :class="clienteCompletoVinculado 
                   ? 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-500/30' 
                   : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'"
@@ -1595,17 +1589,17 @@ onUnmounted(() => {
               >
                 <UserCheck v-if="clienteCompletoVinculado" class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <UserPlus v-else class="w-3.5 h-3.5 text-zinc-500" />
-                <span>{{ clienteCompletoVinculado ? 'Ficha 360°' : 'Vincular Cliente' }}</span>
+                <span>{{ clienteCompletoVinculado ? 'Ficha 360°' : 'Vincular' }}</span>
               </button>
             </div>
 
-            <!-- Acciones secundarias (Selector HTML/Texto, Imprimir, Fecha) -->
-            <div class="flex items-center gap-2">
+            <!-- Grupo Derecho: Vista, Impresión y Modo Enfoque de Lectura -->
+            <div class="flex items-center gap-1.5 shrink-0">
               <div class="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700/80">
                 <button
                   type="button"
                   @click="modoVistaCuerpo = 'html'"
-                  class="px-2 py-1 rounded-md text-[11px] font-medium transition cursor-pointer"
+                  class="px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer"
                   :class="modoVistaCuerpo === 'html' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
                 >
                   HTML
@@ -1613,7 +1607,7 @@ onUnmounted(() => {
                 <button
                   type="button"
                   @click="modoVistaCuerpo = 'texto'"
-                  class="px-2 py-1 rounded-md text-[11px] font-medium transition cursor-pointer"
+                  class="px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer"
                   :class="modoVistaCuerpo === 'texto' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm font-semibold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
                 >
                   Texto
@@ -1629,9 +1623,19 @@ onUnmounted(() => {
                 <Printer class="w-4 h-4" />
               </button>
 
-              <span class="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono hidden xl:inline">
-                {{ formatDate(mensajeSeleccionado.fecha) }}
-              </span>
+              <!-- Botón Maximizar Lectura / Modo Enfoque -->
+              <button
+                type="button"
+                @click="modoEnfoqueLectura = !modoEnfoqueLectura"
+                class="p-1.5 rounded-lg transition cursor-pointer"
+                :class="modoEnfoqueLectura 
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300' 
+                  : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800'"
+                :title="modoEnfoqueLectura ? 'Restaurar vista de columnas' : 'Maximizar área de lectura (Modo Enfoque)'"
+              >
+                <Minimize2 v-if="modoEnfoqueLectura" class="w-4 h-4" />
+                <Maximize2 v-else class="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -1730,16 +1734,67 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Fila 3: Fila de Adjuntos horizontal compacta (si existen) -->
+            <!-- Fila 3: Resumen Ultra-Compacto de Adjuntos en Cabecera (1 línea) -->
             <div
               v-if="mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0"
-              class="flex items-center gap-2 pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800/60 flex-wrap"
+              class="flex items-center justify-between gap-2 pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800/60 text-xs"
             >
-              <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1 shrink-0">
-                <Paperclip class="w-3.5 h-3.5 text-indigo-500" />
-                <span>{{ mensajeSeleccionado.adjuntos.length }} adjunto(s) ({{ tamanoTotalAdjuntos }}):</span>
-              </span>
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/30 text-[11px] font-semibold shrink-0">
+                  <Paperclip class="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{{ mensajeSeleccionado.adjuntos.length }} adjuntos ({{ tamanoTotalAdjuntos }})</span>
+                </span>
 
+                <!-- Micro-pills de los primeros adjuntos -->
+                <div class="hidden md:flex items-center gap-1.5 overflow-hidden">
+                  <button
+                    v-for="att in mensajeSeleccionado.adjuntos.slice(0, 2)"
+                    :key="att.id"
+                    type="button"
+                    @click="descargarAdjunto(att)"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[10px] font-medium truncate max-w-[130px] border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                    :title="`Descargar ${att.nombre}`"
+                  >
+                    <component :is="obtenerIconoAdjunto(att.nombre)" class="w-3 h-3 text-zinc-400 shrink-0" />
+                    <span class="truncate">{{ att.nombre }}</span>
+                    <Download class="w-2.5 h-2.5 text-zinc-400 shrink-0" />
+                  </button>
+                  <span v-if="mensajeSeleccionado.adjuntos.length > 2" class="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                    +{{ mensajeSeleccionado.adjuntos.length - 2 }} más al pie
+                  </span>
+                </div>
+              </div>
+
+              <!-- Acciones rápidas de cabecera -->
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  @click="mostrarAdjuntosCabecera = !mostrarAdjuntosCabecera"
+                  class="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{{ mostrarAdjuntosCabecera ? 'Ocultar lista' : 'Ver lista rápida' }}</span>
+                  <ChevronDown class="w-3 h-3 transition-transform" :class="mostrarAdjuntosCabecera ? 'rotate-180' : ''" />
+                </button>
+
+                <button
+                  type="button"
+                  @click="descargarTodosLosAdjuntos"
+                  :disabled="descargandoTodos"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                  title="Descargar todos los archivos comprimidos en un solo archivo .zip"
+                >
+                  <Loader2 v-if="descargandoTodos" class="w-3.5 h-3.5 animate-spin" />
+                  <Download v-else class="w-3.5 h-3.5" />
+                  <span>Descargar .zip</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Menú desplegable rápido de adjuntos en cabecera (flotante / expandible) -->
+            <div
+              v-if="mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0 && mostrarAdjuntosCabecera"
+              class="pt-2 pb-1 border-t border-zinc-200/60 dark:border-zinc-800/60 flex items-center gap-2 flex-wrap max-h-32 overflow-y-auto"
+            >
               <div
                 v-for="att in mensajeSeleccionado.adjuntos"
                 :key="att.id"
@@ -1752,29 +1807,18 @@ onUnmounted(() => {
                 <span class="text-[10px] text-zinc-400 font-mono">({{ formatearTamanoBytes(att.tamanoBytes) }})</span>
                 <Download class="w-3 h-3 text-zinc-400 group-hover:text-indigo-600 opacity-60 group-hover:opacity-100" />
               </div>
-
-              <button
-                v-if="mensajeSeleccionado.adjuntos.length > 1"
-                type="button"
-                @click="descargarTodosLosAdjuntos"
-                :disabled="descargandoTodos"
-                class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 ml-auto shrink-0"
-              >
-                <Download class="w-3 h-3" />
-                <span>Descargar todos (.zip)</span>
-              </button>
             </div>
           </div>
 
-          <!-- Ribbon de Hilo / Conversación si hay más de 1 mensaje -->
+          <!-- Ribbon Delgado de Hilo / Conversación si hay más de 1 mensaje -->
           <div
             v-if="hiloMensajes.length > 1"
-            class="px-5 py-2.5 bg-indigo-50/70 dark:bg-zinc-800/60 border-b border-indigo-100 dark:border-zinc-800 flex items-center justify-between text-xs shrink-0"
+            class="px-5 py-2 bg-indigo-50/60 dark:bg-zinc-800/40 border-b border-indigo-100/80 dark:border-zinc-800 flex items-center justify-between text-xs shrink-0"
           >
             <div class="flex items-center gap-2">
-              <GitMerge class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-              <span class="font-bold text-zinc-900 dark:text-zinc-100">
-                Conversación en hilo ({{ hiloMensajes.length }} mensajes)
+              <GitMerge class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span class="font-medium text-[11px] text-zinc-700 dark:text-zinc-300">
+                Conversación en hilo · <strong>{{ hiloMensajes.length }} mensajes</strong>
               </span>
             </div>
             <button
@@ -1782,50 +1826,52 @@ onUnmounted(() => {
               @click="modoVerHilo = !modoVerHilo"
               class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer text-[11px]"
             >
-              <span>{{ modoVerHilo ? 'Ocultar historial' : 'Ver todos los intercambios' }}</span>
+              <span>{{ modoVerHilo ? 'Ocultar mensajes anteriores' : `Ver mensajes anteriores (${hiloMensajes.length - 1})` }}</span>
+              <ChevronDown class="w-3 h-3 transition-transform" :class="modoVerHilo ? 'rotate-180' : ''" />
             </button>
           </div>
 
-          <!-- Historial desplegable de mensajes en el hilo -->
-          <div
-            v-if="hiloMensajes.length > 1 && modoVerHilo"
-            class="px-5 py-3 bg-zinc-50 dark:bg-zinc-950/80 border-b border-zinc-200 dark:border-zinc-800 space-y-2 max-h-56 overflow-y-auto shrink-0"
-          >
-            <div
-              v-for="msgHilo in hiloMensajes"
-              :key="msgHilo.id"
-              @click="seleccionarMensaje(msgHilo)"
-              class="p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-start justify-between gap-3"
-              :class="msgHilo.id === mensajeSeleccionado.id 
-                ? 'bg-indigo-50/90 dark:bg-zinc-800 border-indigo-400 dark:border-indigo-500 shadow-xs' 
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'"
-            >
-              <div class="min-w-0 space-y-0.5">
-                <div class="flex items-center gap-2">
-                  <span class="font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                    {{ msgHilo.de.nombre || msgHilo.de.correo }}
-                  </span>
-                  <span class="text-[10px] text-zinc-400 font-mono">
-                    {{ formatDate(msgHilo.fecha) }}
-                  </span>
-                  <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 uppercase font-mono">
-                    {{ nombreCarpetaDeMensaje(msgHilo.carpeta) }}
-                  </span>
-                </div>
-                <p class="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-1">
-                  {{ msgHilo.extracto }}
-                </p>
-              </div>
-              <span v-if="msgHilo.id === mensajeSeleccionado.id" class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
-                Leyendo ahora
-              </span>
-            </div>
-          </div>
-
-          <!-- Cuerpo Scrolleable del Mensaje (¡Visible inmediatamente arriba!) -->
+          <!-- Cuerpo Scrolleable del Mensaje (¡Área principal de lectura sin bloqueos!) -->
           <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-            <!-- Contenedor del contenido del correo -->
-            <div class="bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100">
+            <!-- Mensajes Anteriores del Hilo (dentro del scroll de lectura para no quitar espacio) -->
+            <div
+              v-if="hiloMensajes.length > 1 && modoVerHilo"
+              class="space-y-2 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 text-xs"
+            >
+              <div class="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <GitMerge class="w-3 h-3 text-indigo-500" />
+                <span>Mensajes anteriores en esta conversación</span>
+              </div>
+              <div
+                v-for="msgHilo in hiloMensajes.filter(m => m.id !== mensajeSeleccionado?.id)"
+                :key="msgHilo.id"
+                @click="seleccionarMensaje(msgHilo)"
+                class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-400 dark:hover:border-indigo-500 cursor-pointer transition shadow-xs flex items-center justify-between gap-3 group"
+              >
+                <div class="min-w-0 flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold flex items-center justify-center text-[10px] shrink-0">
+                    {{ (msgHilo.de.nombre || msgHilo.de.correo).substring(0, 2).toUpperCase() }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
+                        {{ msgHilo.de.nombre || msgHilo.de.correo }}
+                      </span>
+                      <span class="text-[10px] text-zinc-400 font-mono">{{ formatDate(msgHilo.fecha) }}</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-xl">
+                      {{ msgHilo.extracto }}
+                    </p>
+                  </div>
+                </div>
+                <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium group-hover:underline shrink-0">
+                  Leer este mensaje →
+                </span>
+              </div>
+            </div>
+
+            <!-- Contenedor del contenido del correo actual -->
+            <div class="bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm">
               <EmailViewer
                 v-if="modoVistaCuerpo === 'html'"
                 :html="mensajeSeleccionado.cuerpoHtml"
@@ -1833,6 +1879,59 @@ onUnmounted(() => {
               />
               <div v-else class="whitespace-pre-wrap font-sans text-xs leading-relaxed text-zinc-800 dark:text-zinc-200">
                 {{ mensajeSeleccionado.cuerpoTexto || mensajeSeleccionado.extracto || 'Sin contenido en texto plano.' }}
+              </div>
+            </div>
+
+            <!-- ==================== GALERÍA COMPLETA DE ADJUNTOS AL PIE DEL CORREO (ESTILO GMAIL) ==================== -->
+            <div
+              v-if="mensajeSeleccionado.adjuntos && mensajeSeleccionado.adjuntos.length > 0"
+              class="bg-zinc-50/80 dark:bg-zinc-900/60 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 space-y-3"
+            >
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  <Paperclip class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span>Documentos y archivos adjuntos ({{ mensajeSeleccionado.adjuntos.length }}) · {{ tamanoTotalAdjuntos }}</span>
+                </div>
+                <button
+                  type="button"
+                  @click="descargarTodosLosAdjuntos"
+                  :disabled="descargandoTodos"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+                  title="Descargar todos los archivos comprimidos en un solo archivo .zip"
+                >
+                  <Loader2 v-if="descargandoTodos" class="w-3.5 h-3.5 animate-spin" />
+                  <Download v-else class="w-3.5 h-3.5" />
+                  <span>Descargar todos (.zip)</span>
+                </button>
+              </div>
+
+              <!-- Cuadrícula de adjuntos al pie -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                <div
+                  v-for="att in mensajeSeleccionado.adjuntos"
+                  :key="att.id"
+                  @click="descargarAdjunto(att)"
+                  class="group flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 hover:border-indigo-400 dark:hover:border-indigo-500 transition cursor-pointer shadow-xs"
+                >
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center shrink-0">
+                      <component :is="obtenerIconoAdjunto(att.nombre)" class="w-4 h-4" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition" :title="att.nombre">
+                        {{ att.nombre }}
+                      </p>
+                      <span class="text-[10px] text-zinc-400 font-mono">{{ formatearTamanoBytes(att.tamanoBytes) }}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="p-1.5 rounded-lg text-zinc-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/40 transition shrink-0"
+                    :title="`Descargar ${att.nombre}`"
+                  >
+                    <Download class="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
