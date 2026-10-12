@@ -193,8 +193,8 @@ class ClienteService {
         cliente_id: nuevoId,
         nombre: datos.contacto_nombre.trim(),
         cargo: datos.contacto_cargo?.trim() || 'Contacto Principal',
-        email: datos.contacto_email?.trim() || datos.email,
-        telefono: datos.contacto_telefono?.trim() || datos.telefono,
+        email: datos.contacto_email?.trim() || datos.email || '',
+        telefono: datos.contacto_telefono?.trim() || datos.telefono || '',
         es_principal: true,
         creado_en: new Date().toISOString(),
       });

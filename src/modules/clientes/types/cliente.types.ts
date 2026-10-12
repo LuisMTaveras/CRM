@@ -82,8 +82,10 @@ export const ClienteSchema = z.object({
   sector: z.string().min(1, { message: 'Debe seleccionar un sector empresarial' }),
   estado: z.enum(['prospecto', 'en_negociacion', 'activo', 'inactivo', 'cerrado_perdido']),
   prioridad: z.enum(['alta', 'media', 'baja']),
-  email: z.string().email({ message: 'Correo electrónico corporativo inválido' }),
-  telefono: z.string().min(6, { message: 'Número de teléfono inválido' }),
+  // Email es opcional: el wizard lo valida en paso 3
+  email: z.string().email({ message: 'Correo electrónico corporativo inválido' }).optional().or(z.literal('')),
+  // Teléfono es opcional: el wizard lo valida en paso 3
+  telefono: z.string().optional(),
   sitio_web: z.string().url({ message: 'URL de sitio web inválida' }).optional().or(z.literal('')),
   ciudad: z.string().min(2, { message: 'La ciudad es requerida' }),
   direccion: z.string().optional(),

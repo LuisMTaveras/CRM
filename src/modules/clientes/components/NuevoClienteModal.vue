@@ -175,6 +175,25 @@ const validarPaso = (paso: number): boolean => {
     return Object.keys(errores.value).length === 0;
   }
 
+  if (paso === 3) {
+    // Validar email si fue ingresado
+    if (formulario.email && formulario.email.trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formulario.email.trim())) {
+        errores.value.email = 'Correo electrónico corporativo inválido.';
+      }
+    }
+    // Validar teléfono si fue ingresado
+    if (formulario.telefono && formulario.telefono.replace(/\D/g, '').length < 6) {
+      errores.value.telefono = 'Número de teléfono inválido.';
+    }
+    // Ciudad requerida
+    if (!formulario.ciudad || formulario.ciudad.trim().length < 2) {
+      errores.value.ciudad = 'La ciudad es requerida.';
+    }
+    return Object.keys(errores.value).length === 0;
+  }
+
   return true;
 };
 
@@ -199,9 +218,39 @@ const anteriorPaso = () => {
 
 const guardar = async () => {
   errores.value = {};
-  
-  // Validación de esquema Zod global
-  const resultado = ClienteSchema.safeParse(formulario);
+
+  // --- Validación por capas: primero paso a paso, luego Zod global ---
+  // Esto garantiza que el usuario vea el error en el paso correcto
+  const paso1Valido = validarPaso(1);
+  if (!paso1Valido) {
+    pasoActual.value = 1;
+    toastService.advertencia('Revisa los datos de identificación de la empresa.');
+    return;
+  }
+  const paso2Valido = validarPaso(2);
+  if (!paso2Valido) {
+    pasoActual.value = 2;
+    toastService.advertencia('Revisa la clasificación y el responsable asignado.');
+    return;
+  }
+  const paso3Valido = validarPaso(3);
+  if (!paso3Valido) {
+    pasoActual.value = 3;
+    toastService.advertencia('Revisa los datos de contacto y ubicación.');
+    return;
+  }
+
+  // --- Validación Zod final (capa de seguridad) ---
+  // Preparar datos: normalizar campos opcionales para que Zod no los rechace
+  const datosParaValidar = {
+    ...formulario,
+    email: formulario.email?.trim() || '',
+    telefono: formulario.telefono?.trim() || '',
+    sitio_web: formulario.sitio_web?.trim() || '',
+    contacto_email: formulario.contacto_email?.trim() || '',
+  };
+
+  const resultado = ClienteSchema.safeParse(datosParaValidar);
   if (!resultado.success) {
     const formatted = resultado.error.format();
     for (const [key, value] of Object.entries(formatted)) {
@@ -209,15 +258,14 @@ const guardar = async () => {
         errores.value[key] = (value as { _errors: string[] })._errors[0] || '';
       }
     }
-
-    // Regresar al paso que contiene el primer error (en orden de prioridad)
+    // Redirigir al paso con el primer error
     if (errores.value.razon_social || errores.value.identificacion_fiscal || errores.value.sector) {
       pasoActual.value = 1;
       toastService.advertencia('Revisa los datos de identificación de la empresa.');
     } else if (errores.value.valor_estimado || errores.value.responsable) {
       pasoActual.value = 2;
       toastService.advertencia('Revisa la clasificación y el responsable asignado.');
-    } else if (errores.value.email || errores.value.telefono || errores.value.ciudad) {
+    } else {
       pasoActual.value = 3;
       toastService.advertencia('Revisa los datos de contacto y ubicación.');
     }
@@ -232,7 +280,8 @@ const guardar = async () => {
     emit('creado');
     emit('cerrar');
   } catch (err: unknown) {
-    toastService.error(err instanceof Error ? err.message : 'Error al guardar el nuevo cliente.');
+    console.error('[NuevoClienteModal] Error al guardar:', err);
+    toastService.error(err instanceof Error ? err.message : 'Error inesperado al guardar el cliente.');
   } finally {
     guardando.value = false;
   }
