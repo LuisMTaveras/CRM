@@ -449,6 +449,18 @@ const marcarComoBloqueada = async () => {
             class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 transition resize-none"
           ></textarea>
         </div>
+
+        <!-- Información de Motivo de Pérdida / Descarte si existe -->
+        <div v-if="tarjeta?.motivo_cierre" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-300 space-y-1">
+          <div class="flex items-center gap-1.5 font-bold text-xs">
+            <AlertOctagon class="w-4 h-4 text-rose-500" />
+            <span>Motivo de Pérdida / Pausa Registrado:</span>
+          </div>
+          <p class="text-xs font-semibold pl-5 text-zinc-900 dark:text-zinc-100">{{ tarjeta.motivo_cierre }}</p>
+          <p v-if="tarjeta.notas_cierre" class="text-[11px] text-zinc-600 dark:text-zinc-400 pl-5 italic">
+            "{{ tarjeta.notas_cierre }}"
+          </p>
+        </div>
       </div>
 
       <!-- Pie con Acciones Rápidas y Guardado -->

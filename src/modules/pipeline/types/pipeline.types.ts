@@ -46,6 +46,9 @@ export interface TarjetaPipeline {
   prioridad?: 'alta' | 'media' | 'baja';
   orden: number;
   creado_en: string;
+  motivo_cierre?: string;
+  notas_cierre?: string;
+  fecha_cambio_etapa?: string;
 }
 
 export interface FiltrosPipeline {
@@ -157,6 +160,9 @@ export interface ActualizarTarjetaInput {
   notas?: string;
   prioridad?: 'alta' | 'media' | 'baja';
   responsable?: string;
+  motivo_cierre?: string;
+  notas_cierre?: string;
+  fecha_cambio_etapa?: string;
 }
 
 // Compatibilidad hacia atrás con el modelo previo de oportunidades

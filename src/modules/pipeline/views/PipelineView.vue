@@ -3,7 +3,6 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { 
   Kanban, 
   MapPin, 
-  Building2, 
   Calendar, 
   RefreshCw, 
   Plus, 
@@ -11,7 +10,6 @@ import {
   Filter, 
   ChevronRight, 
   ChevronLeft, 
-  ChevronUp,
   ChevronDown,
   Trash2, 
   Edit3, 
@@ -19,13 +17,13 @@ import {
   Settings2,
   Tag,
   AlertCircle,
-  AlertOctagon,
   AlertTriangle,
-  CalendarClock,
-  GripVertical,
   ArrowLeft,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Clock,
+  UserCheck,
+  Briefcase
 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 import { formatCurrency, formatDate } from '@/core/formatters/formatters';
@@ -43,11 +41,12 @@ import NuevoPipelineModal from '../components/NuevoPipelineModal.vue';
 import GestionColumnaModal from '../components/GestionColumnaModal.vue';
 import NuevaTarjetaModal from '../components/NuevaTarjetaModal.vue';
 import DetalleTarjetaModal from '../components/DetalleTarjetaModal.vue';
+import KanbanTarjetaItem from '../components/KanbanTarjetaItem.vue';
+import ModalMotivoCierre from '../components/ModalMotivoCierre.vue';
 import PipelineCalendarioView from '../components/PipelineCalendarioView.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
-import SectorIcon from '@/shared/components/SectorIcon.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -354,10 +353,111 @@ const calcularDiasActivo = (tarjeta: TarjetaPipeline) => {
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 };
 
-const claseAntiguedad = (dias: number) => {
-  if (dias > 10) return 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20';
-  if (dias > 5) return 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20';
-  return 'text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-white/[0.05]';
+
+// Agrupación por Carriles (Swimlanes)
+const tipoAgrupacion = ref<'ninguna' | 'responsable' | 'sector'>('ninguna');
+const carrilesColapsados = ref<Record<string, boolean>>({});
+
+const alternarCarril = (carrilKey: string) => {
+  carrilesColapsados.value[carrilKey] = !carrilesColapsados.value[carrilKey];
+};
+
+const carrilesDisponibles = computed(() => {
+  if (tipoAgrupacion.value === 'responsable') {
+    const list = Array.from(new Set(tarjetasFiltradas.value.map((t) => t.responsable || 'Sin asignar'))).sort();
+    return list;
+  }
+  if (tipoAgrupacion.value === 'sector') {
+    const list = Array.from(new Set(tarjetasFiltradas.value.map((t) => t.cliente_sector || 'General'))).sort();
+    return list;
+  }
+  return [];
+});
+
+const tarjetasPorColumnaYCarril = (columnaId: string, carrilKey: string) => {
+  return tarjetasPorColumna(columnaId).filter((t) => {
+    if (tipoAgrupacion.value === 'responsable') {
+      return (t.responsable || 'Sin asignar') === carrilKey;
+    }
+    if (tipoAgrupacion.value === 'sector') {
+      return (t.cliente_sector || 'General') === carrilKey;
+    }
+    return true;
+  });
+};
+
+const totalMontoCarril = (carrilKey: string) => {
+  return tarjetasFiltradas.value
+    .filter((t) => {
+      if (tipoAgrupacion.value === 'responsable') return (t.responsable || 'Sin asignar') === carrilKey;
+      if (tipoAgrupacion.value === 'sector') return (t.cliente_sector || 'General') === carrilKey;
+      return true;
+    })
+    .reduce((acc, t) => acc + (t.monto || 0), 0);
+};
+
+const totalTarjetasCarril = (carrilKey: string) => {
+  return tarjetasFiltradas.value.filter((t) => {
+    if (tipoAgrupacion.value === 'responsable') return (t.responsable || 'Sin asignar') === carrilKey;
+    if (tipoAgrupacion.value === 'sector') return (t.cliente_sector || 'General') === carrilKey;
+    return true;
+  }).length;
+};
+
+// Pipeline Velocity (promedio de días en etapa y cuellos de botella)
+const promedioDiasColumna = (columnaId: string): number => {
+  const cards = tarjetasPorColumna(columnaId);
+  if (cards.length === 0) return 0;
+  const sumaDias = cards.reduce((acc, t) => acc + calcularDiasActivo(t), 0);
+  return Math.round(sumaDias / cards.length);
+};
+
+const esCuelloDeBotella = (col: ColumnaPipeline): boolean => {
+  if (col.es_completado || col.estado === 'completado') return false;
+  const cards = tarjetasPorColumna(col.id);
+  if (cards.length < 2) return false;
+  return promedioDiasColumna(col.id) >= 12;
+};
+
+// Acciones Rápidas Directas
+const redactarCorreoCliente = (tarjeta: TarjetaPipeline) => {
+  router.push({
+    path: '/comunicaciones',
+    query: {
+      accion: 'redactar',
+      cliente: tarjeta.cliente_nombre,
+    },
+  });
+};
+
+// Modal Motivo de Cierre / Descarte
+const modalMotivoCierreAbierto = ref(false);
+const tarjetaParaMotivoCierre = ref<TarjetaPipeline | null>(null);
+
+const abrirModalMotivoCierre = (tarjeta: TarjetaPipeline) => {
+  tarjetaParaMotivoCierre.value = tarjeta;
+  modalMotivoCierreAbierto.value = true;
+};
+
+const confirmarMotivoCierre = async (payload: { motivo: string; notas: string }) => {
+  if (!tarjetaParaMotivoCierre.value) return;
+  try {
+    await pipelineService.actualizarTarjeta(pipelineActivoId.value, tarjetaParaMotivoCierre.value.id, {
+      motivo_cierre: payload.motivo,
+      notas_cierre: payload.notas,
+    });
+    const t = tarjetas.value.find((item) => item.id === tarjetaParaMotivoCierre.value?.id);
+    if (t) {
+      t.motivo_cierre = payload.motivo;
+      t.notas_cierre = payload.notas;
+    }
+    toastService.exito(`Motivo registrado: "${payload.motivo}"`);
+  } catch (err: unknown) {
+    toastService.error(err instanceof Error ? err.message : 'Error al guardar motivo de cierre.');
+  } finally {
+    modalMotivoCierreAbierto.value = false;
+    tarjetaParaMotivoCierre.value = null;
+  }
 };
 
 // Sincronización silenciosa en segundo plano (sin activar spinner ni Flickerless)
@@ -383,6 +483,11 @@ const moverTarjetaAColumna = async (tarjeta: TarjetaPipeline, nuevaColumnaId: st
     toastService.exito(`Elemento movido a "${colDestino?.titulo || 'nueva etapa'}"`);
     // 3. Sincronización silenciosa en segundo plano sin parpadeos
     await sincronizarTarjetasSilencioso();
+
+    // Si se movió a etapa bloqueada/descarte y no tiene motivo registrado, solicitarlo
+    if (colDestino?.estado === 'bloqueado' && !tarjeta.motivo_cierre) {
+      abrirModalMotivoCierre(tarjeta);
+    }
   } catch {
     tarjeta.columna_id = columnaAnteriorId;
     toastService.error('No se pudo mover el elemento.');
@@ -668,18 +773,6 @@ const onPipelineCreado = (nuevoId: string) => {
   router.push(`/pipeline/${nuevoId}`);
 };
 
-const badgePrioridad = (prioridad?: string) => {
-  switch (prioridad) {
-    case 'alta':
-      return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
-    case 'media':
-      return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
-    case 'baja':
-      return 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20';
-    default:
-      return 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20';
-  }
-};
 
 onMounted(() => {
   cargarDatos();
@@ -1056,6 +1149,37 @@ watch(
             {{ totalTarjetasHoy }}
           </span>
         </button>
+
+        <!-- Agrupación por Carriles (Swimlanes) -->
+        <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/80 p-0.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] text-xs">
+          <span class="text-[10px] text-zinc-500 font-medium px-1.5 hidden md:inline">Carriles:</span>
+          <button
+            @click="tipoAgrupacion = 'ninguna'"
+            class="px-2 py-1 rounded-md transition font-medium text-xs"
+            :class="tipoAgrupacion === 'ninguna' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
+            title="Vista estándar tradicional"
+          >
+            Estándar
+          </button>
+          <button
+            @click="tipoAgrupacion = 'responsable'"
+            class="px-2 py-1 rounded-md transition font-medium text-xs flex items-center gap-1"
+            :class="tipoAgrupacion === 'responsable' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
+            title="Agrupar filas por responsable"
+          >
+            <UserCheck class="w-3 h-3" />
+            <span>Por Responsable</span>
+          </button>
+          <button
+            @click="tipoAgrupacion = 'sector'"
+            class="px-2 py-1 rounded-md transition font-medium text-xs flex items-center gap-1"
+            :class="tipoAgrupacion === 'sector' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
+            title="Agrupar filas por sector económico"
+          >
+            <Briefcase class="w-3 h-3" />
+            <span>Por Sector</span>
+          </button>
+        </div>
       </div>
 
       <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200 dark:border-white/[0.05]">
@@ -1076,7 +1200,10 @@ watch(
       announce-text="Actualizando tablero..."
       class="rounded-xl overflow-hidden"
     >
-      <div class="flex gap-4 items-stretch overflow-x-auto pb-3.5 h-[calc(100vh-140px)] min-h-[580px] kanban-scroll">
+      <div
+        v-if="tipoAgrupacion === 'ninguna'"
+        class="flex gap-4 items-stretch overflow-x-auto pb-3.5 h-[calc(100vh-140px)] min-h-[580px] kanban-scroll"
+      >
         <!-- Columnas Dinámicas del Pipeline Activo -->
         <div
           v-for="(col, colIndex) in pipelineActivo?.columnas || []"
@@ -1206,19 +1333,41 @@ watch(
             </div>
           </div>
 
-          <!-- Total Acumulado por Etapa con desglose nominal y ponderado -->
+          <!-- Total Acumulado por Etapa con desglose nominal, métricas de permanencia y cuello de botella -->
           <div class="px-3.5 py-1.5 bg-zinc-100/70 dark:bg-[#09090b]/40 border-b border-zinc-200 dark:border-white/[0.05] text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-1 truncate">
+            <div class="flex items-center gap-1.5 truncate">
               <span>Total:</span>
               <span class="text-zinc-800 dark:text-zinc-200 font-semibold">{{ formatCurrency(totalMontoColumna(col.id)) }}</span>
             </div>
-            <span
-              v-if="totalMontoPonderadoColumna(col.id) > 0"
-              class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium shrink-0"
-              :title="'Forecast ponderado de esta etapa: ' + formatCurrency(totalMontoPonderadoColumna(col.id))"
-            >
-              ~{{ formatCurrency(totalMontoPonderadoColumna(col.id)) }}
-            </span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <!-- Permanencia promedio en etapa -->
+              <span
+                v-if="promedioDiasColumna(col.id) > 0"
+                class="inline-flex items-center gap-0.5 text-[10px] text-zinc-500 dark:text-zinc-400"
+                :title="'Tiempo promedio en esta etapa: ' + promedioDiasColumna(col.id) + ' días'"
+              >
+                <Clock class="w-2.5 h-2.5 text-zinc-400" />
+                <span>{{ promedioDiasColumna(col.id) }}d</span>
+              </span>
+
+              <!-- Alerta de cuello de botella si promedio >= 12 días -->
+              <span
+                v-if="esCuelloDeBotella(col)"
+                class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25 animate-pulse"
+                title="Posible cuello de botella: permanencia promedio superior a 12 días"
+              >
+                <AlertTriangle class="w-2.5 h-2.5 text-amber-500" />
+                <span>Lento</span>
+              </span>
+
+              <span
+                v-if="totalMontoPonderadoColumna(col.id) > 0"
+                class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium shrink-0"
+                :title="'Forecast ponderado de esta etapa: ' + formatCurrency(totalMontoPonderadoColumna(col.id))"
+              >
+                ~{{ formatCurrency(totalMontoPonderadoColumna(col.id)) }}
+              </span>
+            </div>
           </div>
 
           <!-- Lista de Tarjetas con Soporte de Reordenamiento Vertical (Arriba/Abajo) -->
@@ -1236,208 +1385,31 @@ watch(
               <span>Sin elementos en esta etapa</span>
             </div>
 
-            <!-- Tarjeta Arrastrable, Inspeccionable y Ordenable Verticalmente -->
-            <div
+            <!-- Tarjeta Arrastrable con Acciones Rápidas Directas -->
+            <KanbanTarjetaItem
               v-for="(tarjeta, cardIndex) in tarjetasPorColumna(col.id)"
               :key="tarjeta.id"
-              draggable="true"
+              :tarjeta="tarjeta"
+              :columna="col"
+              :col-index="colIndex"
+              :card-index="cardIndex"
+              :total-cards-in-col="tarjetasPorColumna(col.id).length"
+              :total-columnas="pipelineActivo?.columnas?.length || 0"
+              :tarjeta-destino-id="tarjetaDestinoId"
+              :posicion-insercion="posicionInsercion"
+              @click="abrirDetalleTarjeta(tarjeta)"
               @dragstart="onDragStart(tarjeta, $event)"
               @dragover="onDragOverTarjeta(tarjeta, $event)"
-              @drop.stop="onDropColumna(col.id, $event)"
-              @click="abrirDetalleTarjeta(tarjeta)"
-              class="bg-white dark:bg-zinc-900/70 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.07] hover:border-indigo-500/40 dark:hover:border-indigo-500/40 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/90 transition-all duration-150 shadow-sm group cursor-pointer active:cursor-grabbing relative"
-              :class="[
-                esFechaDeHoy(tarjeta.fecha_objetivo)
-                  ? 'border-indigo-400/50 dark:border-indigo-500/40 ring-1 ring-indigo-500/30 dark:ring-indigo-500/30 shadow-xs'
-                  : '',
-                tarjetaDestinoId === tarjeta.id
-                  ? posicionInsercion === 'antes'
-                    ? 'border-t-2 border-t-indigo-500'
-                    : 'border-b-2 border-b-indigo-500'
-                  : ''
-              ]"
-            >
-              <!-- Cabecera de la tarjeta con Grip y Controles Arriba/Abajo -->
-              <div class="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1.5">
-                <span class="font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 truncate max-w-[150px]" :title="tarjeta.cliente_nombre">
-                  <GripVertical class="w-3 h-3 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 cursor-grab" />
-                  <Building2 class="w-3.5 h-3.5 shrink-0" />
-                  <span class="truncate">{{ tarjeta.cliente_nombre }}</span>
-                </span>
-
-                <!-- Controles para reordenar ARRIBA / ABAJO dentro de la columna -->
-                <div class="flex items-center gap-1">
-                  <div class="flex items-center bg-zinc-100 dark:bg-zinc-950/80 rounded border border-zinc-200 dark:border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition" @click.stop>
-                    <button
-                      :disabled="cardIndex === 0"
-                      @click.stop="moverTarjetaVertical(tarjeta, 'arriba')"
-                      title="Subir tarjeta"
-                      class="p-0.5 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition"
-                    >
-                      <ChevronUp class="w-3 h-3" />
-                    </button>
-                    <button
-                      :disabled="cardIndex === tarjetasPorColumna(col.id).length - 1"
-                      @click.stop="moverTarjetaVertical(tarjeta, 'abajo')"
-                      title="Bajar tarjeta"
-                      class="p-0.5 hover:text-zinc-900 dark:hover:text-white disabled:opacity-20 transition"
-                    >
-                      <ChevronDown class="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <!-- Indicador de Antigüedad / Días en Etapa -->
-                  <span
-                    :class="['px-1.5 py-0.5 rounded text-[10px] font-mono border font-medium flex items-center gap-0.5', claseAntiguedad(calcularDiasActivo(tarjeta))]"
-                    :title="'Días transcurridos en el proceso: ' + calcularDiasActivo(tarjeta) + ' días'"
-                  >
-                    <span>{{ calcularDiasActivo(tarjeta) }}d</span>
-                  </span>
-
-                  <!-- Badge "Para hoy" con punto pulsante -->
-                  <span
-                    v-if="esFechaDeHoy(tarjeta.fecha_objetivo)"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1 shadow-xs shrink-0"
-                    title="Esta tarjeta o visita está programada para HOY"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
-                    <span>Para hoy</span>
-                  </span>
-
-                  <span
-                    v-if="col.estado === 'bloqueado'"
-                    class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-500 dark:text-rose-300 border border-rose-500/25 flex items-center gap-1 shrink-0"
-                    title="Esta tarjeta o visita se encuentra bloqueada"
-                  >
-                    <AlertOctagon class="w-2.5 h-2.5" />
-                    <span>Bloqueada</span>
-                  </span>
-
-                  <span :class="['px-1.5 py-0.5 rounded text-[10px] font-medium capitalize', badgePrioridad(tarjeta.prioridad)]">
-                    {{ tarjeta.prioridad || 'media' }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Título de la Tarjeta / Visita -->
-              <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors mb-2 leading-snug">
-                {{ tarjeta.titulo }}
-              </div>
-
-              <!-- Notas u Objetivo (si tiene) -->
-              <p v-if="tarjeta.notas" class="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 mb-2 bg-zinc-50 dark:bg-zinc-950/40 p-1.5 rounded border border-zinc-200 dark:border-white/[0.04]">
-                {{ tarjeta.notas }}
-              </p>
-
-              <!-- Responsable y Sector -->
-              <div class="flex items-center justify-between text-[10px] text-zinc-500 mb-2">
-                <span class="truncate max-w-[110px]">{{ tarjeta.responsable }}</span>
-                <span class="truncate max-w-[110px] inline-flex items-center gap-1">
-                  <SectorIcon :sector="tarjeta.cliente_sector" class="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
-                  <span>{{ tarjeta.cliente_sector }}</span>
-                </span>
-              </div>
-
-              <!-- Monto y Fecha -->
-              <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-white/[0.05] text-xs">
-                <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-200 tabular-nums">
-                  {{ tarjeta.monto ? formatCurrency(tarjeta.monto) : '—' }}
-                </span>
-                <span
-                  class="text-[10px] flex items-center gap-1 font-mono transition-colors"
-                  :class="esFechaDeHoy(tarjeta.fecha_objetivo) 
-                    ? 'text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/25' 
-                    : 'text-zinc-500 dark:text-zinc-400'"
-                >
-                  <span v-if="esFechaDeHoy(tarjeta.fecha_objetivo)" class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
-                  <Calendar v-else class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-                  <span>{{ esFechaDeHoy(tarjeta.fecha_objetivo) ? 'Hoy' : formatDate(tarjeta.fecha_objetivo) }}</span>
-                </span>
-              </div>
-
-              <!-- Barra de Probabilidad Visual -->
-              <div v-if="tarjeta.monto && tarjeta.monto > 0" class="mt-2 pt-1 border-t border-zinc-100 dark:border-white/[0.03]">
-                <div class="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mb-1">
-                  <span>Probabilidad:</span>
-                  <span class="font-semibold text-indigo-600 dark:text-indigo-400">{{ tarjeta.probabilidad ?? 50 }}%</span>
-                </div>
-                <div class="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-indigo-500 rounded-full transition-all"
-                    :style="{ width: (tarjeta.probabilidad ?? 50) + '%' }"
-                  ></div>
-                </div>
-              </div>
-
-              <!-- Detector de Estancamiento (> 10 días sin interacción) -->
-              <div
-                v-if="diagnosticoEstancado(tarjeta, col).estancado"
-                class="mt-2 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 flex items-center justify-between gap-1.5"
-                :title="diagnosticoEstancado(tarjeta, col).motivo"
-              >
-                <div class="flex items-center gap-1 text-[10px] font-medium min-w-0">
-                  <AlertTriangle class="w-3 h-3 text-amber-500 shrink-0" />
-                  <span class="truncate">Estancado (+{{ diagnosticoEstancado(tarjeta, col).diasSinContacto }}d)</span>
-                </div>
-                <button
-                  type="button"
-                  @click.stop="abrirModalSeguimiento(tarjeta)"
-                  class="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[10px] font-semibold text-amber-800 dark:text-amber-300 transition flex items-center gap-1 shrink-0"
-                  title="Programar llamada, reunión o recordatorio de seguimiento"
-                >
-                  <CalendarClock class="w-2.5 h-2.5" />
-                  <span>Actuar</span>
-                </button>
-              </div>
-
-              <!-- Botones de Transición Rápida entre Columnas y Acciones -->
-              <div class="mt-2.5 pt-2 border-t border-zinc-100 dark:border-white/[0.04] flex items-center justify-between text-[10px]">
-                <div class="flex items-center gap-1" @click.stop>
-                  <button
-                    v-if="colIndex > 0"
-                    @click.stop="retrocederColumna(tarjeta)"
-                    title="Mover a etapa previa"
-                    class="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                  >
-                    <ChevronLeft class="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    v-if="pipelineActivo && colIndex < pipelineActivo.columnas.length - 1"
-                    @click.stop="avanzarColumna(tarjeta)"
-                    title="Avanzar a siguiente etapa"
-                    class="p-1 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center gap-0.5 font-medium"
-                  >
-                    <span>Mover</span>
-                    <ChevronRight class="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div class="flex items-center gap-1" @click.stop>
-                  <button
-                    @click.stop="abrirDetalleTarjeta(tarjeta)"
-                    title="Inspeccionar y editar trato"
-                    class="p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                  >
-                    <Edit3 class="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    @click.stop="abrirModalSeguimiento(tarjeta)"
-                    title="Programar próxima actividad / Next step"
-                    class="p-1 text-zinc-400 hover:text-amber-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                  >
-                    <CalendarClock class="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    @click.stop="eliminarTarjeta(tarjeta)"
-                    title="Eliminar elemento"
-                    class="p-1 text-zinc-400 hover:text-rose-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                  >
-                    <Trash2 class="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+              @drop="onDropColumna(col.id, $event)"
+              @mover-vertical="(dir) => moverTarjetaVertical(tarjeta, dir)"
+              @avanzar="avanzarColumna(tarjeta)"
+              @retroceder="retrocederColumna(tarjeta)"
+              @abrir-detalle="abrirDetalleTarjeta(tarjeta)"
+              @programar-actividad="abrirModalSeguimiento(tarjeta)"
+              @redactar-correo="redactarCorreoCliente(tarjeta)"
+              @motivo-cierre="abrirModalMotivoCierre(tarjeta)"
+              @eliminar="eliminarTarjeta(tarjeta)"
+            />
           </div>
         </div>
 
@@ -1462,6 +1434,111 @@ watch(
             <span class="text-xs font-medium text-zinc-700 dark:text-zinc-400">Límite de {{ LIMITE_MAXIMO_COLUMNAS }} etapas</span>
             <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Mantiene el tablero enfocado con métricas claras</span>
           </div>
+        </div>
+      </div>
+      <div
+        v-else
+        class="space-y-4 pb-6 overflow-y-auto max-h-[calc(100vh-140px)] min-h-[580px] kanban-scroll"
+      >
+        <!-- Modo 2: Carriles Horizontales (Swimlanes por Responsable o Sector) -->
+        <div
+          v-for="carrilKey in carrilesDisponibles"
+          :key="carrilKey"
+          class="border border-zinc-200 dark:border-white/[0.08] rounded-xl overflow-hidden bg-zinc-50/50 dark:bg-zinc-950/40 shadow-xs"
+        >
+          <!-- Barra de Cabecera del Carril -->
+          <div
+            @click="alternarCarril(carrilKey)"
+            class="px-4 py-2.5 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-white/[0.07] flex items-center justify-between cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition select-none"
+          >
+            <div class="flex items-center gap-2">
+              <button class="p-0.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
+                <ChevronDown v-if="!carrilesColapsados[carrilKey]" class="w-4 h-4" />
+                <ChevronRight v-else class="w-4 h-4" />
+              </button>
+              <div class="flex items-center gap-1.5 font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                <UserCheck v-if="tipoAgrupacion === 'responsable'" class="w-3.5 h-3.5 text-indigo-500" />
+                <Briefcase v-else class="w-3.5 h-3.5 text-indigo-500" />
+                <span>{{ carrilKey }}</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono font-medium">
+                {{ totalTarjetasCarril(carrilKey) }} {{ totalTarjetasCarril(carrilKey) === 1 ? 'elemento' : 'elementos' }}
+              </span>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-mono">
+              <span class="text-zinc-500 font-sans">Volumen:</span>
+              <span class="font-semibold text-indigo-600 dark:text-indigo-400">{{ formatCurrency(totalMontoCarril(carrilKey)) }}</span>
+            </div>
+          </div>
+
+          <!-- Contenido del Carril: Columnas con Tarjetas filtradas por este carril -->
+          <div v-show="!carrilesColapsados[carrilKey]" class="p-3">
+            <div class="flex gap-3 overflow-x-auto pb-2 kanban-scroll items-start">
+              <div
+                v-for="(col, colIndex) in pipelineActivo?.columnas || []"
+                :key="col.id + '-' + carrilKey"
+                class="w-64 shrink-0 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-zinc-900/60 p-2.5 min-h-[160px] flex flex-col"
+                :class="columnaDestinoId === col.id ? 'ring-2 ring-indigo-500/40 bg-indigo-50/20 dark:bg-zinc-900/90' : ''"
+                @dragover="onDragOverColumna(col.id, $event)"
+                @dragleave="onDragLeave(col.id)"
+                @drop="onDropColumna(col.id, $event)"
+              >
+                <!-- Mini cabecera de columna en carril -->
+                <div class="flex items-center justify-between text-[11px] pb-1.5 mb-2 border-b border-zinc-100 dark:border-white/[0.04]">
+                  <div class="flex items-center gap-1.5 font-medium text-zinc-700 dark:text-zinc-300 truncate">
+                    <span :class="['w-1.5 h-1.5 rounded-full shrink-0', col.color]"></span>
+                    <span class="truncate">{{ col.titulo }}</span>
+                  </div>
+                  <span class="font-mono text-[10px] text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded">
+                    {{ tarjetasPorColumnaYCarril(col.id, carrilKey).length }}
+                  </span>
+                </div>
+
+                <!-- Tarjetas en este carril y columna -->
+                <div class="space-y-2 flex-1">
+                  <div
+                    v-if="tarjetasPorColumnaYCarril(col.id, carrilKey).length === 0"
+                    class="py-6 text-center text-zinc-400 dark:text-zinc-600 text-[10px] border border-dashed border-zinc-200 dark:border-zinc-800/60 rounded-lg"
+                  >
+                    Sin elementos
+                  </div>
+
+                  <KanbanTarjetaItem
+                    v-for="(tarjeta, cardIndex) in tarjetasPorColumnaYCarril(col.id, carrilKey)"
+                    :key="tarjeta.id"
+                    :tarjeta="tarjeta"
+                    :columna="col"
+                    :col-index="colIndex"
+                    :card-index="cardIndex"
+                    :total-cards-in-col="tarjetasPorColumnaYCarril(col.id, carrilKey).length"
+                    :total-columnas="pipelineActivo?.columnas?.length || 0"
+                    :tarjeta-destino-id="tarjetaDestinoId"
+                    :posicion-insercion="posicionInsercion"
+                    @click="abrirDetalleTarjeta(tarjeta)"
+                    @dragstart="onDragStart(tarjeta, $event)"
+                    @dragover="onDragOverTarjeta(tarjeta, $event)"
+                    @drop="onDropColumna(col.id, $event)"
+                    @mover-vertical="(dir) => moverTarjetaVertical(tarjeta, dir)"
+                    @avanzar="avanzarColumna(tarjeta)"
+                    @retroceder="retrocederColumna(tarjeta)"
+                    @abrir-detalle="abrirDetalleTarjeta(tarjeta)"
+                    @programar-actividad="abrirModalSeguimiento(tarjeta)"
+                    @redactar-correo="redactarCorreoCliente(tarjeta)"
+                    @motivo-cierre="abrirModalMotivoCierre(tarjeta)"
+                    @eliminar="eliminarTarjeta(tarjeta)"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estado vacío si no hay carriles -->
+        <div
+          v-if="carrilesDisponibles.length === 0"
+          class="text-center py-16 text-zinc-500 text-xs border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl"
+        >
+          No hay elementos agrupables en esta vista.
         </div>
       </div>
     </FlickerlessSurface>
@@ -1570,6 +1647,15 @@ watch(
       @actualizado="onTarjetaActualizada"
       @eliminar="(t) => { modalDetalleTarjetaAbierto = false; eliminarTarjeta(t); }"
       @programar-actividad="(t) => { modalDetalleTarjetaAbierto = false; abrirModalSeguimiento(t); }"
+    />
+
+    <!-- Modal para Registrar Motivo de Cierre / Pérdida / Pausa -->
+    <ModalMotivoCierre
+      v-if="modalMotivoCierreAbierto && tarjetaParaMotivoCierre"
+      :abierto="modalMotivoCierreAbierto"
+      :tarjeta="tarjetaParaMotivoCierre"
+      @cerrar="modalMotivoCierreAbierto = false; tarjetaParaMotivoCierre = null;"
+      @confirmar="confirmarMotivoCierre"
     />
   </div>
 </template>

@@ -900,6 +900,9 @@ class PipelineService {
     if (input.notas !== undefined) tarjeta.notas = input.notas.trim();
     if (input.prioridad !== undefined) tarjeta.prioridad = input.prioridad;
     if (input.responsable !== undefined) tarjeta.responsable = input.responsable;
+    if (input.motivo_cierre !== undefined) tarjeta.motivo_cierre = input.motivo_cierre;
+    if (input.notas_cierre !== undefined) tarjeta.notas_cierre = input.notas_cierre;
+    if (input.fecha_cambio_etapa !== undefined) tarjeta.fecha_cambio_etapa = input.fecha_cambio_etapa;
 
     // Si cambió la columna, mover ordenadamente
     if (input.columna_id !== undefined && input.columna_id !== tarjeta.columna_id) {
