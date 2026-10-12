@@ -68,6 +68,9 @@ export interface MetricasProgresoPipeline {
   montoEnProceso: number;
   montoBloqueado: number;
   montoPendiente: number;
+  montoTotal: number;
+  montoPonderadoTotal: number;
+  tasaConversion: number;
 }
 
 export interface ResumenPipelineItem {
@@ -143,6 +146,17 @@ export interface CrearMultiplesTarjetasInput {
   probabilidad?: number;
   notas?: string;
   prioridad?: 'alta' | 'media' | 'baja';
+}
+
+export interface ActualizarTarjetaInput {
+  titulo?: string;
+  monto?: number;
+  columna_id?: string;
+  fecha_objetivo?: string;
+  probabilidad?: number;
+  notas?: string;
+  prioridad?: 'alta' | 'media' | 'baja';
+  responsable?: string;
 }
 
 // Compatibilidad hacia atrás con el modelo previo de oportunidades

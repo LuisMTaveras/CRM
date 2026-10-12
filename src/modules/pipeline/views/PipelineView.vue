@@ -23,7 +23,9 @@ import {
   AlertTriangle,
   CalendarClock,
   GripVertical,
-  ArrowLeft
+  ArrowLeft,
+  TrendingUp,
+  DollarSign
 } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 import { formatCurrency, formatDate } from '@/core/formatters/formatters';
@@ -40,6 +42,8 @@ import { LIMITE_MAXIMO_COLUMNAS } from '../types/pipeline.types';
 import NuevoPipelineModal from '../components/NuevoPipelineModal.vue';
 import GestionColumnaModal from '../components/GestionColumnaModal.vue';
 import NuevaTarjetaModal from '../components/NuevaTarjetaModal.vue';
+import DetalleTarjetaModal from '../components/DetalleTarjetaModal.vue';
+import PipelineCalendarioView from '../components/PipelineCalendarioView.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
@@ -54,12 +58,18 @@ const pipelineActivoId = ref<string>((route.params.id as string) || 'pipeline-co
 const tarjetas = ref<TarjetaPipeline[]>([]);
 const responsablesDisponibles = ref<string[]>([]);
 
+// Vista activa: Tablero Kanban o Calendario
+const vistaActiva = ref<'tablero' | 'calendario'>('tablero');
+const fechaSeleccionadaParaTarjeta = ref<string>('');
+
 // Modales
 const modalNuevoPipelineAbierto = ref(false);
 const modalColumnaAbierto = ref(false);
 const columnaEnEdicion = ref<ColumnaPipeline | null>(null);
 const modalTarjetaAbierto = ref(false);
 const columnaSeleccionadaParaTarjeta = ref<string>('');
+const modalDetalleTarjetaAbierto = ref(false);
+const tarjetaSeleccionadaDetalle = ref<TarjetaPipeline | null>(null);
 
 // Drag & Drop
 const tarjetaArrastrada = ref<TarjetaPipeline | null>(null);
@@ -87,7 +97,7 @@ const opcionesPipelines = computed<Array<SelectOption<string>>>(() => {
     value: p.id,
     label: p.nombre,
     icon: p.tipo === 'visitas' ? MapPin : Kanban,
-    colorClass: 'text-zinc-100 font-semibold',
+    colorClass: 'text-zinc-900 dark:text-zinc-100 font-semibold',
   }));
 });
 
@@ -103,9 +113,9 @@ const opcionesResponsables = computed<Array<SelectOption<string>>>(() => {
 
 const opcionesPrioridades: Array<SelectOption<string>> = [
   { value: '', label: 'Todas las Prioridades' },
-  { value: 'alta', label: 'Prioridad Alta', dotColor: 'bg-rose-400', colorClass: 'text-rose-300 font-medium' },
-  { value: 'media', label: 'Prioridad Media', dotColor: 'bg-amber-400', colorClass: 'text-amber-300 font-medium' },
-  { value: 'baja', label: 'Prioridad Baja', dotColor: 'bg-sky-400', colorClass: 'text-sky-300 font-medium' },
+  { value: 'alta', label: 'Prioridad Alta', dotColor: 'bg-rose-400', colorClass: 'text-rose-600 dark:text-rose-300 font-medium' },
+  { value: 'media', label: 'Prioridad Media', dotColor: 'bg-amber-400', colorClass: 'text-amber-600 dark:text-amber-300 font-medium' },
+  { value: 'baja', label: 'Prioridad Baja', dotColor: 'bg-sky-400', colorClass: 'text-sky-600 dark:text-sky-300 font-medium' },
 ];
 
 const pipelineActivo = computed<Pipeline | null>(() => {
@@ -173,6 +183,13 @@ const metricasProgreso = computed(() => {
     )
     .reduce((acc, t) => acc + (t.monto || 0), 0);
 
+  const montoTotal = montoCompletado + montoEnProceso + montoBloqueado + montoPendiente;
+  const montoPonderadoTotal = tarjetas.value.reduce((acc, t) => {
+    const prob = t.probabilidad !== undefined ? t.probabilidad : 50;
+    return acc + (t.monto || 0) * (prob / 100);
+  }, 0);
+  const tasaConversion = total > 0 ? Math.round((completadas / total) * 100) : 0;
+
   return {
     total,
     completadas,
@@ -184,6 +201,9 @@ const metricasProgreso = computed(() => {
     montoEnProceso,
     montoBloqueado,
     montoPendiente,
+    montoTotal,
+    montoPonderadoTotal,
+    tasaConversion,
   };
 });
 
@@ -254,17 +274,90 @@ const abrirModalSeguimiento = (tarjeta: TarjetaPipeline) => {
   modalActividadAbierto.value = true;
 };
 
-const tarjetasPorColumna = (columnaId: string) => {
-  let list = tarjetas.value.filter((t) => t.columna_id === columnaId);
-  if (filtroSoloEstancados.value) {
-    const col = pipelineActivo.value?.columnas.find((c) => c.id === columnaId);
-    list = list.filter((t) => diagnosticoEstancado(t, col).estancado);
+const filtroSoloHoy = ref(false);
+
+// Detección de Tarjetas / Tratos / Visitas programadas para HOY
+const esFechaDeHoy = (fechaStr?: string | null): boolean => {
+  if (!fechaStr) return false;
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  if (fechaStr.length >= 10 && fechaStr.slice(0, 10) === hoyStr) {
+    return true;
   }
+  const d = new Date(fechaStr);
+  if (isNaN(d.getTime())) return false;
+  const hoy = new Date();
+  return (
+    d.getFullYear() === hoy.getFullYear() &&
+    d.getMonth() === hoy.getMonth() &&
+    d.getDate() === hoy.getDate()
+  );
+};
+
+const tarjetasDeHoy = computed(() => {
+  return tarjetas.value.filter((t) => esFechaDeHoy(t.fecha_objetivo));
+});
+
+const totalTarjetasHoy = computed(() => tarjetasDeHoy.value.length);
+
+const tarjetasFiltradas = computed(() => {
+  let list = tarjetas.value;
+  if (filtroSoloEstancados.value) {
+    list = list.filter((t) => {
+      const col = pipelineActivo.value?.columnas.find((c) => c.id === t.columna_id);
+      return diagnosticoEstancado(t, col).estancado;
+    });
+  }
+  if (filtroSoloHoy.value) {
+    list = list.filter((t) => esFechaDeHoy(t.fecha_objetivo));
+  }
+  return list;
+});
+
+const tarjetasPorColumna = (columnaId: string) => {
+  const list = tarjetasFiltradas.value.filter((t) => t.columna_id === columnaId);
   return list.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+};
+
+const tarjetasHoyPorColumna = (columnaId: string) => {
+  return tarjetasPorColumna(columnaId).filter((t) => esFechaDeHoy(t.fecha_objetivo));
 };
 
 const totalMontoColumna = (columnaId: string) => {
   return tarjetasPorColumna(columnaId).reduce((acc, t) => acc + (t.monto || 0), 0);
+};
+
+const totalMontoPonderadoColumna = (columnaId: string) => {
+  return tarjetasPorColumna(columnaId).reduce((acc, t) => {
+    const prob = t.probabilidad !== undefined ? t.probabilidad : 50;
+    return acc + (t.monto || 0) * (prob / 100);
+  }, 0);
+};
+
+// Apertura y gestión del Inspector de Tarjeta / Trato
+const abrirDetalleTarjeta = (tarjeta: TarjetaPipeline) => {
+  tarjetaSeleccionadaDetalle.value = tarjeta;
+  modalDetalleTarjetaAbierto.value = true;
+};
+
+const onTarjetaActualizada = async (actualizada: TarjetaPipeline) => {
+  const idx = tarjetas.value.findIndex((t) => t.id === actualizada.id);
+  if (idx !== -1) {
+    tarjetas.value[idx] = actualizada;
+  }
+  await sincronizarTarjetasSilencioso();
+};
+
+const calcularDiasActivo = (tarjeta: TarjetaPipeline) => {
+  if (!tarjeta.creado_en) return 0;
+  const creado = new Date(tarjeta.creado_en).getTime();
+  const diff = Date.now() - creado;
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+};
+
+const claseAntiguedad = (dias: number) => {
+  if (dias > 10) return 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20';
+  if (dias > 5) return 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20';
+  return 'text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-white/[0.05]';
 };
 
 // Sincronización silenciosa en segundo plano (sin activar spinner ni Flickerless)
@@ -471,7 +564,31 @@ const eliminarColumna = async (col: ColumnaPipeline) => {
 // Acciones de Pipeline
 const abrirModalNuevaTarjeta = (columnaId?: string) => {
   columnaSeleccionadaParaTarjeta.value = columnaId || (pipelineActivo.value?.columnas[0]?.id ?? '');
+  fechaSeleccionadaParaTarjeta.value = '';
   modalTarjetaAbierto.value = true;
+};
+
+const abrirModalNuevaTarjetaConFecha = (fecha: string) => {
+  fechaSeleccionadaParaTarjeta.value = fecha;
+  columnaSeleccionadaParaTarjeta.value = pipelineActivo.value?.columnas[0]?.id ?? '';
+  modalTarjetaAbierto.value = true;
+};
+
+const onReprogramarTarjeta = async (payload: { tarjetaId: string; nuevaFecha: string }) => {
+  try {
+    const tarjeta = tarjetas.value.find((t) => t.id === payload.tarjetaId);
+    if (tarjeta) {
+      tarjeta.fecha_objetivo = payload.nuevaFecha;
+    }
+    await pipelineService.actualizarTarjeta(pipelineActivoId.value, payload.tarjetaId, {
+      fecha_objetivo: payload.nuevaFecha,
+    });
+    toastService.exito(`Fecha reprogramada al ${formatDate(payload.nuevaFecha)}`);
+    await sincronizarTarjetasSilencioso();
+  } catch {
+    toastService.error('No se pudo reprogramar la fecha.');
+    await sincronizarTarjetasSilencioso();
+  }
 };
 
 const abrirEditarPipeline = () => {
@@ -594,29 +711,64 @@ watch(
 
         <span class="text-zinc-400 dark:text-zinc-700 hidden sm:inline">/</span>
 
-        <!-- Icono y Selector de Tablero Activo -->
-        <div class="flex items-center gap-2 min-w-0">
-          <span
-            class="p-1.5 rounded-lg border shrink-0"
-            :class="pipelineActivo?.tipo === 'visitas' ? 'bg-sky-500/10 border-sky-500/20 text-sky-500 dark:text-sky-400' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'"
-          >
-            <MapPin v-if="pipelineActivo?.tipo === 'visitas'" class="w-3.5 h-3.5" />
-            <Kanban v-else class="w-3.5 h-3.5" />
-          </span>
-
+        <!-- Selector de Tablero Activo -->
+        <div class="flex items-center min-w-0">
           <AppSelect
             :model-value="pipelineActivoId"
             @update:model-value="(nuevoId) => cambiarPipeline(nuevoId as string)"
             :options="opcionesPipelines"
             min-width-class="min-w-[190px]"
-            trigger-class="text-xs font-semibold bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.1] hover:border-zinc-300 dark:hover:border-white/[0.2] px-2.5 py-1"
+            trigger-class="text-xs font-semibold bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.1] hover:border-zinc-300 dark:hover:border-white/[0.2] px-2.5 py-1 text-zinc-900 dark:text-zinc-100"
           />
         </div>
 
+        <!-- Conmutador de Vistas: Tablero Kanban / Calendario -->
+        <div class="inline-flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-white/[0.08] shadow-xs shrink-0">
+          <button
+            type="button"
+            @click="vistaActiva = 'tablero'"
+            :class="[
+              vistaActiva === 'tablero'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
+            title="Vista Tablero Kanban"
+          >
+            <Kanban class="w-3.5 h-3.5" />
+            <span class="hidden md:inline">Tablero</span>
+          </button>
+
+          <button
+            type="button"
+            @click="vistaActiva = 'calendario'"
+            :class="[
+              vistaActiva === 'calendario'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
+            title="Vista Calendario de Visitas y Tratos"
+          >
+            <Calendar class="w-3.5 h-3.5" />
+            <span class="hidden md:inline">Calendario</span>
+          </button>
+        </div>
+
         <!-- Badge de Conteo Activo -->
-        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
           {{ tarjetas.length }} {{ pipelineActivo?.tipo === 'visitas' ? 'Visitas' : 'Tarjetas' }}
+        </span>
+
+        <!-- Badge Destacado de Elementos para Hoy -->
+        <span
+          v-if="totalTarjetasHoy > 0"
+          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 shrink-0 shadow-xs"
+          title="Tratos o visitas programadas para el día de hoy"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
+          <span>{{ totalTarjetasHoy }} {{ totalTarjetasHoy === 1 ? 'para hoy' : 'para hoy' }}</span>
         </span>
 
         <!-- Menú de Opciones del Tablero Activo -->
@@ -639,7 +791,7 @@ watch(
               class="w-full text-left px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 transition disabled:opacity-40"
             >
               <Plus class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>+ Agregar Columna</span>
+              <span>Agregar Columna</span>
             </button>
             <button
               @click="abrirEditarPipeline"
@@ -677,17 +829,18 @@ watch(
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
         >
           <Plus class="w-3.5 h-3.5" />
-          <span>{{ pipelineActivo?.tipo === 'visitas' ? '+ Programar Visitas' : '+ Nueva Tarjeta' }}</span>
+          <span>{{ pipelineActivo?.tipo === 'visitas' ? 'Programar Visitas' : 'Nueva Tarjeta' }}</span>
         </button>
 
-        <!-- Botón Añadir Columna Directo -->
+        <!-- Botón Añadir Columna Directo (exclusivo para vista Tablero) -->
         <button
+          v-if="vistaActiva === 'tablero'"
           @click="abrirModalNuevaColumna"
           :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40"
         >
           <Plus class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span>+ Columna</span>
+          <span>Columna</span>
         </button>
 
         <!-- Actualizar -->
@@ -703,11 +856,121 @@ watch(
     </Teleport>
 
   <div class="w-full space-y-4">
+    <!-- Resumen Ejecutivo del Pipeline (Métricas Clave & Forecast Ponderado) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <!-- 1. Tratos en Tablero -->
+      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5">
+            {{ pipelineActivo?.tipo === 'visitas' ? 'Visitas Registradas' : 'Tratos Activos' }}
+          </span>
+          <div class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
+            {{ metricasProgreso.total }}
+          </div>
+          <span class="text-[10px] text-zinc-500 dark:text-zinc-400">
+            {{ metricasProgreso.completadas }} ganados / realizados
+          </span>
+        </div>
+        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+          <Kanban class="w-4 h-4" />
+        </div>
+      </div>
+
+      <!-- 2. Volumen Nominal Total -->
+      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
+        <div class="min-w-0">
+          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5 truncate">
+            Volumen Proyectado Bruto
+          </span>
+          <div class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums truncate" :title="formatCurrency(metricasProgreso.montoTotal)">
+            {{ formatCurrency(metricasProgreso.montoTotal) }}
+          </div>
+          <span class="text-[10px] text-zinc-500 dark:text-zinc-400">
+            100% valor de cartera
+          </span>
+        </div>
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <DollarSign class="w-4 h-4" />
+        </div>
+      </div>
+
+      <!-- 3. Forecast Ponderado (Monto Realista por Probabilidad) -->
+      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
+        <div class="min-w-0">
+          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5 truncate">
+            Forecast Ponderado Realista
+          </span>
+          <div class="text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400 tabular-nums truncate" :title="formatCurrency(metricasProgreso.montoPonderadoTotal)">
+            {{ formatCurrency(metricasProgreso.montoPonderadoTotal) }}
+          </div>
+          <span class="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 font-medium">
+            Ajustado por probabilidad
+          </span>
+        </div>
+        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+          <TrendingUp class="w-4 h-4" />
+        </div>
+      </div>
+
+      <!-- 4. Tasa de Éxito / Progreso -->
+      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
+        <div>
+          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5">
+            Tasa de Cierre / Progreso
+          </span>
+          <div class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
+            {{ metricasProgreso.porcentaje }}%
+          </div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <div class="w-16 h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" :style="{ width: metricasProgreso.porcentaje + '%' }"></div>
+            </div>
+          </div>
+        </div>
+        <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+          <CheckCircle2 class="w-4 h-4" />
+        </div>
+      </div>
+    </div>
+
     <!-- Barra de Filtros en Tiempo Real -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.06] text-xs shadow-sm">
       <div class="flex flex-wrap items-center gap-2.5 flex-1">
+        <!-- Conmutador de Vistas dentro de la barra -->
+        <div class="inline-flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-white/[0.08] shadow-xs shrink-0">
+          <button
+            type="button"
+            @click="vistaActiva = 'tablero'"
+            :class="[
+              vistaActiva === 'tablero'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition"
+            title="Vista Tablero Kanban"
+          >
+            <Kanban class="w-3.5 h-3.5" />
+            <span>Tablero</span>
+          </button>
+
+          <button
+            type="button"
+            @click="vistaActiva = 'calendario'"
+            :class="[
+              vistaActiva === 'calendario'
+                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition"
+            title="Vista Calendario"
+          >
+            <Calendar class="w-3.5 h-3.5" />
+            <span>Calendario</span>
+          </button>
+        </div>
+
         <!-- Búsqueda -->
-        <div class="relative min-w-[220px] flex-1 sm:flex-initial">
+        <div class="relative min-w-[200px] flex-1 sm:flex-initial">
           <Search class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-2.5" />
           <input
             v-model="filtros.busqueda"
@@ -726,7 +989,7 @@ watch(
             @update:model-value="(nuevo) => { filtros.responsable = nuevo as string; cargarDatos(); }"
             :options="opcionesResponsables"
             size="sm"
-            min-width-class="min-w-[210px]"
+            min-width-class="min-w-[200px]"
           />
         </div>
 
@@ -737,7 +1000,7 @@ watch(
             @update:model-value="(nuevo) => { filtros.prioridad = nuevo as string; cargarDatos(); }"
             :options="opcionesPrioridades"
             size="sm"
-            min-width-class="min-w-[190px]"
+            min-width-class="min-w-[180px]"
           />
         </div>
 
@@ -762,6 +1025,37 @@ watch(
             {{ totalTarjetasEstancadas }}
           </span>
         </button>
+
+        <!-- Filtro Rápido: Elementos para HOY -->
+        <button
+          type="button"
+          @click="filtroSoloHoy = !filtroSoloHoy"
+          class="px-2.5 py-1.5 rounded-xl border text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+          :class="[
+            filtroSoloHoy
+              ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500/20 font-semibold'
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+          ]"
+          :title="filtroSoloHoy ? 'Mostrar todas las tarjetas' : 'Filtrar para ver solo elementos con fecha para hoy'"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full shrink-0"
+            :class="[
+              filtroSoloHoy
+                ? 'bg-indigo-600 dark:bg-indigo-400 animate-pulse'
+                : totalTarjetasHoy > 0
+                ? 'bg-indigo-600 dark:bg-indigo-400 animate-pulse'
+                : 'bg-zinc-400'
+            ]"
+          ></span>
+          <span>Para Hoy</span>
+          <span
+            v-if="totalTarjetasHoy > 0"
+            class="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-mono font-semibold"
+          >
+            {{ totalTarjetasHoy }}
+          </span>
+        </button>
       </div>
 
       <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200 dark:border-white/[0.05]">
@@ -774,6 +1068,7 @@ watch(
 
     <!-- Tablero Kanban Dinámico protegido con FlickerlessSurface -->
     <FlickerlessSurface
+      v-if="vistaActiva === 'tablero'"
       :loading="cargando"
       :delay-ms="180"
       :preserve-height="true"
@@ -833,6 +1128,16 @@ watch(
             </div>
             
             <div class="flex items-center gap-1.5 shrink-0">
+              <!-- Indicador de elementos de hoy en esta etapa -->
+              <span
+                v-if="tarjetasHoyPorColumna(col.id).length > 0"
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/25 shrink-0 shadow-xs"
+                :title="tarjetasHoyPorColumna(col.id).length + ' elemento(s) para hoy en esta etapa'"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
+                <span>{{ tarjetasHoyPorColumna(col.id).length }} hoy</span>
+              </span>
+
               <span class="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-200/70 dark:bg-zinc-800/80 px-2 py-0.5 rounded-md border border-zinc-300 dark:border-white/[0.06]">
                 {{ tarjetasPorColumna(col.id).length }}
               </span>
@@ -901,10 +1206,19 @@ watch(
             </div>
           </div>
 
-          <!-- Total Acumulado por Etapa -->
-          <div class="px-3.5 py-1.5 bg-zinc-100/70 dark:bg-[#09090b]/40 border-b border-zinc-200 dark:border-white/[0.05] text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex justify-between shrink-0">
-            <span>Subtotal:</span>
-            <span class="text-zinc-800 dark:text-zinc-200 font-semibold">{{ formatCurrency(totalMontoColumna(col.id)) }}</span>
+          <!-- Total Acumulado por Etapa con desglose nominal y ponderado -->
+          <div class="px-3.5 py-1.5 bg-zinc-100/70 dark:bg-[#09090b]/40 border-b border-zinc-200 dark:border-white/[0.05] text-[11px] font-mono text-zinc-500 dark:text-zinc-400 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-1 truncate">
+              <span>Total:</span>
+              <span class="text-zinc-800 dark:text-zinc-200 font-semibold">{{ formatCurrency(totalMontoColumna(col.id)) }}</span>
+            </div>
+            <span
+              v-if="totalMontoPonderadoColumna(col.id) > 0"
+              class="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium shrink-0"
+              :title="'Forecast ponderado de esta etapa: ' + formatCurrency(totalMontoPonderadoColumna(col.id))"
+            >
+              ~{{ formatCurrency(totalMontoPonderadoColumna(col.id)) }}
+            </span>
           </div>
 
           <!-- Lista de Tarjetas con Soporte de Reordenamiento Vertical (Arriba/Abajo) -->
@@ -922,7 +1236,7 @@ watch(
               <span>Sin elementos en esta etapa</span>
             </div>
 
-            <!-- Tarjeta Arrastrable y Ordenable Verticalmente -->
+            <!-- Tarjeta Arrastrable, Inspeccionable y Ordenable Verticalmente -->
             <div
               v-for="(tarjeta, cardIndex) in tarjetasPorColumna(col.id)"
               :key="tarjeta.id"
@@ -930,8 +1244,12 @@ watch(
               @dragstart="onDragStart(tarjeta, $event)"
               @dragover="onDragOverTarjeta(tarjeta, $event)"
               @drop.stop="onDropColumna(col.id, $event)"
-              class="bg-white dark:bg-zinc-900/70 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.07] hover:border-zinc-300 dark:hover:border-white/[0.18] hover:bg-zinc-50/70 dark:hover:bg-zinc-900 transition-all duration-150 shadow-sm group cursor-grab active:cursor-grabbing relative"
+              @click="abrirDetalleTarjeta(tarjeta)"
+              class="bg-white dark:bg-zinc-900/70 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.07] hover:border-indigo-500/40 dark:hover:border-indigo-500/40 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/90 transition-all duration-150 shadow-sm group cursor-pointer active:cursor-grabbing relative"
               :class="[
+                esFechaDeHoy(tarjeta.fecha_objetivo)
+                  ? 'border-indigo-400/50 dark:border-indigo-500/40 ring-1 ring-indigo-500/30 dark:ring-indigo-500/30 shadow-xs'
+                  : '',
                 tarjetaDestinoId === tarjeta.id
                   ? posicionInsercion === 'antes'
                     ? 'border-t-2 border-t-indigo-500'
@@ -942,14 +1260,14 @@ watch(
               <!-- Cabecera de la tarjeta con Grip y Controles Arriba/Abajo -->
               <div class="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1.5">
                 <span class="font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 truncate max-w-[150px]" :title="tarjeta.cliente_nombre">
-                  <GripVertical class="w-3 h-3 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0" />
+                  <GripVertical class="w-3 h-3 text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 shrink-0 cursor-grab" />
                   <Building2 class="w-3.5 h-3.5 shrink-0" />
                   <span class="truncate">{{ tarjeta.cliente_nombre }}</span>
                 </span>
 
                 <!-- Controles para reordenar ARRIBA / ABAJO dentro de la columna -->
                 <div class="flex items-center gap-1">
-                  <div class="flex items-center bg-zinc-100 dark:bg-zinc-950/80 rounded border border-zinc-200 dark:border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition">
+                  <div class="flex items-center bg-zinc-100 dark:bg-zinc-950/80 rounded border border-zinc-200 dark:border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition" @click.stop>
                     <button
                       :disabled="cardIndex === 0"
                       @click.stop="moverTarjetaVertical(tarjeta, 'arriba')"
@@ -968,6 +1286,24 @@ watch(
                     </button>
                   </div>
 
+                  <!-- Indicador de Antigüedad / Días en Etapa -->
+                  <span
+                    :class="['px-1.5 py-0.5 rounded text-[10px] font-mono border font-medium flex items-center gap-0.5', claseAntiguedad(calcularDiasActivo(tarjeta))]"
+                    :title="'Días transcurridos en el proceso: ' + calcularDiasActivo(tarjeta) + ' días'"
+                  >
+                    <span>{{ calcularDiasActivo(tarjeta) }}d</span>
+                  </span>
+
+                  <!-- Badge "Para hoy" con punto pulsante -->
+                  <span
+                    v-if="esFechaDeHoy(tarjeta.fecha_objetivo)"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1 shadow-xs shrink-0"
+                    title="Esta tarjeta o visita está programada para HOY"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
+                    <span>Para hoy</span>
+                  </span>
+
                   <span
                     v-if="col.estado === 'bloqueado'"
                     class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-500 dark:text-rose-300 border border-rose-500/25 flex items-center gap-1 shrink-0"
@@ -984,7 +1320,7 @@ watch(
               </div>
 
               <!-- Título de la Tarjeta / Visita -->
-              <div class="text-xs font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors mb-2 leading-snug">
+              <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors mb-2 leading-snug">
                 {{ tarjeta.titulo }}
               </div>
 
@@ -1007,10 +1343,30 @@ watch(
                 <span class="font-mono font-semibold text-zinc-900 dark:text-zinc-200 tabular-nums">
                   {{ tarjeta.monto ? formatCurrency(tarjeta.monto) : '—' }}
                 </span>
-                <span class="text-[10px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1 font-mono">
-                  <Calendar class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
-                  {{ formatDate(tarjeta.fecha_objetivo) }}
+                <span
+                  class="text-[10px] flex items-center gap-1 font-mono transition-colors"
+                  :class="esFechaDeHoy(tarjeta.fecha_objetivo) 
+                    ? 'text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/25' 
+                    : 'text-zinc-500 dark:text-zinc-400'"
+                >
+                  <span v-if="esFechaDeHoy(tarjeta.fecha_objetivo)" class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
+                  <Calendar v-else class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+                  <span>{{ esFechaDeHoy(tarjeta.fecha_objetivo) ? 'Hoy' : formatDate(tarjeta.fecha_objetivo) }}</span>
                 </span>
+              </div>
+
+              <!-- Barra de Probabilidad Visual -->
+              <div v-if="tarjeta.monto && tarjeta.monto > 0" class="mt-2 pt-1 border-t border-zinc-100 dark:border-white/[0.03]">
+                <div class="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mb-1">
+                  <span>Probabilidad:</span>
+                  <span class="font-semibold text-indigo-600 dark:text-indigo-400">{{ tarjeta.probabilidad ?? 50 }}%</span>
+                </div>
+                <div class="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-indigo-500 rounded-full transition-all"
+                    :style="{ width: (tarjeta.probabilidad ?? 50) + '%' }"
+                  ></div>
+                </div>
               </div>
 
               <!-- Detector de Estancamiento (> 10 días sin interacción) -->
@@ -1034,9 +1390,9 @@ watch(
                 </button>
               </div>
 
-              <!-- Botones de Transición Rápida entre Columnas -->
+              <!-- Botones de Transición Rápida entre Columnas y Acciones -->
               <div class="mt-2.5 pt-2 border-t border-zinc-100 dark:border-white/[0.04] flex items-center justify-between text-[10px]">
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1" @click.stop>
                   <button
                     v-if="colIndex > 0"
                     @click.stop="retrocederColumna(tarjeta)"
@@ -1057,7 +1413,14 @@ watch(
                   </button>
                 </div>
 
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1" @click.stop>
+                  <button
+                    @click.stop="abrirDetalleTarjeta(tarjeta)"
+                    title="Inspeccionar y editar trato"
+                    class="p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                  >
+                    <Edit3 class="w-3.5 h-3.5" />
+                  </button>
                   <button
                     @click.stop="abrirModalSeguimiento(tarjeta)"
                     title="Programar próxima actividad / Next step"
@@ -1088,7 +1451,7 @@ watch(
             <div class="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 group-hover:bg-indigo-500/10 flex items-center justify-center text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition shadow-sm">
               <Plus class="w-4 h-4" />
             </div>
-            <span class="text-xs font-medium">+ Agregar Nueva Columna</span>
+            <span class="text-xs font-medium">Agregar Nueva Columna</span>
             <span class="text-[10px] text-zinc-400 dark:text-zinc-600">({{ pipelineActivo?.columnas?.length || 0 }}/{{ LIMITE_MAXIMO_COLUMNAS }} etapas)</span>
           </button>
           <div
@@ -1102,6 +1465,18 @@ watch(
         </div>
       </div>
     </FlickerlessSurface>
+
+    <!-- Vista de Calendario Mensual de Visitas y Tratos -->
+    <PipelineCalendarioView
+      v-else-if="vistaActiva === 'calendario' && pipelineActivo"
+      :tarjetas="tarjetasFiltradas"
+      :columnas="pipelineActivo.columnas || []"
+      :pipeline-tipo="pipelineActivo.tipo || 'ventas'"
+      :cargando="cargando"
+      @seleccionar-tarjeta="abrirDetalleTarjeta"
+      @crear-tarjeta="abrirModalNuevaTarjetaConFecha"
+      @mover-fecha="onReprogramarTarjeta"
+    />
 
     <!-- Modal para Crear Nuevo Tablero -->
     <NuevoPipelineModal
@@ -1128,6 +1503,7 @@ watch(
       :abierto="modalTarjetaAbierto"
       :pipeline="pipelineActivo"
       :columna-inicial-id="columnaSeleccionadaParaTarjeta"
+      :fecha-inicial="fechaSeleccionadaParaTarjeta"
       @cerrar="modalTarjetaAbierto = false"
       @creada="cargarDatos"
     />
@@ -1181,6 +1557,19 @@ watch(
       :pipeline-id="pipelineActivoId"
       @guardada="sincronizarTarjetasSilencioso"
       @cerrar="tarjetaSeleccionadaSeguimiento = null"
+    />
+
+    <!-- Inspector y Editor de Detalle de Tarjeta / Trato -->
+    <DetalleTarjetaModal
+      v-if="modalDetalleTarjetaAbierto && tarjetaSeleccionadaDetalle && pipelineActivo"
+      :abierto="modalDetalleTarjetaAbierto"
+      :tarjeta="tarjetaSeleccionadaDetalle"
+      :pipeline="pipelineActivo"
+      :columnas="pipelineActivo.columnas"
+      @cerrar="modalDetalleTarjetaAbierto = false; tarjetaSeleccionadaDetalle = null;"
+      @actualizado="onTarjetaActualizada"
+      @eliminar="(t) => { modalDetalleTarjetaAbierto = false; eliminarTarjeta(t); }"
+      @programar-actividad="(t) => { modalDetalleTarjetaAbierto = false; abrirModalSeguimiento(t); }"
     />
   </div>
 </template>

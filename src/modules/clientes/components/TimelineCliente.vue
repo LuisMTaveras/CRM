@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import { timelineService } from '../services/timeline.service';
 import type { TipoEventoTimeline, EventoTimeline } from '../types/timeline.types';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
+import { toastService } from '@/core/notifications/toast.service';
+import { dialogService } from '@/core/dialog/dialog.service';
 import {
   History,
   Phone,
@@ -126,11 +128,19 @@ const registrarInteraccion = () => {
   tituloInteraccion.value = '';
   descripcionInteraccion.value = '';
   formularioAbierto.value = false;
+  toastService.exito('Interacción registrada en la bitácora.');
 };
 
-const eliminar = (ev: EventoTimeline) => {
-  if (confirm(`¿Eliminar el registro "${ev.titulo}" del historial?`)) {
+const eliminar = async (ev: EventoTimeline) => {
+  const confirmado = await dialogService.confirmar({
+    titulo: '¿Eliminar registro?',
+    mensaje: `¿Confirma que desea eliminar "${ev.titulo}" de la bitácora del cliente?`,
+    textoConfirmar: 'Sí, eliminar',
+    tipo: 'peligro',
+  });
+  if (confirmado) {
     timelineService.eliminarEvento(ev.id);
+    toastService.exito('Registro eliminado del historial.');
   }
 };
 </script>

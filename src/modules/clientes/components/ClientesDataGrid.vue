@@ -21,7 +21,7 @@ import { computed } from 'vue';
 import { FlickerlessSurface } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
 import { obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
-import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
+import { formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import type { ParametrosTabla } from '@/core/url-sync/url-state';
 import { exportToCSV } from '@/core/export/export-engine';
@@ -412,14 +412,6 @@ const exportarClientes = async () => {
             <th class="py-3 px-3.5">Sector</th>
             <th class="py-3 px-3.5">Estado</th>
             <th class="py-3 px-3.5">Prioridad</th>
-            <th class="py-3 px-3.5 text-right cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors" @click="alternarOrden('valor_estimado')">
-              <div class="flex items-center justify-end gap-1.5">
-                <span>Valor Estimado</span>
-                <ArrowUp v-if="parametros.ordenCampo === 'valor_estimado' && parametros.ordenDireccion === 'asc'" class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <ArrowDown v-else-if="parametros.ordenCampo === 'valor_estimado' && parametros.ordenDireccion === 'desc'" class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <ArrowUpDown v-else class="w-3 h-3 text-zinc-400 dark:text-zinc-600" />
-              </div>
-            </th>
             <th class="py-3 px-3.5">Responsable</th>
             <th class="py-3 px-3.5 cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors" @click="alternarOrden('creado_en')">
               <div class="flex items-center gap-1.5">
@@ -436,7 +428,7 @@ const exportarClientes = async () => {
           <!-- 1. Estado vacío (cuando no hay resultados y terminó la carga) -->
           <template v-if="clientes.length === 0 && !cargando">
             <tr>
-              <td colspan="10" class="py-16 text-center">
+              <td colspan="9" class="py-16 text-center">
                 <div class="flex flex-col items-center justify-center max-w-sm mx-auto">
                   <div class="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center text-zinc-400 mb-3 border border-zinc-200 dark:border-white/[0.08]">
                     <Building2 class="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
@@ -553,11 +545,6 @@ const exportarClientes = async () => {
                 >
                   {{ cliente.prioridad }}
                 </span>
-              </td>
-
-              <!-- Valor Estimado -->
-              <td class="py-2.5 px-3.5 text-right font-mono font-medium text-xs text-zinc-900 dark:text-zinc-100 tabular-nums">
-                {{ formatCurrency(cliente.valor_estimado) }}
               </td>
 
               <!-- Responsable -->

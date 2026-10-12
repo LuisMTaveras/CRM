@@ -446,23 +446,39 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
         <div class="flex-1 overflow-y-auto p-5 space-y-5 text-xs bg-zinc-50/50 dark:bg-transparent">
           <!-- Pestaña 1: Información General -->
           <div v-if="pestanaActiva === 'general'" class="space-y-4">
-            <!-- Tarjeta de Resumen Financiero -->
+            <!-- Tarjeta de Resumen de Pipeline Kanban -->
             <div class="bg-white dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-sm">
               <div>
-                <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">
-                  Valor Estimado de Cartera
-                </span>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
+                    Oportunidades en Pipeline Kanban
+                  </span>
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                    {{ cliente?.oportunidades?.length || 0 }} {{ (cliente?.oportunidades?.length === 1) ? 'trato' : 'tratos' }}
+                  </span>
+                </div>
                 <div class="text-xl font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
-                  {{ formatCurrency(cliente?.valor_estimado) }}
+                  {{ formatCurrency(sumarMontos(cliente?.oportunidades ?? [])) }}
                 </div>
               </div>
-              <button
-                @click="modalEditarClienteAbierto = true"
-                class="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition flex items-center gap-1.5"
-              >
-                <Edit3 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Editar Datos</span>
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  @click="pestanaActiva = 'oportunidades'"
+                  class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+                  title="Gestionar oportunidades del pipeline"
+                >
+                  <Briefcase class="w-3.5 h-3.5" />
+                  <span>Ver Tratos</span>
+                </button>
+                <button
+                  @click="modalEditarClienteAbierto = true"
+                  class="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition flex items-center gap-1.5"
+                >
+                  <Edit3 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Editar</span>
+                </button>
+              </div>
             </div>
 
             <!-- Fila de Datos Principales -->

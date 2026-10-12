@@ -26,6 +26,8 @@ import {
   Sliders
 } from 'lucide-vue-next';
 import { FlickerlessSurface } from '@flickerless/vue';
+import { toastService } from '@/core/notifications/toast.service';
+import { dialogService } from '@/core/dialog/dialog.service';
 
 const authStore = useAuthStore();
 const usuarios = ref<Usuario[]>([]);
@@ -324,13 +326,24 @@ const guardarRol = async () => {
 };
 
 const eliminarRol = async (id: string) => {
+  const rol = roles.value.find((r) => r.id === id);
+  const nombreRol = rol?.nombre || id;
+  const confirmado = await dialogService.confirmar({
+    titulo: `¿Eliminar rol "${nombreRol}"?`,
+    mensaje: 'Esta acción removerá el perfil de rol personalizado del sistema.',
+    textoConfirmar: 'Sí, eliminar rol',
+    tipo: 'peligro',
+  });
+  if (!confirmado) return;
+
   try {
     const ok = rolesPermisosService.eliminarRol(id);
     if (ok) {
       await recargarDatos();
+      toastService.exito(`Rol "${nombreRol}" eliminado.`);
     }
   } catch (err) {
-    alert(err instanceof Error ? err.message : 'Error al eliminar rol');
+    toastService.error(err instanceof Error ? err.message : 'Error al eliminar rol');
   }
 };
 

@@ -172,5 +172,41 @@ describe('PipelineService - Tableros Dinámicos y Columnas', () => {
       expect(typeof item.completadas).toBe('number');
     }
   });
+
+  it('permite actualizar los datos, monto y probabilidad de una tarjeta existente y recalcular métricas ponderadas', async () => {
+    const clientes = await pipelineService.obtenerClientesParaSelector();
+    const tarjeta = await pipelineService.crearTarjeta({
+      pipeline_id: 'pipeline-comercial',
+      columna_id: 'calificacion',
+      cliente_id: clientes[0].id,
+      titulo: 'Trato para consultoría estratégica',
+      monto: 2000000,
+      probabilidad: 50,
+      fecha_objetivo: '2026-12-01',
+      prioridad: 'media',
+    });
+
+    expect(tarjeta.id).toBeDefined();
+    expect(tarjeta.monto).toBe(2000000);
+
+    // Actualizar tarjeta con nuevo monto y probabilidad más alta
+    const actualizada = await pipelineService.actualizarTarjeta('pipeline-comercial', tarjeta.id, {
+      titulo: 'Trato cerrado para consultoría estratégica B2B',
+      monto: 3500000,
+      probabilidad: 80,
+      prioridad: 'alta',
+    });
+
+    expect(actualizada.titulo).toBe('Trato cerrado para consultoría estratégica B2B');
+    expect(actualizada.monto).toBe(3500000);
+    expect(actualizada.probabilidad).toBe(80);
+    expect(actualizada.prioridad).toBe('alta');
+
+    // Verificar métricas calculadas
+    const metricas = await pipelineService.obtenerMetricasProgreso('pipeline-comercial');
+    expect(metricas.montoTotal).toBeGreaterThanOrEqual(3500000);
+    expect(metricas.montoPonderadoTotal).toBeGreaterThan(0);
+    expect(typeof metricas.tasaConversion).toBe('number');
+  });
 });
 

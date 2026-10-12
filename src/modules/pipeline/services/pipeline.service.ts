@@ -1,3 +1,4 @@
+import { ref, computed, type ComputedRef } from 'vue';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import type {
   Pipeline,
@@ -9,6 +10,7 @@ import type {
   EditarColumnaInput,
   CrearTarjetaInput,
   CrearMultiplesTarjetasInput,
+  ActualizarTarjetaInput,
   FiltrosPipeline,
   MetricasProgresoPipeline,
   ResumenPipelineItem,
@@ -141,6 +143,7 @@ const PIPELINES_INICIALES: Pipeline[] = [
 class PipelineService {
   private memoriaPipelines: Pipeline[] = this.cargarPipelinesIniciales();
   private memoriaTarjetas: TarjetaPipeline[] = this.cargarTarjetasIniciales();
+  private tarjetasRef = ref<TarjetaPipeline[]>(this.cargarTarjetasIniciales());
 
   private generarId(prefijo: string = 'id'): string {
     return `${prefijo}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -237,6 +240,29 @@ class PipelineService {
     } catch {
       // fallback
     }
+    this.tarjetasRef.value = [...this.memoriaTarjetas];
+  }
+
+  get tarjetas(): ComputedRef<TarjetaPipeline[]> {
+    return computed(() => this.tarjetasRef.value);
+  }
+
+  get totalTarjetasHoy(): ComputedRef<number> {
+    return computed(() => {
+      const hoyStr = new Date().toISOString().slice(0, 10);
+      return this.tarjetasRef.value.filter((t) => {
+        if (!t.fecha_objetivo) return false;
+        return t.fecha_objetivo.slice(0, 10) === hoyStr;
+      }).length;
+    });
+  }
+
+  obtenerTarjetasDeHoy(): TarjetaPipeline[] {
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    return this.memoriaTarjetas.filter((t) => {
+      if (!t.fecha_objetivo) return false;
+      return t.fecha_objetivo.slice(0, 10) === hoyStr;
+    });
   }
 
   // --- GESTIÓN DE PIPELINES / CANVASES ---
@@ -261,6 +287,7 @@ class PipelineService {
   vaciarTarjetas(): void {
     this.memoriaTarjetas = [];
     this.guardarTarjetas();
+    this.tarjetasRef.value = [];
   }
 
   async obtenerPipelinePorId(id: string): Promise<Pipeline | null> {
@@ -533,6 +560,13 @@ class PipelineService {
       )
       .reduce((acc, t) => acc + (t.monto || 0), 0);
 
+    const montoTotal = montoCompletado + montoEnProceso + montoBloqueado + montoPendiente;
+    const montoPonderadoTotal = tarjetas.reduce((acc, t) => {
+      const prob = t.probabilidad !== undefined ? t.probabilidad : 50;
+      return acc + (t.monto || 0) * (prob / 100);
+    }, 0);
+    const tasaConversion = total > 0 ? Math.round((completadas / total) * 100) : 0;
+
     return {
       total,
       completadas,
@@ -546,6 +580,9 @@ class PipelineService {
       montoEnProceso,
       montoBloqueado,
       montoPendiente,
+      montoTotal,
+      montoPonderadoTotal,
+      tasaConversion,
     };
   }
 
@@ -651,6 +688,8 @@ class PipelineService {
 
     // Ordenar de manera vertical según la propiedad `orden`
     resultado.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+
+    this.tarjetasRef.value = [...this.memoriaTarjetas];
 
     return JSON.parse(JSON.stringify(resultado));
   }
@@ -829,6 +868,69 @@ class PipelineService {
     }
 
     return creadas;
+  }
+
+  async obtenerTarjetaPorId(pipelineId: string, tarjetaId: string): Promise<TarjetaPipeline | null> {
+    let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId && t.pipeline_id === pipelineId);
+    if (!tarjeta) {
+      await this.obtenerTarjetas(pipelineId);
+      tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId && t.pipeline_id === pipelineId);
+    }
+    return tarjeta ? JSON.parse(JSON.stringify(tarjeta)) : null;
+  }
+
+  async actualizarTarjeta(
+    pipelineId: string,
+    tarjetaId: string,
+    input: ActualizarTarjetaInput
+  ): Promise<TarjetaPipeline> {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    if (!tarjeta) {
+      await this.obtenerTarjetas(pipelineId);
+      tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
+    }
+    if (!tarjeta) throw new Error('Elemento del tablero no encontrado.');
+
+    if (input.titulo !== undefined) tarjeta.titulo = input.titulo.trim();
+    if (input.monto !== undefined) tarjeta.monto = Math.max(0, Number(input.monto));
+    if (input.fecha_objetivo !== undefined) tarjeta.fecha_objetivo = input.fecha_objetivo;
+    if (input.probabilidad !== undefined) tarjeta.probabilidad = Math.min(100, Math.max(0, Number(input.probabilidad)));
+    if (input.notas !== undefined) tarjeta.notas = input.notas.trim();
+    if (input.prioridad !== undefined) tarjeta.prioridad = input.prioridad;
+    if (input.responsable !== undefined) tarjeta.responsable = input.responsable;
+
+    // Si cambió la columna, mover ordenadamente
+    if (input.columna_id !== undefined && input.columna_id !== tarjeta.columna_id) {
+      await this.moverTarjetaColumna(pipelineId, tarjetaId, input.columna_id);
+    } else {
+      this.guardarTarjetas();
+    }
+
+    // Sincronizar en clienteService si corresponde al pipeline comercial
+    if (pipelineId === 'pipeline-comercial' && tarjeta.cliente_id) {
+      try {
+        const cliente = await clienteService.obtenerClientePorId(tarjeta.cliente_id);
+        if (cliente && cliente.oportunidades) {
+          const op = cliente.oportunidades.find((o) => o.id === tarjetaId);
+          if (op) {
+            if (input.titulo !== undefined) op.titulo = tarjeta.titulo;
+            if (input.monto !== undefined) op.monto = tarjeta.monto || 0;
+            if (input.probabilidad !== undefined) op.probabilidad = tarjeta.probabilidad || 50;
+            if (input.fecha_objetivo !== undefined) op.fecha_cierre_estimada = tarjeta.fecha_objetivo;
+            if (input.columna_id !== undefined) op.etapa = input.columna_id as EtapaOportunidad;
+            await clienteService.actualizarCliente(tarjeta.cliente_id, {
+              oportunidades: cliente.oportunidades,
+            });
+          }
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return JSON.parse(JSON.stringify(tarjeta));
   }
 
   // Mover tarjeta a otra columna o reordenar posición vertical

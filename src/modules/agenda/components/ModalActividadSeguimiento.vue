@@ -32,6 +32,7 @@ const props = defineProps<{
   tarjetaPreseleccionadaId?: string;
   pipelineId?: string;
   actividadId?: string;
+  fechaInicial?: string;
 }>();
 
 const emit = defineEmits<{
@@ -123,12 +124,16 @@ watch(
     prioridad.value = 'alta';
     responsable.value = 'Luis M. Taveras';
 
-    // Fecha límite predeterminada: Mañana a las 10:00 AM
-    const manana = new Date(Date.now() + 86400000);
-    manana.setHours(10, 0, 0, 0);
-    const tzOffset = manana.getTimezoneOffset() * 60000;
-    const localIso = new Date(manana.getTime() - tzOffset).toISOString().slice(0, 16);
-    fechaLimite.value = localIso;
+    // Fecha límite predeterminada: Fecha inicial provista o Mañana a las 10:00 AM
+    if (props.fechaInicial) {
+      fechaLimite.value = props.fechaInicial.length === 10 ? `${props.fechaInicial}T10:00` : props.fechaInicial.slice(0, 16);
+    } else {
+      const manana = new Date(Date.now() + 86400000);
+      manana.setHours(10, 0, 0, 0);
+      const tzOffset = manana.getTimezoneOffset() * 60000;
+      const localIso = new Date(manana.getTime() - tzOffset).toISOString().slice(0, 16);
+      fechaLimite.value = localIso;
+    }
   },
   { immediate: true }
 );

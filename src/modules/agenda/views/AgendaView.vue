@@ -3,12 +3,17 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { actividadesService } from '../services/actividades.service';
 import ModalActividadSeguimiento from '../components/ModalActividadSeguimiento.vue';
+import AgendaKanbanView from '../components/AgendaKanbanView.vue';
+import AgendaCalendarioView from '../components/AgendaCalendarioView.vue';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
+import { toastService } from '@/core/notifications/toast.service';
+import { dialogService } from '@/core/dialog/dialog.service';
 import type { 
   ActividadSeguimiento, 
   RangoFiltroFecha, 
   TipoActividad, 
-  PrioridadActividad 
+  PrioridadActividad,
+  EstadoActividad
 } from '../types/actividad.types';
 import {
   CalendarClock,
@@ -28,7 +33,9 @@ import {
   Trash2,
   Edit2,
   BellRing,
-  Check
+  Check,
+  List,
+  Kanban
 } from 'lucide-vue-next';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
@@ -52,6 +59,8 @@ const opcionesPrioridad: SelectOption<PrioridadActividad | ''>[] = [
 const route = useRoute();
 
 // Estado reactivo
+const vistaActiva = ref<'lista' | 'tablero' | 'calendario'>('lista');
+const fechaSeleccionadaParaNueva = ref<string>('');
 const rangoSeleccionado = ref<RangoFiltroFecha>('todas');
 const tipoSeleccionado = ref<TipoActividad | ''>('');
 const prioridadSeleccionada = ref<PrioridadActividad | ''>('');
@@ -138,7 +147,22 @@ const resolverClasePrioridad = (prioridad: PrioridadActividad) => {
 // Acciones de gestión
 const abrirModalNueva = () => {
   actividadEnEdicionId.value = undefined;
+  fechaSeleccionadaParaNueva.value = '';
   modalNuevoAbierto.value = true;
+};
+
+const abrirModalNuevaConFecha = (fecha: string) => {
+  actividadEnEdicionId.value = undefined;
+  fechaSeleccionadaParaNueva.value = fecha;
+  modalNuevoAbierto.value = true;
+};
+
+const onCambiarEstado = (payload: { actividadId: string; nuevoEstado: EstadoActividad }) => {
+  actividadesService.actualizarActividad(payload.actividadId, { estado: payload.nuevoEstado });
+};
+
+const onMoverFecha = (payload: { actividadId: string; nuevaFecha: string }) => {
+  actividadesService.actualizarActividad(payload.actividadId, { fechaLimite: payload.nuevaFecha });
 };
 
 const editarActividad = (act: ActividadSeguimiento) => {
@@ -155,20 +179,28 @@ const confirmarCompletar = (act: ActividadSeguimiento) => {
 const guardarCompletada = () => {
   if (actividadACompletar.value) {
     actividadesService.marcarCompletada(actividadACompletar.value.id, notasResultado.value);
+    toastService.exito('Actividad marcada como completada.');
   }
   modalCompletarAbierto.value = false;
   actividadACompletar.value = null;
 };
 
-const eliminarActividad = (act: ActividadSeguimiento) => {
-  if (confirm(`¿Está seguro de eliminar la actividad "${act.titulo}"?`)) {
+const eliminarActividad = async (act: ActividadSeguimiento) => {
+  const confirmado = await dialogService.confirmar({
+    titulo: '¿Eliminar actividad?',
+    mensaje: `¿Confirma que desea eliminar la actividad "${act.titulo}"?`,
+    textoConfirmar: 'Sí, eliminar',
+    tipo: 'peligro',
+  });
+  if (confirmado) {
     actividadesService.eliminarActividad(act.id);
+    toastService.exito('Actividad eliminada.');
   }
 };
 
 const sincronizarAlertasManual = () => {
   const res = actividadesService.sincronizarConCentroNotificaciones();
-  alert(`Sincronización completada. Alertas enviadas: ${res.vencidas} vencidas, ${res.hoy} para hoy.`);
+  toastService.info(`Sincronización completada. Alertas enviadas: ${res.vencidas} vencidas, ${res.hoy} para hoy.`);
 };
 
 // Verifica si una actividad está vencida
@@ -189,42 +221,109 @@ const esDeHoy = (act: ActividadSeguimiento) => {
 </script>
 
 <template>
-  <div class="p-6 max-w-7xl mx-auto space-y-6">
-    <!-- Encabezado de la Vista -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-2.5 mb-1">
-          <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-            <CalendarClock class="w-4 h-4" />
-          </div>
-          <h1 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Agenda Comercial & Next Steps
-          </h1>
-        </div>
-        <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          Programación de actividades de seguimiento, compromisos con prospectos y prevención de clientes estancados.
-        </p>
+  <!-- Teleport del Encabezado hacia la Barra Superior (HeaderBar) -->
+  <Teleport to="#header-portal-left">
+    <div class="flex items-center gap-2.5 min-w-0 flex-wrap sm:flex-nowrap">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+          <CalendarClock class="w-4 h-4" />
+        </span>
+        <h1 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+          Agenda Comercial & Next Steps
+        </h1>
+
+        <!-- Badge Destacado de Tareas para Hoy -->
+        <span
+          v-if="metricas.pendientesHoy > 0"
+          class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 shrink-0 shadow-xs"
+          title="Tareas y compromisos comerciales programados para hoy"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>{{ metricas.pendientesHoy }} {{ metricas.pendientesHoy === 1 ? 'para hoy' : 'para hoy' }}</span>
+        </span>
       </div>
 
-      <div class="flex items-center gap-2.5">
+      <span class="text-zinc-300 dark:text-zinc-700 hidden sm:inline">/</span>
+
+      <!-- Conmutador de Vistas: Lista / Tablero / Calendario -->
+      <div class="inline-flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-white/[0.08] shadow-xs shrink-0">
         <button
-          @click="sincronizarAlertasManual"
-          title="Verificar y sincronizar recordatorios en el Centro de Notificaciones"
-          class="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+          type="button"
+          @click="vistaActiva = 'lista'"
+          :class="[
+            vistaActiva === 'lista'
+              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+          ]"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
+          title="Vista Lista"
         >
-          <BellRing class="w-3.5 h-3.5 text-zinc-500" />
-          <span>Sincronizar Alertas</span>
+          <List class="w-3.5 h-3.5" />
+          <span class="hidden md:inline">Lista</span>
         </button>
 
         <button
-          @click="abrirModalNueva"
-          class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition flex items-center gap-1.5"
+          type="button"
+          @click="vistaActiva = 'tablero'"
+          :class="[
+            vistaActiva === 'tablero'
+              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+            ]"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
+          title="Vista Tablero Kanban"
         >
-          <Plus class="w-4 h-4" />
-          <span>Nueva Actividad</span>
+          <Kanban class="w-3.5 h-3.5" />
+          <span class="hidden md:inline">Tablero</span>
+        </button>
+
+        <button
+          type="button"
+          @click="vistaActiva = 'calendario'"
+          :class="[
+            vistaActiva === 'calendario'
+              ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
+              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
+          ]"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition"
+          title="Vista Calendario"
+        >
+          <Calendar class="w-3.5 h-3.5" />
+          <span class="hidden md:inline">Calendario</span>
         </button>
       </div>
+
+      <!-- Badge de Total Actividades -->
+      <span class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] shrink-0">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+        {{ actividades.length }} Actividades
+      </span>
     </div>
+  </Teleport>
+
+  <!-- Teleport de Acciones hacia la Barra Superior -->
+  <Teleport to="#header-portal-right">
+    <div class="flex items-center gap-2">
+      <button
+        @click="sincronizarAlertasManual"
+        title="Verificar y sincronizar recordatorios en el Centro de Notificaciones"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.08] hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition shadow-sm"
+      >
+        <BellRing class="w-3.5 h-3.5 text-zinc-500" />
+        <span class="hidden sm:inline">Sincronizar Alertas</span>
+      </button>
+
+      <button
+        @click="abrirModalNueva"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition active:scale-95 shadow-indigo-950/20"
+      >
+        <Plus class="w-3.5 h-3.5" />
+        <span>Nueva Actividad</span>
+      </button>
+    </div>
+  </Teleport>
+
+  <div class="w-full space-y-4">
 
     <!-- KPIs de la Agenda -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -235,8 +334,11 @@ const esDeHoy = (act: ActividadSeguimiento) => {
         :class="rangoSeleccionado === 'hoy' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-zinc-200 dark:border-white/[0.06] hover:border-zinc-300 dark:hover:border-white/[0.15]'"
       >
         <div class="flex items-center justify-between text-xs text-zinc-500 mb-2">
-          <span>Para Hoy</span>
-          <Clock class="w-4 h-4 text-sky-500" />
+          <div class="flex items-center gap-1.5">
+            <span v-if="metricas.pendientesHoy > 0" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span class="font-medium text-zinc-700 dark:text-zinc-300">Para Hoy</span>
+          </div>
+          <Clock class="w-4 h-4 text-amber-500" />
         </div>
         <div class="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100">
           {{ metricas.pendientesHoy }}
@@ -308,10 +410,17 @@ const esDeHoy = (act: ActividadSeguimiento) => {
           ]"
           :key="r.id"
           @click="rangoSeleccionado = r.id as RangoFiltroFecha"
-          class="px-3 py-1.5 rounded-lg font-medium transition"
+          class="px-3 py-1.5 rounded-lg font-medium transition inline-flex items-center gap-1.5"
           :class="rangoSeleccionado === r.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'"
         >
-          {{ r.label }}
+          <span v-if="r.id === 'hoy' && metricas.pendientesHoy > 0" class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>{{ r.label }}</span>
+          <span
+            v-if="r.id === 'hoy' && metricas.pendientesHoy > 0"
+            class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono"
+          >
+            {{ metricas.pendientesHoy }}
+          </span>
         </button>
       </div>
 
@@ -348,8 +457,8 @@ const esDeHoy = (act: ActividadSeguimiento) => {
       </div>
     </div>
 
-    <!-- Listado de Actividades -->
-    <div class="space-y-3">
+    <!-- 1. Listado de Actividades -->
+    <div v-if="vistaActiva === 'lista'" class="space-y-3">
       <!-- Estado Vacío -->
       <div
         v-if="actividades.length === 0"
@@ -448,9 +557,10 @@ const esDeHoy = (act: ActividadSeguimiento) => {
               </span>
               <span
                 v-else-if="esDeHoy(act)"
-                class="px-2 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
+                class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 inline-flex items-center gap-1 shadow-xs"
               >
-                Para Hoy
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <span>Para Hoy</span>
               </span>
             </div>
 
@@ -525,11 +635,33 @@ const esDeHoy = (act: ActividadSeguimiento) => {
       </div>
     </div>
 
+    <!-- 2. Vista Tablero Kanban de Actividades y Tareas -->
+    <AgendaKanbanView
+      v-else-if="vistaActiva === 'tablero'"
+      :actividades="actividades"
+      @editar="editarActividad"
+      @completar="confirmarCompletar"
+      @eliminar="eliminarActividad"
+      @cambiar-estado="onCambiarEstado"
+      @crear="abrirModalNueva"
+    />
+
+    <!-- 3. Vista Calendario Mensual de Actividades y Tareas -->
+    <AgendaCalendarioView
+      v-else-if="vistaActiva === 'calendario'"
+      :actividades="actividades"
+      @editar="editarActividad"
+      @completar="confirmarCompletar"
+      @crear="abrirModalNuevaConFecha"
+      @mover-fecha="onMoverFecha"
+    />
+
     <!-- Modal para Registrar o Editar Actividad -->
     <ModalActividadSeguimiento
       v-model:abierto="modalNuevoAbierto"
       :actividad-id="actividadEnEdicionId"
-      @cerrar="actividadEnEdicionId = undefined"
+      :fecha-inicial="fechaSeleccionadaParaNueva"
+      @cerrar="actividadEnEdicionId = undefined; fechaSeleccionadaParaNueva = '';"
     />
 
     <!-- Modal para Ingresar Resultado al Completar Actividad -->

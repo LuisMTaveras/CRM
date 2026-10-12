@@ -15,14 +15,20 @@ import {
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { webmailService } from '@/modules/comunicaciones/services/webmail.service';
 import { actividadesService } from '@/modules/agenda/services/actividades.service';
+import { pipelineService } from '@/modules/pipeline/services/pipeline.service';
 
 const route = useRoute();
 const perfilEmpresa = computed(() => empresaService.datos.value);
 
 const totalCorreosNoLeidos = computed(() => webmailService.totalNoLeidos.value);
+
+const metricasAgenda = computed(() => actividadesService.obtenerMetricas());
+const totalTareasHoy = computed(() => metricasAgenda.value.pendientesHoy);
 const totalTareasPendientes = computed(() => 
   actividadesService.actividades.value.filter((a) => a.estado === 'pendiente').length
 );
+
+const totalTarjetasPipelineHoy = computed(() => pipelineService.totalTarjetasHoy.value);
 
 interface EnlaceMenu {
   nombre: string;
@@ -36,13 +42,22 @@ interface EnlaceMenu {
 const enlaces = computed((): EnlaceMenu[] => [
   { nombre: 'Métricas & KPIs', ruta: '/', icono: BarChart3 },
   { nombre: 'Cartera Clientes', ruta: '/clientes', icono: Building2 },
-  { nombre: 'Pipeline Kanban', ruta: '/pipeline', icono: Kanban },
+  { 
+    nombre: 'Pipeline Kanban', 
+    ruta: '/pipeline', 
+    icono: Kanban,
+    conteo: totalTarjetasPipelineHoy.value,
+    etiquetaConteo: totalTarjetasPipelineHoy.value === 1 ? '1 para hoy' : `${totalTarjetasPipelineHoy.value} para hoy`,
+    tipoBadge: 'indigo',
+  },
   { 
     nombre: 'Agenda & Tareas', 
     ruta: '/agenda', 
     icono: CalendarClock,
-    conteo: totalTareasPendientes.value,
-    etiquetaConteo: totalTareasPendientes.value === 1 ? '1 pendiente' : `${totalTareasPendientes.value} pendientes`,
+    conteo: totalTareasHoy.value > 0 ? totalTareasHoy.value : totalTareasPendientes.value,
+    etiquetaConteo: totalTareasHoy.value > 0
+      ? (totalTareasHoy.value === 1 ? '1 para hoy' : `${totalTareasHoy.value} para hoy`)
+      : (totalTareasPendientes.value === 1 ? '1 pendiente' : `${totalTareasPendientes.value} pendientes`),
     tipoBadge: 'amber',
   },
   { 
@@ -60,8 +75,11 @@ const enlaces = computed((): EnlaceMenu[] => [
 
 let timerSidebarPoller: ReturnType<typeof setInterval> | null = null;
 
-onMounted(() => {
+onMounted(async () => {
   webmailService.actualizarConteoNoLeidos();
+  if (pipelineService.obtenerCantidadTarjetas() === 0) {
+    await pipelineService.obtenerTarjetas('pipeline-visitas');
+  }
   timerSidebarPoller = setInterval(() => {
     webmailService.actualizarConteoNoLeidos();
   }, 30000);
@@ -159,21 +177,25 @@ const esRutaActiva = (ruta: string) => {
           <!-- Badge con conteo si hay elementos nuevos o pendientes -->
           <span
             v-if="enlace.conteo && enlace.conteo > 0"
-            class="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-all duration-150 inline-flex items-center gap-1"
+            class="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-all duration-150 inline-flex items-center gap-1.5 shadow-xs"
             :class="[
               enlace.tipoBadge === 'indigo'
                 ? (esRutaActiva(enlace.ruta)
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-indigo-600 text-white'
                     : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/25')
                 : (esRutaActiva(enlace.ruta)
-                    ? 'bg-amber-600 text-white shadow-xs'
+                    ? 'bg-amber-600 text-white'
                     : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25')
             ]"
           >
+            <!-- Punto indicador animado pulsante -->
             <span
-              v-if="enlace.tipoBadge === 'indigo'"
-              class="w-1.5 h-1.5 rounded-full"
-              :class="esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-indigo-600 dark:bg-indigo-400 animate-pulse'"
+              class="w-1.5 h-1.5 rounded-full shrink-0"
+              :class="[
+                enlace.tipoBadge === 'indigo'
+                  ? (esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-indigo-600 dark:bg-indigo-400 animate-pulse')
+                  : (esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-amber-600 dark:bg-amber-400 animate-pulse')
+              ]"
             ></span>
             <span>{{ enlace.etiquetaConteo }}</span>
           </span>

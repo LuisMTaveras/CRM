@@ -12,13 +12,11 @@ import {
   MapPin,
   Mail,
   Phone,
-  DollarSign,
   Globe
 } from 'lucide-vue-next';
 import type { Cliente, EstadoCliente, PrioridadCliente } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import { toastService } from '@/core/notifications/toast.service';
-import { formatCurrency } from '@/core/formatters/formatters';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import SectorBadge from '@/shared/components/SectorBadge.vue';
 import { sectoresService } from '../services/sectores.service';
@@ -106,14 +104,6 @@ watch(
   },
   { immediate: true }
 );
-
-const montoFormateado = computed(() => {
-  return formatCurrency(formulario.valor_estimado || 0);
-});
-
-const ajustarMonto = (delta: number) => {
-  formulario.valor_estimado = Math.max(0, (formulario.valor_estimado || 0) + delta);
-};
 
 const validarPaso = (paso: number): boolean => {
   errorMensaje.value = '';
@@ -478,58 +468,6 @@ const guardar = async () => {
               :options="opcionesResponsables"
               :full-width="true"
             />
-          </div>
-
-          <!-- Valor Estimado del Pipeline con Formato RD$ -->
-          <div class="p-4 bg-zinc-50 dark:bg-zinc-950/80 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-3">
-            <div class="flex items-center justify-between">
-              <label class="text-zinc-800 dark:text-zinc-200 font-medium flex items-center gap-1.5">
-                <DollarSign class="w-3.5 h-3.5 text-indigo-500" />
-                <span>Valor Comercial Estimado / Cartera Proyectada</span>
-              </label>
-              <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold text-xs bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
-                {{ montoFormateado }}
-              </span>
-            </div>
-
-            <div class="relative">
-              <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 font-mono text-xs font-semibold">
-                RD$
-              </div>
-              <input
-                v-model.number="formulario.valor_estimado"
-                type="number"
-                min="0"
-                step="500000"
-                class="w-full pl-12 pr-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-indigo-500 transition"
-              />
-            </div>
-
-            <!-- Botones de Incremento Rápido -->
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] text-zinc-500">Ajuste rápido:</span>
-              <button
-                type="button"
-                @click="ajustarMonto(500000)"
-                class="px-2 py-1 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded text-[11px] font-mono border border-zinc-200 dark:border-zinc-800 transition"
-              >
-                + 500K
-              </button>
-              <button
-                type="button"
-                @click="ajustarMonto(1000000)"
-                class="px-2 py-1 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded text-[11px] font-mono border border-zinc-200 dark:border-zinc-800 transition"
-              >
-                + 1M
-              </button>
-              <button
-                type="button"
-                @click="ajustarMonto(5000000)"
-                class="px-2 py-1 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded text-[11px] font-mono border border-zinc-200 dark:border-zinc-800 transition"
-              >
-                + 5M
-              </button>
-            </div>
           </div>
         </div>
 

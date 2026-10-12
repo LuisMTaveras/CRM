@@ -105,10 +105,10 @@ defineProps<{
         </div>
       </div>
 
-      <!-- 5. Pipeline Ponderado -->
+      <!-- 5. Pipeline en Tableros Kanban -->
       <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between relative group sm:col-span-2">
         <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2">
-          <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Pipeline Estimado</span>
+          <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Pipeline en Tableros</span>
           <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors">
             <DollarSign class="w-3.5 h-3.5" />
           </div>
@@ -118,9 +118,12 @@ defineProps<{
             {{ formatCurrency(estadisticas.valorTotalPipeline) }}
           </div>
           <div class="flex items-center gap-1.5">
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-              Volumen ponderado
-            </span>
+            <router-link
+              to="/pipeline"
+              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition"
+            >
+              Gestionar en Kanban →
+            </router-link>
           </div>
         </div>
       </div>

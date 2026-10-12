@@ -23,6 +23,7 @@ const props = defineProps<{
   abierto: boolean;
   pipeline: Pipeline;
   columnaInicialId?: string;
+  fechaInicial?: string;
 }>();
 
 const emit = defineEmits<{
@@ -141,6 +142,23 @@ watch(
   () => props.columnaInicialId,
   (val) => {
     if (val) formulario.columna_id = val;
+  }
+);
+
+watch(
+  () => props.fechaInicial,
+  (val) => {
+    if (val) formulario.fecha_objetivo = val;
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.abierto,
+  (abierto) => {
+    if (abierto && props.fechaInicial) {
+      formulario.fecha_objetivo = props.fechaInicial;
+    }
   }
 );
 
