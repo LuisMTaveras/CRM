@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { 
   Building2, 
@@ -13,20 +13,66 @@ import {
   CalendarClock
 } from 'lucide-vue-next';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
+import { webmailService } from '@/modules/comunicaciones/services/webmail.service';
+import { actividadesService } from '@/modules/agenda/services/actividades.service';
 
 const route = useRoute();
 const perfilEmpresa = computed(() => empresaService.datos.value);
 
-const enlaces = [
+const totalCorreosNoLeidos = computed(() => webmailService.totalNoLeidos.value);
+const totalTareasPendientes = computed(() => 
+  actividadesService.actividades.value.filter((a) => a.estado === 'pendiente').length
+);
+
+interface EnlaceMenu {
+  nombre: string;
+  ruta: string;
+  icono: any;
+  conteo?: number;
+  etiquetaConteo?: string;
+  tipoBadge?: 'indigo' | 'amber';
+}
+
+const enlaces = computed((): EnlaceMenu[] => [
   { nombre: 'Métricas & KPIs', ruta: '/', icono: BarChart3 },
   { nombre: 'Cartera Clientes', ruta: '/clientes', icono: Building2 },
   { nombre: 'Pipeline Kanban', ruta: '/pipeline', icono: Kanban },
-  { nombre: 'Agenda & Tareas', ruta: '/agenda', icono: CalendarClock },
-  { nombre: 'Bandeja de Correo', ruta: '/comunicaciones', icono: Mail },
+  { 
+    nombre: 'Agenda & Tareas', 
+    ruta: '/agenda', 
+    icono: CalendarClock,
+    conteo: totalTareasPendientes.value,
+    etiquetaConteo: totalTareasPendientes.value === 1 ? '1 pendiente' : `${totalTareasPendientes.value} pendientes`,
+    tipoBadge: 'amber',
+  },
+  { 
+    nombre: 'Bandeja de Correo', 
+    ruta: '/comunicaciones', 
+    icono: Mail,
+    conteo: totalCorreosNoLeidos.value,
+    etiquetaConteo: totalCorreosNoLeidos.value === 1 ? '1 nuevo' : `${totalCorreosNoLeidos.value} nuevos`,
+    tipoBadge: 'indigo',
+  },
   { nombre: 'Despacho Masivo', ruta: '/despacho', icono: Send },
   { nombre: 'Usuarios & Roles', ruta: '/usuarios', icono: Users },
   { nombre: 'Empresa & Ajustes', ruta: '/configuracion', icono: Settings },
-];
+]);
+
+let timerSidebarPoller: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  webmailService.actualizarConteoNoLeidos();
+  timerSidebarPoller = setInterval(() => {
+    webmailService.actualizarConteoNoLeidos();
+  }, 30000);
+});
+
+onUnmounted(() => {
+  if (timerSidebarPoller) {
+    clearInterval(timerSidebarPoller);
+    timerSidebarPoller = null;
+  }
+});
 
 const esRutaActiva = (ruta: string) => {
   if (ruta === '/') {
@@ -96,22 +142,48 @@ const esRutaActiva = (ruta: string) => {
             : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100/80 dark:hover:bg-zinc-900/60 border border-transparent'
         ]"
       >
-        <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-2.5 min-w-0">
           <component 
             :is="enlace.icono" 
             :class="[
-              'w-4 h-4 transition-colors',
+              'w-4 h-4 shrink-0 transition-colors',
               esRutaActiva(enlace.ruta) 
                 ? 'text-indigo-600 dark:text-indigo-400 stroke-[2]' 
                 : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
             ]" 
           />
-          <span class="no-underline">{{ enlace.nombre }}</span>
+          <span class="no-underline truncate">{{ enlace.nombre }}</span>
         </div>
-        <span 
-          v-if="esRutaActiva(enlace.ruta)" 
-          class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shadow-sm shadow-indigo-500/80"
-        ></span>
+
+        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+          <!-- Badge con conteo si hay elementos nuevos o pendientes -->
+          <span
+            v-if="enlace.conteo && enlace.conteo > 0"
+            class="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-all duration-150 inline-flex items-center gap-1"
+            :class="[
+              enlace.tipoBadge === 'indigo'
+                ? (esRutaActiva(enlace.ruta)
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/25')
+                : (esRutaActiva(enlace.ruta)
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25')
+            ]"
+          >
+            <span
+              v-if="enlace.tipoBadge === 'indigo'"
+              class="w-1.5 h-1.5 rounded-full"
+              :class="esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-indigo-600 dark:bg-indigo-400 animate-pulse'"
+            ></span>
+            <span>{{ enlace.etiquetaConteo }}</span>
+          </span>
+
+          <!-- Punto indicador de ruta activa si no tiene badge de conteo -->
+          <span 
+            v-else-if="esRutaActiva(enlace.ruta)" 
+            class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shadow-sm shadow-indigo-500/80"
+          ></span>
+        </div>
       </router-link>
     </div>
 

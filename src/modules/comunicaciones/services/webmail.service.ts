@@ -1,3 +1,4 @@
+import { ref } from 'vue';
 import type {
   CarpetaCorreo,
   CarpetaCorreoId,
@@ -7,6 +8,8 @@ import type {
   RespuestaNovedadesCorreo,
   EnviarRespuestaInput,
   RedactarCorreoInput,
+  RespuestaSincronizacion,
+  RespuestaBusquedaRemota,
 } from '../types/webmail.types';
 import { smtpService } from './smtp.service';
 import { firmaPieService } from './firma-pie.service';
@@ -14,6 +17,10 @@ import { firmaPieService } from './firma-pie.service';
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email`;
 
 class WebmailService {
+  /** Conteo reactivo global de correos no leídos para badges de navegación */
+  public totalNoLeidos = ref<number>(0);
+  public totalCorreos = ref<number>(0);
+
   /**
    * Obtiene la lista de carpetas disponibles y el conteo de correos reales
    */
@@ -28,6 +35,15 @@ class WebmailService {
       });
       if (resp.ok) {
         const data = await resp.json();
+        if (typeof data?.totalNoLeidos === 'number') {
+          this.totalNoLeidos.value = data.totalNoLeidos;
+        } else if (data?.carpetas) {
+          const inbox = data.carpetas.find((c: CarpetaCorreo) => c.id === 'inbox');
+          this.totalNoLeidos.value = inbox?.noLeidos || 0;
+        }
+        if (typeof data?.totalCorreos === 'number') {
+          this.totalCorreos.value = data.totalCorreos;
+        }
         if (data?.carpetas) {
           return data.carpetas;
         }
@@ -46,18 +62,13 @@ class WebmailService {
   }
 
   /**
-   * Sincroniza correos reales desde el servidor IMAP configurado
+   * Sincroniza correos reales desde el servidor IMAP configurado (admite offset para scroll)
    */
   async sincronizar(
     carpeta: CarpetaCorreoId = 'inbox',
-    limite: number = 35
-  ): Promise<{
-    exito: boolean;
-    mensaje: string;
-    sincronizados: number;
-    carpetas?: CarpetaCorreo[];
-    error?: string;
-  }> {
+    limite: number = 35,
+    offset: number = 0
+  ): Promise<RespuestaSincronizacion> {
     const imapConfig = smtpService.obtenerConfiguracion();
     try {
       const resp = await fetch(`${API_BASE_URL}/sincronizar`, {
@@ -67,6 +78,7 @@ class WebmailService {
           imapConfig,
           carpeta,
           limite,
+          offset,
         }),
         signal: AbortSignal.timeout(30000),
       });
@@ -80,6 +92,7 @@ class WebmailService {
         exito: false,
         mensaje: errJson.mensaje || 'Error al conectar con el servidor IMAP para sincronizar.',
         sincronizados: 0,
+        hayMas: false,
         error: errJson.error,
       };
     } catch (err: any) {
@@ -87,6 +100,64 @@ class WebmailService {
         exito: false,
         mensaje: `Error de sincronización: ${err.message || 'El servidor de correo no respondió a tiempo.'}`,
         sincronizados: 0,
+        hayMas: false,
+        error: err?.message,
+      };
+    }
+  }
+
+  /**
+   * Busca correos bajo demanda directamente en el servidor IMAP
+   */
+  async buscarRemoto(
+    busqueda: string,
+    carpeta: CarpetaCorreoId = 'inbox',
+    limite: number = 25
+  ): Promise<RespuestaBusquedaRemota> {
+    const imapConfig = smtpService.obtenerConfiguracion();
+    if (!busqueda || busqueda.trim().length < 3) {
+      return {
+        exito: true,
+        mensaje: 'La búsqueda requiere al menos 3 caracteres.',
+        totalServidor: 0,
+        nuevosDescargados: 0,
+        mensajes: [],
+      };
+    }
+
+    try {
+      const resp = await fetch(`${API_BASE_URL}/buscar-remoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imapConfig,
+          busqueda: busqueda.trim(),
+          carpeta,
+          limite,
+        }),
+        signal: AbortSignal.timeout(35000),
+      });
+
+      if (resp.ok) {
+        return await resp.json();
+      }
+
+      const errJson = await resp.json().catch(() => ({}));
+      return {
+        exito: false,
+        mensaje: errJson.mensaje || 'No fue posible completar la búsqueda en el servidor remoto.',
+        totalServidor: 0,
+        nuevosDescargados: 0,
+        mensajes: [],
+        error: errJson.error,
+      };
+    } catch (err: any) {
+      return {
+        exito: false,
+        mensaje: `Error de búsqueda remota: ${err.message || 'El servidor no respondió a tiempo.'}`,
+        totalServidor: 0,
+        nuevosDescargados: 0,
+        mensajes: [],
         error: err?.message,
       };
     }
@@ -195,7 +266,7 @@ class WebmailService {
   }
 
   /**
-   * Cambia el estado leído de un mensaje
+   * Cambia el estado leído de un mensaje y actualiza el contador global reactivo
    */
   async marcarLeido(id: string, leido: boolean): Promise<boolean> {
     try {
@@ -204,10 +275,25 @@ class WebmailService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leido }),
       });
+      if (resp.ok) {
+        if (leido && this.totalNoLeidos.value > 0) {
+          this.totalNoLeidos.value = Math.max(0, this.totalNoLeidos.value - 1);
+        } else if (!leido) {
+          this.totalNoLeidos.value++;
+        }
+      }
       return resp.ok;
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Refresca el conteo de correos no leídos desde el backend
+   */
+  async actualizarConteoNoLeidos(): Promise<number> {
+    await this.obtenerCarpetas();
+    return this.totalNoLeidos.value;
   }
 
   /**

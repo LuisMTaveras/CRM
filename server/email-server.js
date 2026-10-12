@@ -387,13 +387,85 @@ function mapearMailbox(list, carpetaId) {
   return 'INBOX';
 }
 
-// ─── LÓGICA DE SINCRONIZACIÓN IMAP INCREMENTAL (DELTA SYNC A BASE DE DATOS) ──
-async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limite = 35) {
+// ─── PARSEO REUTILIZABLE DE MENSAJES IMAP ─────────────────────────────────────
+async function parsearMensajeImap(msg, config, carpetaEfectiva, esCoincidenciaServidor = false) {
+  let parsed = null;
+  if (msg.source) {
+    try {
+      parsed = await simpleParser(msg.source);
+    } catch (pErr) {
+      console.warn('[MAILPARSER WARN]', pErr.message);
+    }
+  }
+
+  const deNombre = parsed?.from?.value?.[0]?.name || msg.envelope?.from?.[0]?.name || '';
+  const deCorreo = parsed?.from?.value?.[0]?.address || msg.envelope?.from?.[0]?.address || config.usuarioImap;
+
+  const paraList = (parsed?.to?.value || msg.envelope?.to || []).map((p) => ({
+    nombre: p.name || p.address || '',
+    correo: p.address || '',
+  }));
+
+  const ccList = (parsed?.cc?.value || msg.envelope?.cc || []).map((p) => ({
+    nombre: p.name || p.address || '',
+    correo: p.address || '',
+  }));
+
+  const asunto = parsed?.subject || msg.envelope?.subject || '(Sin asunto)';
+  const fecha = parsed?.date
+    ? parsed.date.toISOString()
+    : msg.envelope?.date
+    ? new Date(msg.envelope.date).toISOString()
+    : new Date().toISOString();
+
+  const cuerpoTexto = parsed?.text || '';
+  const cuerpoHtml =
+    parsed?.html ||
+    (cuerpoTexto ? `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">${cuerpoTexto.replace(/\n/g, '<br>')}</div>` : '');
+  const extracto = (cuerpoTexto || '').replace(/\s+/g, ' ').trim().slice(0, 160) || asunto;
+
+  const leido = msg.flags ? msg.flags.has('\\Seen') : false;
+  const destacado = msg.flags ? msg.flags.has('\\Flagged') : false;
+
+  const adjuntos = (parsed?.attachments || []).map((att, idx) => ({
+    id: `att-${msg.uid}-${idx}`,
+    nombre: att.filename || `adjunto-${idx + 1}`,
+    tamanoBytes: att.size || att.content?.length || 0,
+    tipoContenido: att.contentType || 'application/octet-stream',
+    base64:
+      att.content && att.content.length < 5000000
+        ? `data:${att.contentType};base64,${att.content.toString('base64')}`
+        : undefined,
+  }));
+
+  return {
+    id: `msg-imap-${msg.uid}`,
+    uid: msg.uid,
+    carpeta: carpetaEfectiva,
+    de: { nombre: deNombre || deCorreo, correo: deCorreo },
+    para: paraList.length > 0 ? paraList : [{ nombre: config.usuarioImap, correo: config.usuarioImap }],
+    cc: ccList.length > 0 ? ccList : undefined,
+    asunto,
+    extracto,
+    cuerpoTexto,
+    cuerpoHtml,
+    fecha,
+    leido,
+    destacado,
+    tieneAdjuntos: adjuntos.length > 0,
+    adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
+    esCoincidenciaServidor: !!esCoincidenciaServidor,
+  };
+}
+
+// ─── LÓGICA DE SINCRONIZACIÓN IMAP INCREMENTAL (DELTA & SCROLL LAZY-LOAD SYNC) ──
+async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limite = 35, offset = 0) {
   if (!config || esConfiguracionDemo(config)) {
     return {
       exito: false,
       mensaje: 'La cuenta no tiene credenciales IMAP válidas o está en modo simulación.',
       sincronizados: 0,
+      hayMas: false,
       modo: 'demo',
     };
   }
@@ -418,6 +490,8 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
 
   const mensajesNuevos = [];
   let flagsActualizados = 0;
+  let totalExistentes = 0;
+  let hayMas = false;
 
   try {
     await client.connect();
@@ -431,106 +505,47 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
         exito: true,
         mensaje: `No se encontró carpeta remota para "${carpetaEfectiva}" en el servidor.`,
         sincronizados: 0,
+        hayMas: false,
       };
     }
 
     const lock = await client.getMailboxLock(mailboxTarget);
     try {
-      const totalExistentes = client.mailbox.exists || 0;
+      totalExistentes = client.mailbox.exists || 0;
       if (totalExistentes > 0) {
-        const startSeq = Math.max(1, totalExistentes - limite + 1);
-        const range = `${startSeq}:${totalExistentes}`;
+        const endSeq = Math.max(1, totalExistentes - offset);
+        if (endSeq <= 1 && offset > 0) {
+          hayMas = false;
+        } else {
+          const startSeq = Math.max(1, endSeq - limite + 1);
+          hayMas = startSeq > 1;
+          const range = `${startSeq}:${endSeq}`;
 
-        for await (let msg of client.fetch(range, {
-          uid: true,
-          flags: true,
-          envelope: true,
-          source: true,
-        })) {
-          // Comprobar si ya existe en la base de datos local
-          const yaGuardado = correosEnMemoria.find((c) => c.uid === msg.uid || c.id === `msg-imap-${msg.uid}`);
-          if (yaGuardado) {
-            // Actualizar solo banderas (leído, destacado) en milisegundos
-            if (msg.flags) {
-              const nuevoLeido = msg.flags.has('\\Seen');
-              const nuevoDestacado = msg.flags.has('\\Flagged');
-              if (yaGuardado.leido !== nuevoLeido || yaGuardado.destacado !== nuevoDestacado) {
-                yaGuardado.leido = nuevoLeido;
-                yaGuardado.destacado = nuevoDestacado;
-                flagsActualizados++;
+          for await (let msg of client.fetch(range, {
+            uid: true,
+            flags: true,
+            envelope: true,
+            source: true,
+          })) {
+            // Comprobar si ya existe en la base de datos local
+            const yaGuardado = correosEnMemoria.find((c) => c.uid === msg.uid || c.id === `msg-imap-${msg.uid}`);
+            if (yaGuardado) {
+              // Actualizar solo banderas (leído, destacado) en milisegundos
+              if (msg.flags) {
+                const nuevoLeido = msg.flags.has('\\Seen');
+                const nuevoDestacado = msg.flags.has('\\Flagged');
+                if (yaGuardado.leido !== nuevoLeido || yaGuardado.destacado !== nuevoDestacado) {
+                  yaGuardado.leido = nuevoLeido;
+                  yaGuardado.destacado = nuevoDestacado;
+                  flagsActualizados++;
+                }
               }
+              continue; // Saltar descarga pesada y parseo
             }
-            continue; // Saltar descarga pesada y parseo
+
+            const mensajeMapeado = await parsearMensajeImap(msg, config, carpetaEfectiva, false);
+            mensajesNuevos.push(mensajeMapeado);
           }
-
-          let parsed = null;
-          if (msg.source) {
-            try {
-              parsed = await simpleParser(msg.source);
-            } catch (pErr) {
-              console.warn('[MAILPARSER WARN]', pErr.message);
-            }
-          }
-
-          const deNombre = parsed?.from?.value?.[0]?.name || msg.envelope?.from?.[0]?.name || '';
-          const deCorreo = parsed?.from?.value?.[0]?.address || msg.envelope?.from?.[0]?.address || config.usuarioImap;
-
-          const paraList = (parsed?.to?.value || msg.envelope?.to || []).map((p) => ({
-            nombre: p.name || p.address || '',
-            correo: p.address || '',
-          }));
-
-          const ccList = (parsed?.cc?.value || msg.envelope?.cc || []).map((p) => ({
-            nombre: p.name || p.address || '',
-            correo: p.address || '',
-          }));
-
-          const asunto = parsed?.subject || msg.envelope?.subject || '(Sin asunto)';
-          const fecha = parsed?.date
-            ? parsed.date.toISOString()
-            : msg.envelope?.date
-            ? new Date(msg.envelope.date).toISOString()
-            : new Date().toISOString();
-
-          const cuerpoTexto = parsed?.text || '';
-          const cuerpoHtml =
-            parsed?.html ||
-            (cuerpoTexto ? `<div style="font-family: Arial, sans-serif; font-size: 13px; color: #27272a; line-height: 1.6;">${cuerpoTexto.replace(/\n/g, '<br>')}</div>` : '');
-          const extracto = (cuerpoTexto || '').replace(/\s+/g, ' ').trim().slice(0, 160) || asunto;
-
-          const leido = msg.flags ? msg.flags.has('\\Seen') : false;
-          const destacado = msg.flags ? msg.flags.has('\\Flagged') : false;
-
-          const adjuntos = (parsed?.attachments || []).map((att, idx) => ({
-            id: `att-${msg.uid}-${idx}`,
-            nombre: att.filename || `adjunto-${idx + 1}`,
-            tamanoBytes: att.size || att.content?.length || 0,
-            tipoContenido: att.contentType || 'application/octet-stream',
-            base64:
-              att.content && att.content.length < 5000000
-                ? `data:${att.contentType};base64,${att.content.toString('base64')}`
-                : undefined,
-          }));
-
-          const mensajeMapeado = {
-            id: `msg-imap-${msg.uid}`,
-            uid: msg.uid,
-            carpeta: carpetaEfectiva, // Nunca corrompe las carpetas personalizadas
-            de: { nombre: deNombre || deCorreo, correo: deCorreo },
-            para: paraList.length > 0 ? paraList : [{ nombre: config.usuarioImap, correo: config.usuarioImap }],
-            cc: ccList.length > 0 ? ccList : undefined,
-            asunto,
-            extracto,
-            cuerpoTexto,
-            cuerpoHtml,
-            fecha,
-            leido,
-            destacado,
-            tieneAdjuntos: adjuntos.length > 0,
-            adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
-          };
-
-          mensajesNuevos.push(mensajeMapeado);
         }
       }
     } finally {
@@ -542,7 +557,9 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
     // Guardar en la base de datos persistente
     if (mensajesNuevos.length > 0) {
       for (const msg of mensajesNuevos) {
-        correosEnMemoria.unshift(msg);
+        if (!correosEnMemoria.some((c) => c.id === msg.id || c.uid === msg.uid)) {
+          correosEnMemoria.push(msg);
+        }
       }
       correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       guardarCorreosDb(true);
@@ -550,14 +567,16 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
       guardarCorreosDb(true);
     }
 
-    console.log(`[IMAP SYNC OK] ${mensajesNuevos.length} correos nuevos guardados en DB (${flagsActualizados} estados actualizados). Total en base de datos: ${correosEnMemoria.length}`);
+    console.log(`[IMAP SYNC OK] ${mensajesNuevos.length} correos nuevos guardados en DB (${flagsActualizados} estados actualizados). Total en base de datos: ${correosEnMemoria.length} (hayMas: ${hayMas})`);
 
     return {
       exito: true,
       mensaje: mensajesNuevos.length > 0
-        ? `Se guardaron ${mensajesNuevos.length} correos nuevos en la base de datos.`
-        : 'Bandeja al día: no hay correos nuevos pendientes.',
+        ? `Se guardaron ${mensajesNuevos.length} correos en la base de datos.`
+        : 'Historial al día: no hay más correos en este rango.',
       sincronizados: mensajesNuevos.length,
+      totalExistentes,
+      hayMas,
       carpeta: carpetaSolicitada,
       modo: 'real',
     };
@@ -569,22 +588,166 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
       mensaje: `Error al sincronizar vía IMAP: ${err.message}`,
       error: err.message,
       sincronizados: 0,
+      hayMas: false,
       modo: 'error',
     };
   }
 }
 
-// ─── ENDPOINT SINCRONIZAR ────────────────────────────────────────────────────
+// ─── BÚSQUEDA REMOTA EN SERVIDOR IMAP (ON-DEMAND REMOTE SEARCH) ───────────────
+async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'inbox', limite = 25) {
+  if (!config || esConfiguracionDemo(config)) {
+    return {
+      exito: true,
+      mensaje: 'Búsqueda remota completada en simulación.',
+      totalServidor: 0,
+      nuevosDescargados: 0,
+      mensajes: [],
+      modo: 'demo',
+    };
+  }
+
+  const esEstandar = ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'].includes(carpetaSolicitada);
+  const carpetaEfectiva = esEstandar ? carpetaSolicitada : 'inbox';
+
+  const client = new ImapFlow({
+    host: config.servidorImap,
+    port: parseInt(config.puertoImap || '993'),
+    secure: config.seguridadImap === 'ssl' || parseInt(config.puertoImap) === 993,
+    auth: {
+      user: config.usuarioImap,
+      pass: config.contrasenaImap,
+    },
+    logger: false,
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 12000,
+    socketTimeout: 20000,
+  });
+
+  try {
+    await client.connect();
+
+    const mailboxes = await client.list();
+    const mailboxTarget = mapearMailbox(mailboxes, carpetaEfectiva);
+
+    if (!mailboxTarget) {
+      await client.logout();
+      return {
+        exito: true,
+        mensaje: `No se encontró carpeta remota para "${carpetaEfectiva}".`,
+        totalServidor: 0,
+        nuevosDescargados: 0,
+        mensajes: [],
+      };
+    }
+
+    const lock = await client.getMailboxLock(mailboxTarget);
+    const mensajesDescargados = [];
+    let totalCoincidencias = 0;
+
+    try {
+      const termino = busqueda.trim();
+      let uids = [];
+      try {
+        uids = await client.search(
+          {
+            or: [
+              { subject: termino },
+              { from: termino },
+              { body: termino },
+            ],
+          },
+          { uid: true }
+        );
+      } catch (errSearch1) {
+        console.warn('[IMAP SEARCH CRITERIA FALLBACK]', errSearch1.message);
+        try {
+          uids = await client.search(
+            {
+              or: [
+                { subject: termino },
+                { from: termino },
+              ],
+            },
+            { uid: true }
+          );
+        } catch (errSearch2) {
+          console.error('[IMAP SEARCH ERROR]', errSearch2.message);
+          uids = [];
+        }
+      }
+
+      totalCoincidencias = (uids || []).length;
+
+      // Filtrar los que no están en nuestra base de datos local
+      const uidsExistentes = new Set(correosEnMemoria.filter((c) => c.uid).map((c) => c.uid));
+      const uidsFaltantes = (uids || []).filter((uid) => !uidsExistentes.has(uid));
+
+      if (uidsFaltantes.length > 0) {
+        // Tomamos los más recientes (últimos N)
+        const uidsATraer = uidsFaltantes.slice(-limite);
+        for await (let msg of client.fetch(uidsATraer, {
+          uid: true,
+          flags: true,
+          envelope: true,
+          source: true,
+        })) {
+          const m = await parsearMensajeImap(msg, config, carpetaEfectiva, true);
+          mensajesDescargados.push(m);
+        }
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+
+    if (mensajesDescargados.length > 0) {
+      for (const msg of mensajesDescargados) {
+        if (!correosEnMemoria.some((c) => c.id === msg.id || c.uid === msg.uid)) {
+          correosEnMemoria.push(msg);
+        }
+      }
+      correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      guardarCorreosDb(true);
+    }
+
+    console.log(`[IMAP BUSQUEDA REMOTA] "${busqueda}": ${totalCoincidencias} en servidor, ${mensajesDescargados.length} descargados a DB.`);
+
+    return {
+      exito: true,
+      mensaje: `Búsqueda remota completada. ${totalCoincidencias} coincidencia(s) en servidor (${mensajesDescargados.length} nuevos indexados).`,
+      totalServidor: totalCoincidencias,
+      nuevosDescargados: mensajesDescargados.length,
+      mensajes: mensajesDescargados,
+    };
+  } catch (err) {
+    try { await client.logout(); } catch {}
+    console.error('[IMAP BUSQUEDA REMOTA ERROR]', err.message);
+    return {
+      exito: false,
+      mensaje: `Error al buscar en el servidor IMAP: ${err.message}`,
+      error: err.message,
+      totalServidor: 0,
+      nuevosDescargados: 0,
+      mensajes: [],
+    };
+  }
+}
+
+// ─── ENDPOINT SINCRONIZAR (Con soporte de scroll/offset) ──────────────────────
 app.post('/api/email/sincronizar', async (req, res) => {
   const config = resolverConfigImap(req);
   const carpeta = (req.body?.carpeta || 'inbox').toLowerCase();
-  const limite = parseInt(req.body?.limite || '40');
+  const limite = parseInt(req.body?.limite || '35');
+  const offset = parseInt(req.body?.offset || '0');
 
   if (!config) {
     return res.status(400).json({
       exito: false,
       mensaje: 'Faltan parámetros de configuración IMAP (servidorImap, usuarioImap, contrasenaImap).',
       sincronizados: 0,
+      hayMas: false,
     });
   }
 
@@ -592,13 +755,47 @@ app.post('/api/email/sincronizar', async (req, res) => {
     guardarConfiguracionServidor(config);
   }
 
-  const resultado = await sincronizarCorreosImap(config, carpeta, limite);
+  const resultado = await sincronizarCorreosImap(config, carpeta, limite, offset);
   const carpetas = obtenerListaCarpetas();
 
   res.json({
     ...resultado,
     carpetas,
     totalEnMemoria: correosEnMemoria.length,
+    totalEnDb: correosEnMemoria.length,
+  });
+});
+
+// ─── ENDPOINT BÚSQUEDA REMOTA EN SERVIDOR IMAP ──────────────────────────────
+app.post('/api/email/buscar-remoto', async (req, res) => {
+  const config = resolverConfigImap(req);
+  const busqueda = (req.body?.busqueda || '').trim();
+  const carpeta = (req.body?.carpeta || 'inbox').toLowerCase();
+  const limite = parseInt(req.body?.limite || '25');
+
+  if (!busqueda) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'El parámetro "busqueda" es obligatorio.',
+      totalServidor: 0,
+      nuevosDescargados: 0,
+      mensajes: [],
+    });
+  }
+
+  if (!config) {
+    return res.status(400).json({
+      exito: false,
+      mensaje: 'Faltan parámetros de configuración IMAP para realizar la búsqueda remota.',
+      totalServidor: 0,
+      nuevosDescargados: 0,
+      mensajes: [],
+    });
+  }
+
+  const resultado = await buscarCorreosRemotoImap(config, busqueda, carpeta, limite);
+  res.json({
+    ...resultado,
     totalEnDb: correosEnMemoria.length,
   });
 });

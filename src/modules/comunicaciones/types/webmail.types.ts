@@ -35,6 +35,26 @@ export interface MensajeCorreo {
   asuntoRaiz?: string;
   totalEnHilo?: number;
   mensajesDelHilo?: MensajeCorreo[];
+  esCoincidenciaServidor?: boolean;
+}
+
+export interface RespuestaSincronizacion {
+  exito: boolean;
+  mensaje: string;
+  sincronizados: number;
+  totalExistentes?: number;
+  hayMas?: boolean;
+  carpetas?: CarpetaCorreo[];
+  error?: string;
+}
+
+export interface RespuestaBusquedaRemota {
+  exito: boolean;
+  mensaje: string;
+  totalServidor?: number;
+  nuevosDescargados?: number;
+  mensajes?: MensajeCorreo[];
+  error?: string;
 }
 
 export interface CarpetaCorreo {

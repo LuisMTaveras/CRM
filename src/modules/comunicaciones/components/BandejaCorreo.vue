@@ -55,6 +55,7 @@ import {
   Kanban,
   CalendarClock,
   UserCheck,
+  UserPlus,
   Globe,
   Bell,
   GitMerge
@@ -80,6 +81,14 @@ const pagina = ref(1);
 const limite = ref(15);
 const total = ref(0);
 const totalPaginas = ref(1);
+
+// Sincronización continua por scroll y búsqueda remota
+const listaScrollContainerRef = ref<HTMLElement | null>(null);
+const cargandoMas = ref(false);
+const finDeHistorial = ref(false);
+const buscandoEnServidor = ref(false);
+const coincidenciasServidorContador = ref(0);
+let timerBusquedaRemota: ReturnType<typeof setTimeout> | null = null;
 
 // Modales CRM y Ficha 360°
 const modalOportunidadAbierto = ref(false);
@@ -205,10 +214,8 @@ const cargarMensajes = async (aplicarReglas = false) => {
       if (encontrado) {
         mensajeSeleccionado.value = encontrado;
       } else {
-        mensajeSeleccionado.value = mensajesFiltrados.value[0] || null;
+        mensajeSeleccionado.value = null;
       }
-    } else if (mensajesFiltrados.value.length > 0) {
-      seleccionarMensaje(mensajesFiltrados.value[0]);
     }
   } catch (err) {
     console.error('Error al cargar mensajes del webmail:', err);
@@ -250,9 +257,99 @@ const sincronizarCorreos = async (forzarSilencioso = false) => {
   }
 };
 
+const onScrollLista = () => {
+  const el = listaScrollContainerRef.value;
+  if (!el || cargandoMas.value || cargando.value || finDeHistorial.value) return;
+  const distanciaAlFinal = el.scrollHeight - el.scrollTop - el.clientHeight;
+  if (distanciaAlFinal <= 120) {
+    cargarMasCorreos();
+  }
+};
+
+const cargarMasCorreos = async () => {
+  if (cargandoMas.value || cargando.value || finDeHistorial.value) return;
+  cargandoMas.value = true;
+
+  try {
+    // 1. Si aún quedan páginas locales en la base de datos para esta vista, cargar la siguiente página
+    if (pagina.value < totalPaginas.value) {
+      const proxPagina = pagina.value + 1;
+      const resp: RespuestaMensajesPaginada = await webmailService.obtenerMensajes(
+        carpetaActiva.value,
+        proxPagina,
+        limite.value,
+        busqueda.value,
+        {
+          global: busquedaGlobal.value,
+          filtro: filtroEstado.value,
+        }
+      );
+
+      if (resp.mensajes && resp.mensajes.length > 0) {
+        pagina.value = proxPagina;
+        const existentesIds = new Set(mensajes.value.map((m) => m.id));
+        const nuevos = resp.mensajes.filter((m) => !existentesIds.has(m.id));
+        mensajes.value.push(...nuevos);
+        total.value = resp.total || total.value;
+        totalPaginas.value = resp.totalPaginas || totalPaginas.value;
+        cargandoMas.value = false;
+        return;
+      }
+    }
+
+    // 2. Si ya se mostraron todos los locales de la DB, sincronizar bloque anterior desde el servidor IMAP
+    const offset = mensajes.value.length;
+    const res = await webmailService.sincronizar(carpetaActiva.value, 30, offset);
+
+    if (res.exito) {
+      if (res.sincronizados && res.sincronizados > 0) {
+        await cargarCarpetas();
+        const proxPagina = pagina.value + 1;
+        const resp: RespuestaMensajesPaginada = await webmailService.obtenerMensajes(
+          carpetaActiva.value,
+          proxPagina,
+          limite.value,
+          busqueda.value,
+          {
+            global: busquedaGlobal.value,
+            filtro: filtroEstado.value,
+          }
+        );
+
+        const existentesIds = new Set(mensajes.value.map((m) => m.id));
+        const nuevos = (resp.mensajes || []).filter((m) => !existentesIds.has(m.id));
+        if (nuevos.length > 0) {
+          pagina.value = proxPagina;
+          mensajes.value.push(...nuevos);
+          total.value = resp.total || (total.value + res.sincronizados);
+          totalPaginas.value = resp.totalPaginas || totalPaginas.value;
+        } else {
+          finDeHistorial.value = true;
+        }
+      } else {
+        finDeHistorial.value = true;
+      }
+
+      if (res.hayMas === false) {
+        finDeHistorial.value = true;
+      }
+    } else {
+      finDeHistorial.value = true;
+    }
+  } catch (err) {
+    console.warn('Error al cargar correos anteriores por scroll:', err);
+    finDeHistorial.value = true;
+  } finally {
+    cargandoMas.value = false;
+  }
+};
+
 const seleccionarCarpeta = (id: CarpetaCorreoId) => {
   carpetaActiva.value = id;
   pagina.value = 1;
+  finDeHistorial.value = false;
+  cargandoMas.value = false;
+  coincidenciasServidorContador.value = 0;
   filtroEstado.value = 'todos';
   mensajeSeleccionado.value = null;
   cargarMensajes();
@@ -714,9 +811,45 @@ const totalNoLeidos = computed(() => {
   return carpetas.value.find((c) => c.id === 'inbox')?.noLeidos || 0;
 });
 
-watch([busqueda, busquedaGlobal], () => {
+watch(busquedaGlobal, () => {
   pagina.value = 1;
+  finDeHistorial.value = false;
+  coincidenciasServidorContador.value = 0;
   cargarMensajes();
+});
+
+watch(busqueda, (nuevoTexto) => {
+  pagina.value = 1;
+  finDeHistorial.value = false;
+  coincidenciasServidorContador.value = 0;
+  cargarMensajes();
+
+  if (timerBusquedaRemota) {
+    clearTimeout(timerBusquedaRemota);
+    timerBusquedaRemota = null;
+  }
+
+  const termino = nuevoTexto.trim();
+  if (termino.length >= 3) {
+    timerBusquedaRemota = setTimeout(async () => {
+      try {
+        buscandoEnServidor.value = true;
+        const res = await webmailService.buscarRemoto(termino, carpetaActiva.value);
+        if (res.exito && res.nuevosDescargados && res.nuevosDescargados > 0) {
+          coincidenciasServidorContador.value = res.totalServidor || res.nuevosDescargados;
+          await cargarCarpetas();
+          await cargarMensajes();
+          toastService.info(`Se sincronizaron ${res.nuevosDescargados} correos adicionales desde el servidor IMAP.`);
+        } else if (res.totalServidor && res.totalServidor > 0) {
+          coincidenciasServidorContador.value = res.totalServidor;
+        }
+      } catch (e) {
+        console.warn('Error en búsqueda remota IMAP:', e);
+      } finally {
+        buscandoEnServidor.value = false;
+      }
+    }, 700);
+  }
 });
 
 onMounted(async () => {
@@ -747,6 +880,10 @@ onUnmounted(() => {
   if (intervaloNovedades) {
     clearInterval(intervaloNovedades);
     intervaloNovedades = null;
+  }
+  if (timerBusquedaRemota) {
+    clearTimeout(timerBusquedaRemota);
+    timerBusquedaRemota = null;
   }
 });
 </script>
@@ -788,6 +925,22 @@ onUnmounted(() => {
           <Globe class="w-3.5 h-3.5" :class="busquedaGlobal ? 'text-white' : 'text-zinc-500'" />
           <span class="hidden md:inline">{{ busquedaGlobal ? 'Todas las carpetas' : 'Esta carpeta' }}</span>
         </button>
+
+        <!-- Indicador de Búsqueda Remota en Servidor IMAP -->
+        <div
+          v-if="buscandoEnServidor"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20 shrink-0 animate-pulse"
+        >
+          <Loader2 class="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" />
+          <span class="hidden lg:inline">Buscando en servidor IMAP...</span>
+        </div>
+        <div
+          v-else-if="coincidenciasServidorContador > 0 && busqueda"
+          class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20 shrink-0"
+        >
+          <Globe class="w-3.5 h-3.5 text-sky-500" />
+          <span>{{ coincidenciasServidorContador }} en servidor</span>
+        </div>
       </div>
 
       <!-- Acciones de Cabecera (Sincronizar y Redactar) -->
@@ -841,8 +994,11 @@ onUnmounted(() => {
         <div class="space-y-1">
           <div class="px-3 py-2 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono flex items-center justify-between">
             <span>Carpetas</span>
-            <span v-if="totalNoLeidos > 0" class="px-1.5 py-0.2 bg-indigo-600 text-white text-[9px] rounded-full font-bold">
-              {{ totalNoLeidos }}
+            <span
+              v-if="totalNoLeidos > 0"
+              class="px-2 py-0.5 bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 text-[9px] rounded-full font-bold"
+            >
+              {{ totalNoLeidos }} {{ totalNoLeidos === 1 ? 'nuevo' : 'nuevos' }}
             </span>
           </div>
 
@@ -861,9 +1017,9 @@ onUnmounted(() => {
             </span>
             <span
               v-if="(carpetas.find(c => c.id === 'inbox')?.noLeidos || 0) > 0"
-              class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-600 text-white font-bold"
+              class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-600 text-white font-bold tracking-tight shadow-xs"
             >
-              {{ carpetas.find(c => c.id === 'inbox')?.noLeidos }}
+              {{ carpetas.find(c => c.id === 'inbox')?.noLeidos }} {{ carpetas.find(c => c.id === 'inbox')?.noLeidos === 1 ? 'nuevo' : 'nuevos' }}
             </span>
             <span v-else class="text-[10px] text-zinc-400 font-mono">
               {{ carpetas.find(c => c.id === 'inbox')?.total || 0 }}
@@ -1132,7 +1288,11 @@ onUnmounted(() => {
         </div>
 
         <!-- Lista scrolleable de mensajes -->
-        <div class="flex-1 overflow-y-auto divide-y divide-zinc-200/80 dark:divide-zinc-800/60">
+        <div
+          ref="listaScrollContainerRef"
+          @scroll="onScrollLista"
+          class="flex-1 overflow-y-auto divide-y divide-zinc-200/80 dark:divide-zinc-800/60"
+        >
           <div v-if="cargando && mensajes.length === 0" class="p-10 text-center text-zinc-500 text-xs">
             <Loader2 class="w-6 h-6 animate-spin mx-auto mb-2.5 text-indigo-600 dark:text-indigo-400" />
             <span>Consultando servidor IMAP...</span>
@@ -1190,6 +1350,12 @@ onUnmounted(() => {
                 >
                   {{ msg.de.nombre || msg.de.correo }}
                 </span>
+                <span
+                  v-if="!msg.leido"
+                  class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/25 shrink-0"
+                >
+                  Nuevo
+                </span>
               </div>
 
               <div class="flex items-center gap-1.5 shrink-0">
@@ -1220,7 +1386,7 @@ onUnmounted(() => {
               {{ msg.extracto }}
             </p>
 
-            <!-- Badges inferiores (Cliente CRM / Hilo / Carpeta / Adjuntos) -->
+            <!-- Badges inferiores (Cliente CRM / Hilo / Carpeta / Adjuntos / Servidor) -->
             <div class="flex items-center gap-2 mt-2.5 flex-wrap">
               <span
                 v-if="msg.clienteNombreRelacionado"
@@ -1248,13 +1414,47 @@ onUnmounted(() => {
               </span>
 
               <span
-                v-if="msg.tieneAdjuntos || (msg.adjuntos && msg.adjuntos.length > 0)"
-                class="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60 font-mono"
+                v-if="msg.esCoincidenciaServidor"
+                class="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-500/10 border border-sky-500/20"
+                title="Mensaje sincronizado desde el servidor remoto IMAP"
               >
-                <Paperclip class="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                <span>{{ msg.adjuntos?.length ? `${msg.adjuntos.length} adjuntos` : 'Con adjuntos' }}</span>
+                <Globe class="w-3 h-3 text-sky-500" />
+                <span>Servidor IMAP</span>
+              </span>
+
+              <span
+                v-if="msg.tieneAdjuntos || (msg.adjuntos && msg.adjuntos.length > 0)"
+                class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md font-mono transition-colors"
+                :class="!msg.leido 
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold shadow-xs' 
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60'"
+              >
+                <FileText class="w-3 h-3" :class="!msg.leido ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'" />
+                <span>
+                  {{ !msg.leido 
+                    ? (msg.adjuntos?.length ? `${msg.adjuntos.length} doc. nuevo(s)` : 'Doc. nuevo') 
+                    : (msg.adjuntos?.length ? `${msg.adjuntos.length} adjuntos` : 'Con adjuntos') 
+                  }}
+                </span>
               </span>
             </div>
+          </div>
+
+          <!-- Indicador de carga de más correos por Scroll / Lazy Sync -->
+          <div
+            v-if="cargandoMas"
+            class="p-4 text-center bg-zinc-50/70 dark:bg-zinc-950/40 border-t border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium"
+          >
+            <Loader2 class="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+            <span>Sincronizando correos anteriores del servidor...</span>
+          </div>
+
+          <!-- Fin del historial -->
+          <div
+            v-else-if="finDeHistorial && mensajesFiltrados.length > 0"
+            class="py-3.5 px-4 text-center text-[11px] text-zinc-400 dark:text-zinc-500 font-mono border-t border-zinc-200/50 dark:border-zinc-800/50"
+          >
+            Fin del historial de esta carpeta
           </div>
         </div>
       </div>
