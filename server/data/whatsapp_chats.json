@@ -5,8 +5,8 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "6hh6",
-      "ultimoTimestamp": "2026-10-21T21:34:23.000Z",
+      "ultimoMensaje": "s",
+      "ultimoTimestamp": "2026-10-21T21:53:24.000Z",
       "noLeidos": 0,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
@@ -418,6 +418,20 @@
         "timestamp": "2026-10-21T21:34:23.000Z",
         "estado": "recibido",
         "tipo": "texto"
+      },
+      {
+        "id": "3EB0171E219AB2D9E4D368",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "s",
+        "timestamp": "2026-10-21T21:53:24.626Z",
+        "estado": "enviado",
+        "tipo": "texto",
+        "mensajeCitado": {
+          "id": "ACDDC8D723078787DC69E5CF9E5E3FBE",
+          "emisor": "Luis Taveras",
+          "texto": "Hola"
+        }
       }
     ],
     "25147788538099@lid": [
