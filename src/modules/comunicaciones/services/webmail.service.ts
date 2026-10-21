@@ -15,6 +15,9 @@ import type {
 } from '../types/webmail.types';
 import { smtpService } from './smtp.service';
 import { firmaPieService } from './firma-pie.service';
+import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
+import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
+import { toastService } from '@/core/notifications/toast.service';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email`;
 
@@ -22,6 +25,10 @@ class WebmailService {
   /** Conteo reactivo global de correos no leídos para badges de navegación */
   public totalNoLeidos = ref<number>(0);
   public totalCorreos = ref<number>(0);
+  public servicioEscuchaActivo = ref<boolean>(false);
+  public ultimaVerificacion = ref<string | null>(null);
+
+  private sseConnection: EventSource | null = null;
 
   /**
    * Obtiene la lista de carpetas disponibles y el conteo de correos reales
@@ -654,6 +661,99 @@ class WebmailService {
       const msg = err instanceof Error ? err.message : 'Error de conexión.';
       return { exito: false, error: msg };
     }
+  }
+
+  /**
+   * Conecta el flujo Server-Sent Events (SSE) para recibir correos nuevos en tiempo real
+   */
+  conectarSSE(): void {
+    if (this.sseConnection) return;
+
+    try {
+      this.sseConnection = new EventSource(`${API_BASE_URL}/eventos`);
+
+      this.sseConnection.addEventListener('correo_nuevo', (event) => {
+        try {
+          const mensaje: MensajeCorreo = JSON.parse(event.data);
+          this.totalNoLeidos.value++;
+
+          const remitente = mensaje.de?.nombre || mensaje.de?.correo || 'Remitente externo';
+          const asunto = mensaje.asunto || '(Sin asunto)';
+
+          // 1. Agregar alerta al Centro de Notificaciones
+          centroNotificacionesService.agregarNotificacion({
+            tipo: 'correo',
+            titulo: `Nuevo correo de ${remitente}`,
+            mensaje: asunto,
+            prioridad: 'alta',
+            ruta: '/comunicaciones',
+            etiquetaAccion: 'Ver Correo',
+            metadatos: { correoId: mensaje.id },
+          });
+
+          // 2. Disparar Toast emergente en la interfaz
+          toastService.info(`📧 ${remitente}: ${asunto.slice(0, 50)}`);
+
+          // 3. Emitir notificación nativa de navegador y sonido chime
+          notificacionesNativasService.notificar(`Nuevo Correo: ${remitente}`, {
+            cuerpo: asunto,
+            ruta: '/comunicaciones',
+            tipoSonido: 'correo',
+            tag: `mail-${mensaje.id}`,
+          });
+        } catch (e) {
+          console.error('Error parseando evento SSE correo_nuevo:', e);
+        }
+      });
+
+      this.sseConnection.addEventListener('conteo_actualizado', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (typeof data.noLeidos === 'number') {
+            this.totalNoLeidos.value = data.noLeidos;
+          }
+          if (typeof data.total === 'number') {
+            this.totalCorreos.value = data.total;
+          }
+        } catch {}
+      });
+
+      this.sseConnection.onerror = () => {
+        if (this.sseConnection) {
+          this.sseConnection.close();
+          this.sseConnection = null;
+          setTimeout(() => this.conectarSSE(), 10000);
+        }
+      };
+    } catch (e) {
+      console.warn('[Webmail] No se pudo inicializar SSE:', e);
+    }
+  }
+
+  /**
+   * Desconecta el flujo SSE
+   */
+  desconectarSSE(): void {
+    if (this.sseConnection) {
+      this.sseConnection.close();
+      this.sseConnection = null;
+    }
+  }
+
+  /**
+   * Consulta el estado del servicio de escucha en segundo plano
+   */
+  async obtenerEstadoServicioEscucha(): Promise<{ activo: boolean; ultimaVerificacion: string | null; intervaloSegundos: number } | null> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/servicio-escucha/estado`);
+      if (resp.ok) {
+        const data = await resp.json();
+        this.servicioEscuchaActivo.value = !!data.activo;
+        this.ultimaVerificacion.value = data.ultimaVerificacion;
+        return data;
+      }
+    } catch {}
+    return null;
   }
 }
 

@@ -5,9 +5,9 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "Eyeyru",
-      "ultimoTimestamp": "2026-10-21T20:47:37.000Z",
-      "noLeidos": 0,
+      "ultimoMensaje": "Estas?",
+      "ultimoTimestamp": "2026-10-21T21:15:27.000Z",
+      "noLeidos": 1,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
     },
@@ -344,6 +344,24 @@
         "emisor": "Luis Taveras",
         "texto": "Eyeyru",
         "timestamp": "2026-10-21T20:47:37.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACBE1E236C24DAA29EEBA9FA90B06C92",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Hello, necesito tu ayuda urgente",
+        "timestamp": "2026-10-21T20:58:00.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC769A504ECAA5D704D61720DE6962A7",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Estas?",
+        "timestamp": "2026-10-21T21:15:27.000Z",
         "estado": "recibido",
         "tipo": "texto"
       }

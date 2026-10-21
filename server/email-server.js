@@ -41,6 +41,7 @@ const CARPETAS_DB_FILE = path.join(DATA_DIR, 'carpetas-db.json');
 
 import whatsappRoutes from './whatsapp/whatsapp-routes.js';
 import { whatsAppService } from './whatsapp/whatsapp-service.js';
+import { servicioEscuchaEmail } from './email-listener.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -113,7 +114,51 @@ app.get('/api/email/estado', (_req, res) => {
     mensaje: 'Servidor de correo CRM activo (SMTP + IMAP)',
     cuentaConfigurada: configuracionActiva?.usuarioImap || configuracionActiva?.usuarioSmtp || null,
     totalCorreosEnMemoria: correosEnMemoria.length,
+    servicioEscucha: servicioEscuchaEmail.obtenerEstado(),
     timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── SSE: EVENTOS DE CORREO EN TIEMPO REAL ────────────────────────────────────
+app.get('/api/email/eventos', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  res.write(': conexion iniciada\n\n');
+  servicioEscuchaEmail.suscribirSSE(res);
+
+  req.on('close', () => {
+    servicioEscuchaEmail.desuscribirSSE(res);
+  });
+});
+
+// ─── ESTADO Y CONTROL DEL SERVICIO DE ESCUCHA EN SEGUNDO PLANO ─────────────────
+app.get('/api/email/servicio-escucha/estado', (_req, res) => {
+  res.json({
+    ok: true,
+    ...servicioEscuchaEmail.obtenerEstado(),
+  });
+});
+
+app.post('/api/email/servicio-escucha/alternar', async (req, res) => {
+  const { activo, intervaloSegundos } = req.body || {};
+  if (activo && !servicioEscuchaEmail.activo) {
+    await servicioEscuchaEmail.iniciar({
+      configGetter: () => configuracionActiva,
+      correosEnMemoriaRef: correosEnMemoria,
+      guardarDbFn: () => guardarCorreosDb(true),
+      parsearMensajeFn: parsearMensajeImap,
+      intervaloSegundos: intervaloSegundos || 15,
+    });
+  } else if (!activo && servicioEscuchaEmail.activo) {
+    await servicioEscuchaEmail.detener();
+  }
+  res.json({
+    ok: true,
+    ...servicioEscuchaEmail.obtenerEstado(),
   });
 });
 
@@ -124,6 +169,20 @@ app.post('/api/email/configuracion', (req, res) => {
     return res.status(400).json({ ok: false, error: 'Configuración vacía.' });
   }
   guardarConfiguracionServidor(config);
+
+  // Si tiene IMAP habilitado, reiniciar el escuchador con las nuevas credenciales
+  if (configuracionActiva?.habilitarImap) {
+    servicioEscuchaEmail.detener().then(() => {
+      servicioEscuchaEmail.iniciar({
+        configGetter: () => configuracionActiva,
+        correosEnMemoriaRef: correosEnMemoria,
+        guardarDbFn: () => guardarCorreosDb(true),
+        parsearMensajeFn: parsearMensajeImap,
+        intervaloSegundos: 15,
+      }).catch(() => {});
+    });
+  }
+
   res.json({
     ok: true,
     mensaje: 'Configuración de correo guardada en el servidor exitosamente.',
@@ -566,9 +625,17 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
         if (!correosEnMemoria.some((c) => c.id === msg.id || c.uid === msg.uid)) {
           correosEnMemoria.push(msg);
         }
+        // Emitir evento SSE en tiempo real a clientes web conectados
+        servicioEscuchaEmail.emitirEvento('correo_nuevo', msg);
       }
       correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       guardarCorreosDb(true);
+
+      // Actualizar último UID conocido en el servicio de escucha
+      const maxUid = Math.max(...mensajesNuevos.map((m) => m.uid || 0));
+      if (maxUid > servicioEscuchaEmail.ultimoUidConocido) {
+        servicioEscuchaEmail.ultimoUidConocido = maxUid;
+      }
     } else if (flagsActualizados > 0) {
       guardarCorreosDb(true);
     }
@@ -1831,6 +1898,19 @@ const server = app.listen(PORT, () => {
       console.warn('[WhatsApp] Aviso al restaurar conexión automática:', err.message);
     });
   }
+
+  // Inicio automático del servicio de escucha de correos en segundo plano
+  if (configuracionActiva && configuracionActiva.habilitarImap) {
+    servicioEscuchaEmail.iniciar({
+      configGetter: () => configuracionActiva,
+      correosEnMemoriaRef: correosEnMemoria,
+      guardarDbFn: () => guardarCorreosDb(true),
+      parsearMensajeFn: parsearMensajeImap,
+      intervaloSegundos: 15,
+    }).catch((err) => {
+      console.warn('[EMAIL LISTENER] Aviso al iniciar servicio de escucha:', err.message);
+    });
+  }
 });
 
 server.on('error', (err) => {
@@ -1844,6 +1924,11 @@ server.on('error', (err) => {
 // Cierre ordenado para no corromper la sesión de WhatsApp ni el socket
 const cerrarGracefully = () => {
   console.log('\n🛑 Cerrando servidor unificado de forma limpia...');
+  if (servicioEscuchaEmail) {
+    try {
+      servicioEscuchaEmail.detener();
+    } catch {}
+  }
   if (whatsAppService && whatsAppService.sock) {
     try {
       whatsAppService.sock.end(undefined);

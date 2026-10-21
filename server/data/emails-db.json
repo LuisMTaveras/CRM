@@ -1,5 +1,53 @@
 [
   {
+    "id": "msg-imap-2700",
+    "uid": 2700,
+    "carpeta": "inbox",
+    "de": {
+      "nombre": "Luis Taveras",
+      "correo": "luistaveras741@gmail.com"
+    },
+    "para": [
+      {
+        "nombre": "luismiguel@alliance.do",
+        "correo": "luismiguel@alliance.do"
+      }
+    ],
+    "asunto": "Corre",
+    "extracto": "Hola, cómo estás?",
+    "cuerpoTexto": "Hola, cómo estás?\n",
+    "cuerpoHtml": "<div dir=\"auto\">Hola, cómo estás? </div>\n",
+    "fecha": "2026-10-21T21:15:14.000Z",
+    "leido": false,
+    "destacado": false,
+    "tieneAdjuntos": false,
+    "esCoincidenciaServidor": false
+  },
+  {
+    "id": "msg-imap-2699",
+    "uid": 2699,
+    "carpeta": "inbox",
+    "de": {
+      "nombre": "Luis Taveras",
+      "correo": "luistaveras74@gmail.com"
+    },
+    "para": [
+      {
+        "nombre": "luismiguel@alliance.do",
+        "correo": "luismiguel@alliance.do"
+      }
+    ],
+    "asunto": "Corre perra corre",
+    "extracto": "Hola",
+    "cuerpoTexto": "Hola\n",
+    "cuerpoHtml": "<div dir=\"auto\">Hola</div>\n",
+    "fecha": "2026-10-21T20:57:49.000Z",
+    "leido": false,
+    "destacado": false,
+    "tieneAdjuntos": false,
+    "esCoincidenciaServidor": false
+  },
+  {
     "id": "msg-imap-2698",
     "uid": 2698,
     "carpeta": "inbox",

@@ -4,7 +4,7 @@ import router from '@/app/router';
 const CLAVE_SONIDO = 'crm_notificaciones_sonido_v1';
 const CLAVE_ESCRITORIO = 'crm_notificaciones_escritorio_v1';
 
-export type TipoSonidoNotificacion = 'whatsapp' | 'tarea' | 'urgente' | 'general';
+export type TipoSonidoNotificacion = 'whatsapp' | 'tarea' | 'urgente' | 'general' | 'correo';
 
 export interface OpcionesNotificacionNativa {
   cuerpo?: string;
@@ -202,6 +202,36 @@ class NotificacionesNativasService {
 
         osc.start(ahora);
         osc.stop(ahora + 0.42);
+      } else if (tipo === 'correo') {
+        // Tono elegante y cristalino para correo entrante: F5 (698Hz) -> C6 (1046Hz)
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        gainNode.gain.setValueAtTime(0, ahora);
+        gainNode.gain.linearRampToValueAtTime(0.12, ahora + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ahora + 0.35);
+
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(698.46, ahora); // F5
+        osc1.frequency.setValueAtTime(1046.5, ahora + 0.08); // C6
+
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(1396.9, ahora); // F6 armónico suave
+        osc2.frequency.setValueAtTime(2093.0, ahora + 0.08);
+
+        const subGain = ctx.createGain();
+        subGain.gain.setValueAtTime(0.03, ahora);
+
+        osc1.connect(gainNode);
+        osc2.connect(subGain);
+        subGain.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        osc1.start(ahora);
+        osc2.start(ahora);
+        osc1.stop(ahora + 0.38);
+        osc2.stop(ahora + 0.38);
       } else {
         // Ding sutil genérico
         const osc = ctx.createOscillator();

@@ -954,6 +954,15 @@ onUnmounted(() => {
 
       <!-- Acciones de Cabecera (Sincronizar y Redactar) -->
       <div class="flex items-center gap-2.5 shrink-0 justify-end">
+        <!-- Indicador de Escucha en Segundo Plano -->
+        <div
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+          title="Servicio de escucha continua activo en segundo plano (Monitorea el servidor IMAP cada 15s)"
+        >
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Escucha automática activa</span>
+        </div>
+
         <!-- Botón de Sincronización IMAP en Vivo -->
         <button
           type="button"

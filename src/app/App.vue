@@ -7,6 +7,7 @@ import ToastContainer from '@/shared/components/ToastContainer.vue';
 import AppConfirmModal from '@/shared/components/AppConfirmModal.vue';
 import { themeService } from '@/core/theme/theme.service';
 import { whatsAppChatService } from '@/modules/comunicaciones/services/whatsapp-chat.service';
+import { webmailService } from '@/modules/comunicaciones/services/webmail.service';
 import { actividadesService } from '@/modules/agenda/services/actividades.service';
 
 const route = useRoute();
@@ -15,6 +16,8 @@ onMounted(() => {
   themeService.inicializarTema();
   // Conectar escucha global en tiempo real de WhatsApp
   whatsAppChatService.conectarSSE();
+  // Conectar escucha global en tiempo real de correos electrónicos
+  webmailService.conectarSSE();
   // Iniciar vigilante periódico de tareas y compromisos de la agenda
   actividadesService.iniciarVigilanteAgenda();
 });
