@@ -5,9 +5,9 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "Kk",
-      "ultimoTimestamp": "2026-10-21T21:26:35.000Z",
-      "noLeidos": 3,
+      "ultimoMensaje": "6hh6",
+      "ultimoTimestamp": "2026-10-21T21:34:23.000Z",
+      "noLeidos": 0,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
     },
@@ -380,6 +380,42 @@
         "emisor": "Luis Taveras",
         "texto": "Kk",
         "timestamp": "2026-10-21T21:26:35.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACE1D754BEA5C15F948DABDCF3D08633",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Wdj",
+        "timestamp": "2026-10-21T21:33:57.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACCCD56BC6EB77DBC5E7718DDFE5D5EB",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Ty",
+        "timestamp": "2026-10-21T21:34:14.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC1BA98113A40B809358477B586F1BB8",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "56u",
+        "timestamp": "2026-10-21T21:34:17.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACB119DCD5E76AB8343B314FAC8D4EEB",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "6hh6",
+        "timestamp": "2026-10-21T21:34:23.000Z",
         "estado": "recibido",
         "tipo": "texto"
       }

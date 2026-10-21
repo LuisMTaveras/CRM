@@ -6,12 +6,13 @@ param(
 )
 
 try {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $serverDir = Split-Path -Parent $scriptDir
+    $soundsDir = Join-Path $serverDir "data\sounds"
+    $logoPath = Join-Path $serverDir "data\crm-logo.jpg"
+
     # 1. Reproducir sonido físico de alto impacto en los altavoces de Windows
     try {
-        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-        $serverDir = Split-Path -Parent $scriptDir
-        $soundsDir = Join-Path $serverDir "data\sounds"
-
         $wav = if ($Tipo -eq "email" -or $Tipo -eq "correo") {
             Join-Path $soundsDir "correo-notificacion.wav"
         } else {
@@ -37,13 +38,16 @@ try {
         try { [System.Media.SystemSounds]::Asterisk.Play() } catch {}
     }
 
-    # 2. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" con el puerto correcto
+    # 2. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" con el puerto correcto y logotipo
     $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\DEVFORGE CRM.lnk"
     try {
         $wsh = New-Object -ComObject WScript.Shell
         $sc = $wsh.CreateShortcut($shortcutPath)
         $sc.TargetPath = "$Url"
         $sc.Description = "DEVFORGE CRM Enterprise"
+        if (Test-Path $logoPath) {
+            $sc.IconLocation = "$logoPath,0"
+        }
         $sc.Save()
     } catch {}
 
@@ -51,11 +55,13 @@ try {
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
 
     $soundEvent = if ($Tipo -eq "email" -or $Tipo -eq "correo") { "Notification.Mail" } else { "Notification.IM" }
+    $imageTag = if (Test-Path $logoPath) { "<image placement=""appLogoOverride"" hint-crop=""circle"" src=""$logoPath"" />" } else { "" }
 
     $xmlStr = @"
 <toast activationType="protocol" launch="$Url">
     <visual>
         <binding template="ToastGeneric">
+            $imageTag
             <text>$Titulo</text>
             <text>$Mensaje</text>
         </binding>

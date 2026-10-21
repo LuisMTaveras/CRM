@@ -5,7 +5,6 @@ import {
   Building2, 
   Kanban, 
   BarChart3, 
-  Layers, 
   Settings, 
   Users,
   Mail,
@@ -140,12 +139,12 @@ const esRutaActiva = (ruta: string) => {
           alt="Logotipo"
           class="w-full h-full object-contain p-0.5"
         />
-        <div
+        <img
           v-else
-          class="w-full h-full bg-gradient-to-br from-indigo-500/20 via-indigo-600/10 to-transparent flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner"
-        >
-          <Layers class="w-4 h-4 stroke-[2.2]" />
-        </div>
+          src="/crm-logo.jpg"
+          alt="DEVFORGE CRM"
+          class="w-full h-full object-cover"
+        />
       </div>
       <div class="overflow-hidden min-w-0">
         <div class="font-semibold text-xs tracking-tight text-zinc-900 dark:text-zinc-100 truncate" :title="perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial">

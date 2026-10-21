@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { firmaPieService, FIRMA_POR_DEFECTO, PIE_POR_DEFECTO } from './firma-pie.service';
+import { firmaPieService, FIRMA_POR_DEFECTO } from './firma-pie.service';
 
 describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
   beforeEach(() => {

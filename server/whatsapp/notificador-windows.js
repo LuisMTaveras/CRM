@@ -1,7 +1,7 @@
 /**
  * Notificador Nativo de Windows para DEVFORGE CRM
- * Emite notificaciones Toast en el escritorio de Windows con sonido real
- * y redirige al puerto oficial donde corre la aplicación web (puerto 3000).
+ * Emite notificaciones Toast en el escritorio de Windows con sonido real,
+ * logotipo oficial de DEVFORGE CRM y redirección al puerto 3000.
  */
 
 import { execFile } from 'child_process';
@@ -25,12 +25,13 @@ param(
 )
 
 try {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $serverDir = Split-Path -Parent $scriptDir
+    $soundsDir = Join-Path $serverDir "data\\sounds"
+    $logoPath = Join-Path $serverDir "data\\crm-logo.jpg"
+
     # 1. Reproducir sonido físico de alto impacto en los altavoces de Windows
     try {
-        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-        $serverDir = Split-Path -Parent $scriptDir
-        $soundsDir = Join-Path $serverDir "data\\sounds"
-
         $wav = if ($Tipo -eq "email" -or $Tipo -eq "correo") {
             Join-Path $soundsDir "correo-notificacion.wav"
         } else {
@@ -56,13 +57,16 @@ try {
         try { [System.Media.SystemSounds]::Asterisk.Play() } catch {}
     }
 
-    # 2. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" con el puerto correcto
+    # 2. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" con el puerto correcto y logotipo
     $shortcutPath = "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\DEVFORGE CRM.lnk"
     try {
         $wsh = New-Object -ComObject WScript.Shell
         $sc = $wsh.CreateShortcut($shortcutPath)
         $sc.TargetPath = "$Url"
         $sc.Description = "DEVFORGE CRM Enterprise"
+        if (Test-Path $logoPath) {
+            $sc.IconLocation = "$logoPath,0"
+        }
         $sc.Save()
     } catch {}
 
@@ -70,11 +74,13 @@ try {
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
 
     $soundEvent = if ($Tipo -eq "email" -or $Tipo -eq "correo") { "Notification.Mail" } else { "Notification.IM" }
+    $imageTag = if (Test-Path $logoPath) { "<image placement=""appLogoOverride"" hint-crop=""circle"" src=""$logoPath"" />" } else { "" }
 
     $xmlStr = @"
 <toast activationType="protocol" launch="$Url">
     <visual>
         <binding template="ToastGeneric">
+            $imageTag
             <text>$Titulo</text>
             <text>$Mensaje</text>
         </binding>
@@ -104,7 +110,7 @@ try {
 } catch {}
 
 /**
- * Emite una notificación nativa de Windows en el escritorio con sonido
+ * Emite una notificación nativa de Windows en el escritorio con sonido e icono
  * @param {string} titulo - Título de la notificación
  * @param {string} mensaje - Cuerpo del mensaje
  * @param {string} url - URL para abrir al hacer clic (puerto 3000)
