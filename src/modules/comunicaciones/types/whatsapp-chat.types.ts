@@ -8,6 +8,8 @@ export interface MensajeWhatsApp {
   tipo: 'texto' | 'documento' | 'imagen';
   archivoNombre?: string;
   archivoUrl?: string;
+  archivoTamano?: string;
+  archivoMime?: string;
 }
 
 export interface ChatWhatsApp {

@@ -21,6 +21,10 @@ import {
   ShieldCheck,
   RefreshCw,
   X,
+  Paperclip,
+  Image as ImageIcon,
+  Download,
+  Eye,
 } from 'lucide-vue-next';
 import { formatRelativeTime } from '@/core/formatters/formatters';
 
@@ -34,6 +38,12 @@ const clienteSeleccionadoId = ref('');
 const telefonoManual = ref('');
 const nombreManual = ref('');
 const contenedorMensajes = ref<HTMLDivElement | null>(null);
+
+// Adjuntos y Multimedia
+const inputArchivo = ref<HTMLInputElement | null>(null);
+const archivoAdjunto = ref<File | null>(null);
+const archivoPreviewUrl = ref<string | null>(null);
+const modalImagenVistaPrevia = ref<string | null>(null);
 
 const chats = computed(() => whatsAppChatService.chats.value);
 const chatActivo = computed(() => whatsAppChatService.chatActivo.value);
@@ -92,8 +102,87 @@ const seleccionarConversacion = async (chat: ChatWhatsApp) => {
   hacerScrollAbajo();
 };
 
+const activarSelectorArchivos = () => {
+  inputArchivo.value?.click();
+};
+
+const manejarArchivoSeleccionado = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  if (!target.files || target.files.length === 0) return;
+  const file = target.files[0];
+  archivoAdjunto.value = file;
+
+  if (file.type.startsWith('image/')) {
+    archivoPreviewUrl.value = URL.createObjectURL(file);
+  } else {
+    archivoPreviewUrl.value = null;
+  }
+  target.value = '';
+};
+
+const manejarSoltarArchivo = (e: DragEvent) => {
+  if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
+  const file = e.dataTransfer.files[0];
+  archivoAdjunto.value = file;
+
+  if (file.type.startsWith('image/')) {
+    archivoPreviewUrl.value = URL.createObjectURL(file);
+  } else {
+    archivoPreviewUrl.value = null;
+  }
+};
+
+const cancelarArchivoAdjunto = () => {
+  if (archivoPreviewUrl.value && archivoPreviewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(archivoPreviewUrl.value);
+  }
+  archivoAdjunto.value = null;
+  archivoPreviewUrl.value = null;
+};
+
+const formatearTamanoArchivo = (bytes: number): string => {
+  if (bytes > 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${Math.round(bytes / 1024)} KB`;
+};
+
+const obtenerUrlMedia = (url?: string): string => {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const baseUrl = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+    : 'http://localhost:3002';
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+const abrirImagenModal = (url: string) => {
+  modalImagenVistaPrevia.value = url;
+};
+
+const cerrarImagenModal = () => {
+  modalImagenVistaPrevia.value = null;
+};
+
 const enviarMensaje = async () => {
-  if (!textoNuevoMensaje.value.trim() || enviando.value) return;
+  if (enviando.value) return;
+
+  // Si hay un archivo adjunto pendiente de envío
+  if (archivoAdjunto.value) {
+    const file = archivoAdjunto.value;
+    const caption = textoNuevoMensaje.value.trim();
+    cancelarArchivoAdjunto();
+    textoNuevoMensaje.value = '';
+
+    const exito = await whatsAppChatService.enviarArchivo(file, caption);
+    if (exito) {
+      hacerScrollAbajo();
+    }
+    return;
+  }
+
+  // Envío tradicional de texto
+  if (!textoNuevoMensaje.value.trim()) return;
   const texto = textoNuevoMensaje.value;
   textoNuevoMensaje.value = '';
 
@@ -354,7 +443,11 @@ onUnmounted(() => {
       </aside>
 
       <!-- COLUMNA 2: ÁREA DE CHAT ACTIVO -->
-      <main class="flex-1 flex flex-col bg-zinc-100/60 dark:bg-zinc-950/80 overflow-hidden">
+      <main
+        class="flex-1 flex flex-col bg-zinc-100/60 dark:bg-zinc-950/80 overflow-hidden"
+        @dragover.prevent
+        @drop.prevent="manejarSoltarArchivo"
+      >
         <template v-if="chatActivo">
           <!-- Cabecera del Chat Activo -->
           <div class="h-14 px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between shrink-0 shadow-sm">

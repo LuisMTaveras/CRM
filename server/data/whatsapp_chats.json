@@ -1,6 +1,26 @@
 {
   "chats": [
     {
+      "jid": "149632533455026@lid",
+      "telefono": "149632533455026@lid",
+      "nombre": "Luis Taveras",
+      "contacto": "Luis Taveras",
+      "ultimoMensaje": "Si que me entiendes wee",
+      "ultimoTimestamp": "2026-10-21T18:52:44.000Z",
+      "noLeidos": 0,
+      "avatar": "LU"
+    },
+    {
+      "jid": "18299643035@s.whatsapp.net",
+      "telefono": "18299643035",
+      "nombre": "EL PEPE 2",
+      "contacto": "",
+      "ultimoMensaje": "¡Hola! Un gusto saludarle. ¿En qué podemos apoyarle hoy?",
+      "ultimoTimestamp": "2026-10-21T18:51:42.000Z",
+      "noLeidos": 0,
+      "avatar": "EL"
+    },
+    {
       "jid": "18298843035@s.whatsapp.net",
       "telefono": "+18298843035",
       "nombre": "PEPE",
@@ -20,6 +40,55 @@
         "texto": "Hola Pepe, probando envio de mensajes",
         "timestamp": "2026-10-21T18:47:51.730Z",
         "estado": "pendiente",
+        "tipo": "texto"
+      }
+    ],
+    "18299643035@s.whatsapp.net": [
+      {
+        "id": "3EB04FCCDC55A37C1171BC",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "¡Hola! Un gusto saludarle. ¿En qué podemos apoyarle hoy?",
+        "timestamp": "2026-10-21T18:51:42.278Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      }
+    ],
+    "149632533455026@lid": [
+      {
+        "id": "ACF8EB43DBABA0B13A128DD4BA8C667E",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Que fue?",
+        "timestamp": "2026-10-21T18:52:00.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB01891B60C35DB828C66",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "que te pas+",
+        "timestamp": "2026-10-21T18:52:33.294Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0841868D35F0A95F198",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "no te entiendo",
+        "timestamp": "2026-10-21T18:52:37.116Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC47116A9E8AA700A410245EE234B429",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Si que me entiendes wee",
+        "timestamp": "2026-10-21T18:52:44.000Z",
+        "estado": "recibido",
         "tipo": "texto"
       }
     ]

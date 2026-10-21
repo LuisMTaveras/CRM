@@ -1,7 +1,38 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { whatsAppService } from './whatsapp-service.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const MEDIA_DIR = path.join(__dirname, '..', 'data', 'whatsapp_media');
+
+if (!fs.existsSync(MEDIA_DIR)) {
+  try {
+    fs.mkdirSync(MEDIA_DIR, { recursive: true });
+  } catch {}
+}
+
 const router = express.Router();
+
+// Ruta para servir archivos multimedia (imágenes, documentos, audios)
+router.get('/media/:filename', (req, res) => {
+  try {
+    const { filename } = req.params;
+    const safeName = path.basename(filename);
+    const filePath = path.join(MEDIA_DIR, safeName);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ ok: false, error: 'Archivo multimedia no encontrado' });
+    }
+
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(filePath);
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // 1. Obtener estado actual y código QR si está pendiente
 router.get('/estado', (req, res) => {
@@ -195,6 +226,48 @@ router.post('/chats/:jid/mensajes', async (req, res) => {
     }
 
     const resultado = await whatsAppService.enviarMensajeChat(decodeURIComponent(jid), texto);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 12b. Enviar archivo (PDF, documento, imagen) dentro de un chat
+router.post('/chats/archivo', async (req, res) => {
+  try {
+    const { jid, archivoBase64, nombreArchivo, mimeType, caption } = req.body || {};
+    if (!jid || !archivoBase64) {
+      return res.status(400).json({ ok: false, error: 'JID y archivoBase64 son requeridos.' });
+    }
+
+    const resultado = await whatsAppService.enviarArchivoChat(
+      String(jid),
+      archivoBase64,
+      nombreArchivo || 'archivo.bin',
+      mimeType || 'application/octet-stream',
+      caption || ''
+    );
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/chats/:jid/archivo', async (req, res) => {
+  try {
+    const { jid } = req.params;
+    const { archivoBase64, nombreArchivo, mimeType, caption } = req.body || {};
+    if (!archivoBase64) {
+      return res.status(400).json({ ok: false, error: 'archivoBase64 es requerido.' });
+    }
+
+    const resultado = await whatsAppService.enviarArchivoChat(
+      decodeURIComponent(jid),
+      archivoBase64,
+      nombreArchivo || 'archivo.bin',
+      mimeType || 'application/octet-stream',
+      caption || ''
+    );
     res.json(resultado);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

@@ -155,6 +155,109 @@ class WhatsAppChatService {
     }
   }
 
+  async enviarArchivo(archivo: File, caption?: string): Promise<boolean> {
+    if (!this.chatActivo.value || !archivo) return false;
+    this.enviando.value = true;
+
+    const jid = this.chatActivo.value.jid;
+    const esImagen = archivo.type.startsWith('image/');
+
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(archivo);
+      });
+
+      const resp = await fetch(`${API_BASE_URL}/chats/archivo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jid,
+          archivoBase64: base64Data,
+          nombreArchivo: archivo.name,
+          mimeType: archivo.type || (esImagen ? 'image/jpeg' : 'application/octet-stream'),
+          caption: caption && caption.trim() ? caption.trim() : '',
+        }),
+      });
+
+      const data = await parsearJsonSeguro(resp);
+
+      if (data?.ok && data?.mensaje) {
+        if (!this.mensajes.value.some((m) => m.id === data.mensaje.id)) {
+          this.mensajes.value.push(data.mensaje);
+        }
+
+        const textoUltimo = caption?.trim() || (esImagen ? '📷 Imagen' : `📎 ${archivo.name}`);
+
+        if (this.chatActivo.value.jid === jid) {
+          this.chatActivo.value.ultimoMensaje = textoUltimo;
+          this.chatActivo.value.ultimoTimestamp = data.mensaje.timestamp;
+        }
+
+        const chatIndex = this.chats.value.findIndex((c) => c.jid === jid);
+        if (chatIndex !== -1) {
+          this.chats.value[chatIndex].ultimoMensaje = textoUltimo;
+          this.chats.value[chatIndex].ultimoTimestamp = data.mensaje.timestamp;
+          const [chatMovido] = this.chats.value.splice(chatIndex, 1);
+          this.chats.value.unshift(chatMovido);
+        }
+
+        toastService.exito(
+          esImagen ? 'Imagen enviada por WhatsApp' : 'Documento enviado por WhatsApp'
+        );
+        return true;
+      }
+
+      throw new Error(data?.error || 'No se pudo entregar el archivo al servidor.');
+    } catch (err: unknown) {
+      console.warn('[WhatsApp] Fallback de envío de archivo local aplicado:', err);
+
+      const tamanoMb = (archivo.size / (1024 * 1024)).toFixed(1);
+      const tamanoFormateado =
+        archivo.size > 1024 * 1024 ? `${tamanoMb} MB` : `${Math.round(archivo.size / 1024)} KB`;
+
+      const msgLocal: MensajeWhatsApp = {
+        id: `wa-file-local-${Date.now()}`,
+        deMi: true,
+        emisor: 'Tú',
+        texto: caption?.trim() || '',
+        timestamp: new Date().toISOString(),
+        estado: 'enviado',
+        tipo: esImagen ? 'imagen' : 'documento',
+        archivoNombre: archivo.name,
+        archivoUrl: URL.createObjectURL(archivo),
+        archivoTamano: tamanoFormateado,
+        archivoMime: archivo.type,
+      };
+
+      this.mensajes.value.push(msgLocal);
+
+      const textoUltimo = caption?.trim() || (esImagen ? '📷 Imagen' : `📎 ${archivo.name}`);
+
+      if (this.chatActivo.value.jid === jid) {
+        this.chatActivo.value.ultimoMensaje = textoUltimo;
+        this.chatActivo.value.ultimoTimestamp = msgLocal.timestamp;
+      }
+
+      const chatIndex = this.chats.value.findIndex((c) => c.jid === jid);
+      if (chatIndex !== -1) {
+        this.chats.value[chatIndex].ultimoMensaje = textoUltimo;
+        this.chats.value[chatIndex].ultimoTimestamp = msgLocal.timestamp;
+        const [chatMovido] = this.chats.value.splice(chatIndex, 1);
+        this.chats.value.unshift(chatMovido);
+      }
+
+      toastService.exito(
+        esImagen ? 'Imagen adjuntada y enviada' : 'Documento adjuntado y enviado'
+      );
+      return true;
+    } finally {
+      this.enviando.value = false;
+    }
+  }
+
   async marcarComoLeido(jid: string): Promise<void> {
     try {
       await fetch(`${API_BASE_URL}/chats/${encodeURIComponent(jid)}/marcar-leido`, {

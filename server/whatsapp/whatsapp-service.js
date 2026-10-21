@@ -6,7 +6,8 @@
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
-  fetchLatestBaileysVersion
+  fetchLatestBaileysVersion,
+  downloadMediaMessage,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import QRCode from 'qrcode';
@@ -17,6 +18,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const AUTH_DIR = path.join(__dirname, '..', 'data', 'whatsapp_auth');
+const MEDIA_DIR = path.join(__dirname, '..', 'data', 'whatsapp_media');
 const CHATS_FILE = path.join(__dirname, '..', 'data', 'whatsapp_chats.json');
 
 if (!fs.existsSync(AUTH_DIR)) {
@@ -24,6 +26,14 @@ if (!fs.existsSync(AUTH_DIR)) {
     fs.mkdirSync(AUTH_DIR, { recursive: true });
   } catch (err) {
     console.error('[WhatsApp] Error creando directorio de auth:', err.message);
+  }
+}
+
+if (!fs.existsSync(MEDIA_DIR)) {
+  try {
+    fs.mkdirSync(MEDIA_DIR, { recursive: true });
+  } catch (err) {
+    console.error('[WhatsApp] Error creando directorio de media:', err.message);
   }
 }
 
@@ -217,7 +227,7 @@ class WhatsAppService {
       this.sock.ev.on('messages.upsert', async ({ messages }) => {
         if (messages && Array.isArray(messages)) {
           for (const msg of messages) {
-            this.procesarMensajeUpsert(msg);
+            await this.procesarMensajeUpsert(msg);
           }
         }
       });
@@ -230,26 +240,91 @@ class WhatsAppService {
     }
   }
 
-  procesarMensajeUpsert(msg) {
+  async procesarMensajeUpsert(msg) {
     try {
       const remoteJid = msg.key?.remoteJid;
       if (!remoteJid || remoteJid.includes('@broadcast') || remoteJid.includes('@newsletter')) {
         return;
       }
 
+      const msgContent =
+        msg.message?.ephemeralMessage?.message ||
+        msg.message?.viewOnceMessage?.message ||
+        msg.message;
+
+      if (!msgContent) return;
+
       const fromMe = Boolean(msg.key?.fromMe);
-      const texto =
-        msg.message?.conversation ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.imageMessage?.caption ||
-        msg.message?.documentMessage?.fileName ||
-        (msg.message?.documentMessage ? '📄 Documento PDF' : '') ||
+      const isImage = Boolean(msgContent.imageMessage);
+      const isDoc = Boolean(msgContent.documentMessage);
+
+      let tipo = 'texto';
+      let archivoNombre = null;
+      let archivoUrl = null;
+      let archivoTamano = null;
+      let archivoMime = null;
+
+      let texto =
+        msgContent.conversation ||
+        msgContent.extendedTextMessage?.text ||
         '';
 
-      if (!texto && !msg.message?.documentMessage) {
+      if (isImage) {
+        tipo = 'imagen';
+        texto = msgContent.imageMessage?.caption || '';
+        archivoNombre = `Imagen_${Date.now()}.jpg`;
+        archivoMime = msgContent.imageMessage?.mimetype || 'image/jpeg';
+
+        try {
+          const buffer = await downloadMediaMessage(
+            msg,
+            'buffer',
+            {},
+            { logger: this.logger, reuploadRequest: this.sock?.updateMediaMessage }
+          );
+          if (buffer) {
+            const fileName = `wa_${Date.now()}_${(msg.key?.id || 'img').replace(/[^a-zA-Z0-9]/g, '')}.jpg`;
+            const filePath = path.join(MEDIA_DIR, fileName);
+            fs.writeFileSync(filePath, buffer);
+            archivoUrl = `/api/whatsapp/media/${fileName}`;
+            archivoTamano = `${Math.round(buffer.length / 1024)} KB`;
+          }
+        } catch (mediaErr) {
+          console.warn('[WhatsApp] No se pudo descargar imagen recibida:', mediaErr.message);
+        }
+      } else if (isDoc) {
+        tipo = 'documento';
+        archivoNombre = msgContent.documentMessage?.fileName || `Documento_${Date.now()}.pdf`;
+        texto = msgContent.documentMessage?.caption || '';
+        archivoMime = msgContent.documentMessage?.mimetype || 'application/pdf';
+
+        try {
+          const buffer = await downloadMediaMessage(
+            msg,
+            'buffer',
+            {},
+            { logger: this.logger, reuploadRequest: this.sock?.updateMediaMessage }
+          );
+          if (buffer) {
+            const ext = path.extname(archivoNombre) || '.pdf';
+            const cleanBase = path.basename(archivoNombre, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const fileName = `wa_${Date.now()}_${cleanBase}${ext}`;
+            const filePath = path.join(MEDIA_DIR, fileName);
+            fs.writeFileSync(filePath, buffer);
+            archivoUrl = `/api/whatsapp/media/${fileName}`;
+            const tamanoMb = (buffer.length / (1024 * 1024)).toFixed(1);
+            archivoTamano = buffer.length > 1024 * 1024 ? `${tamanoMb} MB` : `${Math.round(buffer.length / 1024)} KB`;
+          }
+        } catch (mediaErr) {
+          console.warn('[WhatsApp] No se pudo descargar documento recibido:', mediaErr.message);
+        }
+      }
+
+      if (!texto && !isImage && !isDoc) {
         return;
       }
 
+      const textoResumen = texto || (isImage ? '📷 Imagen' : `📎 ${archivoNombre || 'Documento'}`);
       const ts = msg.messageTimestamp
         ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
         : new Date().toISOString();
@@ -271,14 +346,14 @@ class WhatsAppService {
           telefono: telFormateado,
           nombre: msg.pushName || telFormateado,
           contacto: msg.pushName || '',
-          ultimoMensaje: texto,
+          ultimoMensaje: textoResumen,
           ultimoTimestamp: ts,
           noLeidos: fromMe ? 0 : 1,
           avatar: (msg.pushName || 'WA').slice(0, 2).toUpperCase(),
         };
         this.chats.unshift(chat);
       } else {
-        chat.ultimoMensaje = texto;
+        chat.ultimoMensaje = textoResumen;
         chat.ultimoTimestamp = ts;
         if (!fromMe) {
           chat.noLeidos = (chat.noLeidos || 0) + 1;
@@ -286,7 +361,6 @@ class WhatsAppService {
         if (msg.pushName && (!chat.contacto || chat.contacto.length < 2)) {
           chat.contacto = msg.pushName;
         }
-        // Reordenar al principio
         this.chats = [chat, ...this.chats.filter((c) => c.jid !== remoteJid)];
       }
 
@@ -302,10 +376,13 @@ class WhatsAppService {
         texto,
         timestamp: ts,
         estado: fromMe ? 'enviado' : 'recibido',
-        tipo: msg.message?.documentMessage ? 'documento' : 'texto',
+        tipo,
+        archivoNombre: archivoNombre || undefined,
+        archivoUrl: archivoUrl || undefined,
+        archivoTamano: archivoTamano || undefined,
+        archivoMime: archivoMime || undefined,
       };
 
-      // Evitar duplicados por ID
       if (!this.mensajes[remoteJid].some((m) => m.id === nuevoMensaje.id)) {
         this.mensajes[remoteJid].push(nuevoMensaje);
       }
@@ -371,6 +448,108 @@ class WhatsAppService {
       chat.ultimoMensaje = texto.trim();
       chat.ultimoTimestamp = ts;
       // Reordenar al principio
+      this.chats = [chat, ...this.chats.filter((c) => c.jid !== jid)];
+    }
+
+    this.guardarChatsEnDisco();
+    this.emitirEvento('mensaje', { jid, mensaje: mensajeObj, chat });
+
+    return {
+      ok: true,
+      mensaje: mensajeObj,
+      enviadoPorSocket,
+    };
+  }
+
+  async enviarArchivoChat(jid, archivoBase64, nombreArchivo = 'archivo.bin', mimeType = 'application/octet-stream', caption = '') {
+    if (!jid || !archivoBase64) {
+      throw new Error('JID y contenido del archivo en base64 son requeridos.');
+    }
+
+    const ts = new Date().toISOString();
+    let idGenerado = `wa-file-${Date.now()}`;
+    let enviadoPorSocket = false;
+
+    // Limpiar data URL header si viene incluido
+    const base64Limpia = archivoBase64.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Limpia, 'base64');
+
+    // Determinar extensión y nombre en disco seguro
+    const ext = path.extname(nombreArchivo) || (mimeType.startsWith('image/') ? '.jpg' : '.pdf');
+    const baseSinExt = path.basename(nombreArchivo, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const nombreDisco = `wa_${Date.now()}_${baseSinExt}${ext}`;
+    const rutaArchivo = path.join(MEDIA_DIR, nombreDisco);
+
+    try {
+      fs.writeFileSync(rutaArchivo, buffer);
+    } catch (saveErr) {
+      console.error('[WhatsApp] Error guardando archivo en disco:', saveErr);
+    }
+
+    const archivoUrl = `/api/whatsapp/media/${nombreDisco}`;
+    const tamanoBytes = buffer.length;
+    const archivoTamano = tamanoBytes > 1024 * 1024
+      ? `${(tamanoBytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(tamanoBytes / 1024)} KB`;
+
+    const esImagen = mimeType.startsWith('image/');
+    const tipo = esImagen ? 'imagen' : 'documento';
+
+    // Despacho a través del socket de Baileys
+    if (this.sock && this.estado === 'conectado') {
+      try {
+        let resultado;
+        if (esImagen) {
+          resultado = await this.sock.sendMessage(jid, {
+            image: buffer,
+            caption: caption && caption.trim() ? caption.trim() : undefined,
+          });
+        } else {
+          resultado = await this.sock.sendMessage(jid, {
+            document: buffer,
+            mimetype: mimeType,
+            fileName: nombreArchivo,
+            caption: caption && caption.trim() ? caption.trim() : undefined,
+          });
+        }
+        idGenerado = resultado?.key?.id || idGenerado;
+        enviadoPorSocket = true;
+      } catch (err) {
+        console.error(`[WhatsApp] Error enviando archivo a ${jid} vía Baileys:`, err.message);
+      }
+    }
+
+    // Registrar en los mensajes locales
+    if (!this.mensajes[jid]) {
+      this.mensajes[jid] = [];
+    }
+
+    const textoMensaje = caption ? caption.trim() : '';
+    const mensajeObj = {
+      id: idGenerado,
+      deMi: true,
+      emisor: this.usuarioConectado?.nombre || 'Tú',
+      texto: textoMensaje,
+      timestamp: ts,
+      estado: enviadoPorSocket ? 'enviado' : 'pendiente',
+      tipo,
+      archivoNombre,
+      archivoUrl,
+      archivoTamano,
+      archivoMime: mimeType,
+    };
+
+    this.mensajes[jid].push(mensajeObj);
+
+    // Actualizar chat en lista
+    let chat = this.chats.find((c) => c.jid === jid);
+    const textoResumen = textoMensaje
+      ? `${esImagen ? '📷 ' : '📎 '}${textoMensaje}`
+      : (esImagen ? '📷 Imagen' : `📎 ${nombreArchivo}`);
+
+    if (chat) {
+      chat.ultimoMensaje = textoResumen;
+      chat.ultimoTimestamp = ts;
       this.chats = [chat, ...this.chats.filter((c) => c.jid !== jid)];
     }
 
@@ -467,26 +646,25 @@ class WhatsAppService {
     }
 
     const jid = this.formatearNumeroAJID(telefono);
-    const base64Limpia = documentoBase64.replace(/^data:application\/pdf;base64,/, '');
-    const buffer = Buffer.from(base64Limpia, 'base64');
 
     try {
-      const resultado = await this.sock.sendMessage(jid, {
-        document: buffer,
-        fileName: nombreArchivo,
-        mimetype: 'application/pdf',
-        caption: pieTexto || undefined,
-      });
+      const resArchivo = await this.enviarArchivoChat(
+        jid,
+        documentoBase64,
+        nombreArchivo,
+        'application/pdf',
+        pieTexto
+      );
 
       const registro = {
-        id: resultado?.key?.id || `wa-${Date.now()}`,
+        id: resArchivo.mensaje.id,
         destinatario: telefono,
         jid,
         tipo: 'documento_pdf',
         archivo: nombreArchivo,
         pieTexto,
-        timestamp: new Date().toISOString(),
-        estado: 'enviado',
+        timestamp: resArchivo.mensaje.timestamp,
+        estado: resArchivo.mensaje.estado,
       };
       this.historialEnvios.unshift(registro);
       if (this.historialEnvios.length > 100) this.historialEnvios.pop();
