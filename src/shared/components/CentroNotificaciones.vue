@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
+import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
 import type { Notificacion } from '@/core/notifications/notificaciones.types';
 import { formatRelativeTime } from '@/core/formatters/formatters';
 import { 
@@ -16,7 +17,11 @@ import {
   Server, 
   Sparkles,
   ExternalLink,
-  Clock
+  Clock,
+  MessageSquare,
+  Volume2,
+  VolumeX,
+  BellRing
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -26,6 +31,9 @@ const filtro = ref<'todas' | 'no-leidas' | 'urgentes'>('todas');
 
 const notificaciones = computed(() => centroNotificacionesService.notificaciones.value);
 const totalNoLeidas = computed(() => centroNotificacionesService.totalNoLeidas.value);
+
+const sonidoHabilitado = computed(() => notificacionesNativasService.sonidoHabilitado.value);
+const permisoEscritorio = computed(() => notificacionesNativasService.permiso.value);
 
 const notificacionesFiltradas = computed(() => {
   if (filtro.value === 'no-leidas') {
@@ -39,6 +47,8 @@ const notificacionesFiltradas = computed(() => {
 
 const resolverIcono = (tipo: string) => {
   switch (tipo) {
+    case 'whatsapp':
+      return MessageSquare;
     case 'correo':
       return Mail;
     case 'propuesta':
@@ -62,20 +72,30 @@ const resolverColorIcono = (tipo: string, prioridad: string) => {
     return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
   }
   switch (tipo) {
+    case 'whatsapp':
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
     case 'correo':
       return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
     case 'propuesta':
       return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20';
     case 'pipeline':
-      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-    case 'cliente':
       return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+    case 'cliente':
+      return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20';
     case 'tarea':
     case 'seguimiento':
       return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
     default:
       return 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20';
   }
+};
+
+const alternarSonido = () => {
+  notificacionesNativasService.alternarSonido();
+};
+
+const pedirPermisoEscritorio = async () => {
+  await notificacionesNativasService.solicitarPermiso();
 };
 
 const clickNotificacion = (notif: Notificacion) => {
@@ -153,7 +173,31 @@ onUnmounted(() => {
           </span>
         </div>
 
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1.5">
+          <!-- Botón de Sonido -->
+          <button
+            type="button"
+            @click="alternarSonido"
+            class="p-1.5 rounded-lg hover:bg-zinc-200/60 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition"
+            :title="sonidoHabilitado ? 'Silenciar sonido de alertas' : 'Activar sonido de alertas'"
+          >
+            <Volume2 v-if="sonidoHabilitado" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <VolumeX v-else class="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+
+          <!-- Botón Permiso de Escritorio -->
+          <button
+            v-if="permisoEscritorio !== 'granted' && permisoEscritorio !== 'unsupported'"
+            type="button"
+            @click="pedirPermisoEscritorio"
+            class="px-2 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-md border border-indigo-500/20 flex items-center gap-1 transition"
+            title="Activar avisos nativos en tu pantalla de escritorio"
+          >
+            <BellRing class="w-3 h-3" />
+            <span>Avisos</span>
+          </button>
+
+          <!-- Marcar todas leídas -->
           <button
             v-if="totalNoLeidas > 0"
             type="button"

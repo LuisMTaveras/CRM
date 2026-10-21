@@ -14,6 +14,7 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { notificarEscritorioWindows } from './notificador-windows.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -282,6 +283,11 @@ class WhatsAppService {
 
           console.log(`✅ [WhatsApp] Conectado exitosamente como: ${this.usuarioConectado.nombre} (${this.usuarioConectado.id})`);
           this.emitirEvento('estado_actualizado', this.obtenerEstado());
+
+          // Iniciar sincronización de fotos de perfil de todos los chats en segundo plano
+          setTimeout(() => {
+            this.sincronizarFotosPerfil().catch(() => {});
+          }, 1500);
         }
       });
 
@@ -525,8 +531,122 @@ class WhatsAppService {
 
       this.guardarChatsEnDisco();
       this.emitirEvento('mensaje', { jid: remoteJid, mensaje: nuevoMensaje, chat });
+
+      // Emitir notificación nativa de Windows (llega incluso con el navegador cerrado)
+      if (!fromMe) {
+        const remitente = msg.pushName || chat.nombre || 'Contacto';
+        const textoResumen = texto || (isAudio ? '🎤 Nota de voz recibida' : (nuevoMensaje.tipo === 'imagen' ? '📷 Imagen recibida' : '📎 Archivo adjunto'));
+        notificarEscritorioWindows(
+          `WhatsApp: ${remitente}`,
+          textoResumen,
+          `http://localhost:5173/whatsapp?jid=${encodeURIComponent(remoteJid)}`
+        );
+      }
+
+      // Si el contacto aún no tiene foto de perfil descargada, intentar obtenerla en segundo plano
+      if (chat && !chat.fotoUrl && this.sock && this.estado === 'conectado') {
+        this.obtenerYDescargarFotoPerfil(remoteJid).catch(() => {});
+      }
     } catch (err) {
       console.error('[WhatsApp] Error procesando mensaje upsert:', err);
+    }
+  }
+
+  /**
+   * Obtiene la foto de perfil de un contacto o grupo vía Baileys,
+   * descargándola a disco local (MEDIA_DIR) para persistencia permanente y carga instantánea.
+   */
+  async obtenerYDescargarFotoPerfil(jid, forzarRefresco = false) {
+    if (!jid) return null;
+
+    const jidLimpio = String(jid).replace(/[^a-zA-Z0-9]/g, '_');
+    const nombreArchivo = `avatar_${jidLimpio}.jpg`;
+    const rutaArchivo = path.join(MEDIA_DIR, nombreArchivo);
+
+    const chat = this.chats.find((c) => c.jid === jid);
+
+    // Si ya existe en disco y no se solicita refresco forzado
+    if (!forzarRefresco && fs.existsSync(rutaArchivo)) {
+      const urlLocal = `/api/whatsapp/media/${nombreArchivo}`;
+      if (chat && chat.fotoUrl !== urlLocal) {
+        chat.fotoUrl = urlLocal;
+        this.guardarChatsEnDisco();
+      }
+      return urlLocal;
+    }
+
+    if (!this.sock || this.estado !== 'conectado') {
+      return chat?.fotoUrl || null;
+    }
+
+    let urlRemota = null;
+    try {
+      urlRemota = await this.sock.profilePictureUrl(jid, 'image');
+    } catch {
+      try {
+        urlRemota = await this.sock.profilePictureUrl(jid, 'preview');
+      } catch {
+        // Si el JID es tipo @lid o falló, intentar con el número telefónico internacional
+        if (chat?.telefono) {
+          const soloNum = String(chat.telefono).replace(/\D/g, '');
+          if (soloNum.length >= 10) {
+            const altJid = soloNum.length === 10 ? `1${soloNum}@s.whatsapp.net` : `${soloNum}@s.whatsapp.net`;
+            if (altJid !== jid) {
+              try {
+                urlRemota = await this.sock.profilePictureUrl(altJid, 'image');
+              } catch {
+                try {
+                  urlRemota = await this.sock.profilePictureUrl(altJid, 'preview');
+                } catch {}
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (urlRemota) {
+      try {
+        const resp = await fetch(urlRemota);
+        if (resp.ok) {
+          const buffer = Buffer.from(await resp.arrayBuffer());
+          fs.writeFileSync(rutaArchivo, buffer);
+          const urlLocal = `/api/whatsapp/media/${nombreArchivo}`;
+          if (chat) {
+            chat.fotoUrl = urlLocal;
+            this.guardarChatsEnDisco();
+            this.emitirEvento('chat_actualizado', chat);
+          }
+          return urlLocal;
+        }
+      } catch (errDescarga) {
+        console.warn(`[WhatsApp] Falló almacenamiento local de avatar (${jid}):`, errDescarga.message);
+      }
+
+      // Si falló el guardado local, utilizar la URL remota de CDN
+      if (chat) {
+        chat.fotoUrl = urlRemota;
+        this.guardarChatsEnDisco();
+        this.emitirEvento('chat_actualizado', chat);
+      }
+      return urlRemota;
+    }
+
+    return null;
+  }
+
+  /**
+   * Sincroniza en segundo plano las fotos de perfil de todos los chats activos
+   */
+  async sincronizarFotosPerfil(forzar = false) {
+    if (!this.sock || this.estado !== 'conectado') return;
+
+    for (const chat of this.chats) {
+      if (forzar || !chat.fotoUrl) {
+        try {
+          await this.obtenerYDescargarFotoPerfil(chat.jid, forzar);
+        } catch {}
+      }
     }
   }
 

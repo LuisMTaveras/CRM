@@ -172,6 +172,7 @@ router.get('/historial', (req, res) => {
 // 10. Listar todas las conversaciones activas (Chats WhatsApp)
 router.get('/chats', (_req, res) => {
   try {
+    whatsAppService.sincronizarFotosPerfil().catch(() => {});
     const chats = whatsAppService.obtenerChats();
     res.json({ ok: true, chats });
   } catch (err) {
@@ -351,7 +352,31 @@ router.post('/chats/nuevo', (req, res) => {
   }
 });
 
-// 15. Server-Sent Events (SSE) para recepción de mensajes en tiempo real
+// 15. Consultar o refrescar foto de perfil de un contacto
+router.get('/chats/foto', async (req, res) => {
+  try {
+    const { jid, refrescar } = req.query;
+    if (!jid) {
+      return res.status(400).json({ ok: false, error: 'JID de WhatsApp requerido.' });
+    }
+    const fotoUrl = await whatsAppService.obtenerYDescargarFotoPerfil(String(jid), refrescar === 'true');
+    res.json({ ok: true, fotoUrl });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 16. Forzar sincronización masiva de fotos de perfil de todos los chats
+router.post('/chats/fotos/sincronizar', async (_req, res) => {
+  try {
+    await whatsAppService.sincronizarFotosPerfil(true);
+    res.json({ ok: true, chats: whatsAppService.obtenerChats() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 17. Server-Sent Events (SSE) para recepción de mensajes en tiempo real
 router.get('/eventos', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',

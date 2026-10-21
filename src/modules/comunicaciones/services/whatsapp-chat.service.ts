@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue';
 import type { ChatWhatsApp, MensajeWhatsApp, MensajeCitado } from '../types/whatsapp-chat.types';
 import { toastService } from '@/core/notifications/toast.service';
+import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
+import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/whatsapp`;
 
@@ -62,6 +64,25 @@ class WhatsAppChatService {
     }
   }
 
+  async sincronizarFotosPerfil(): Promise<void> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/chats/fotos/sincronizar`, {
+        method: 'POST',
+      });
+      const data = await parsearJsonSeguro(resp);
+      if (data?.ok && Array.isArray(data.chats)) {
+        this.chats.value = data.chats;
+        if (this.chatActivo.value) {
+          const act = this.chats.value.find((c) => c.jid === this.chatActivo.value?.jid);
+          if (act) this.chatActivo.value = act;
+        }
+        toastService.exito('Fotos de perfil de WhatsApp sincronizadas');
+      }
+    } catch (err) {
+      console.warn('[WhatsApp] Error sincronizando fotos de perfil:', err);
+    }
+  }
+
   async seleccionarChat(chat: ChatWhatsApp): Promise<void> {
     this.chatActivo.value = chat;
     this.cargandoMensajes.value = true;
@@ -84,6 +105,19 @@ class WhatsAppChatService {
     } finally {
       this.cargandoMensajes.value = false;
     }
+  }
+
+  async seleccionarChatPorJid(jid: string): Promise<boolean> {
+    let chat = this.chats.value.find((c) => c.jid === jid);
+    if (!chat) {
+      await this.cargarChats();
+      chat = this.chats.value.find((c) => c.jid === jid);
+    }
+    if (chat) {
+      await this.seleccionarChat(chat);
+      return true;
+    }
+    return false;
   }
 
   async enviarMensaje(texto: string, mensajeCitado?: MensajeCitado): Promise<boolean> {
@@ -418,6 +452,50 @@ class WhatsAppChatService {
             this.chats.value.unshift(item);
           } else if (chat) {
             this.chats.value.unshift(chat);
+          }
+
+          // Procesar notificaciones si es un mensaje recibido de un cliente o contacto externo
+          if (!mensaje.deMi) {
+            const remitente =
+              mensaje.emisor || chat?.nombre || jid.replace('@s.whatsapp.net', '');
+            const textoPreview =
+              mensaje.texto ||
+              (mensaje.esNotaVoz
+                ? '🎤 Nota de voz recibida'
+                : mensaje.tipo === 'audio'
+                ? '🎵 Audio recibido'
+                : mensaje.tipo === 'imagen'
+                ? '📷 Imagen recibida'
+                : '📎 Archivo adjunto recibido');
+
+            // 1. Agregar alerta al Centro de Notificaciones
+            centroNotificacionesService.agregarNotificacion({
+              tipo: 'whatsapp',
+              titulo: `WhatsApp de ${remitente}`,
+              mensaje: textoPreview,
+              prioridad: 'alta',
+              ruta: `/whatsapp?jid=${encodeURIComponent(jid)}`,
+              etiquetaAccion: 'Abrir Chat',
+              metadatos: { jid, mensajeId: mensaje.id },
+            });
+
+            // 2. Disparar Toast emergente si el usuario no tiene la conversación en foco
+            const chatEstaAbierto =
+              this.chatActivo.value?.jid === jid &&
+              typeof document !== 'undefined' &&
+              !document.hidden;
+
+            if (!chatEstaAbierto) {
+              toastService.info(`💬 ${remitente}: ${textoPreview.slice(0, 50)}`);
+            }
+
+            // 3. Emitir notificación nativa de escritorio y audio chime
+            notificacionesNativasService.notificar(`WhatsApp: ${remitente}`, {
+              cuerpo: textoPreview,
+              ruta: `/whatsapp?jid=${encodeURIComponent(jid)}`,
+              tipoSonido: 'whatsapp',
+              tag: `wa-${jid}`,
+            });
           }
         } catch (e) {
           console.error('Error parseando evento SSE WhatsApp:', e);

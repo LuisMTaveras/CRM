@@ -32,6 +32,7 @@ export interface ChatWhatsApp {
   ultimoTimestamp: string;
   noLeidos: number;
   avatar: string;
+  fotoUrl?: string;
   clienteId?: string;
   clienteEmpresa?: string;
   etiquetas?: string[];

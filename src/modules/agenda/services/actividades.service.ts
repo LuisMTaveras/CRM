@@ -1,5 +1,7 @@
 import { ref, computed } from 'vue';
 import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
+import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
+import { toastService } from '@/core/notifications/toast.service';
 import { formatDate } from '@/core/formatters/formatters';
 import type {
   ActividadSeguimiento,
@@ -96,6 +98,8 @@ const ACTIVIDADES_SEMILLA: ActividadSeguimiento[] = [
 
 export class ActividadesService {
   private items = ref<ActividadSeguimiento[]>(this.cargarDeStorage());
+  private vigilanteTimer: ReturnType<typeof setInterval> | null = null;
+  private alertasDisparadas = new Set<string>();
 
   constructor() {
     if (this.items.value.length === 0 && localStorage.getItem(CLAVE_STORAGE) === null) {
@@ -366,11 +370,12 @@ export class ActividadesService {
   }
 
   /**
-   * Sincroniza actividades con el Centro de Notificaciones:
-   * Genera alertas automáticas para actividades vencidas y programadas para el día de hoy.
+   * Sincroniza actividades con el Centro de Notificaciones y emite avisos proactivos:
+   * Genera alertas automáticas para actividades vencidas, tareas inminentes (< 30 min) y de hoy.
    */
-  sincronizarConCentroNotificaciones(): { vencidas: number; hoy: number } {
+  sincronizarConCentroNotificaciones(dispararAvisosNativos: boolean = false): { vencidas: number; hoy: number } {
     const ahora = new Date();
+    const ahoraMs = ahora.getTime();
     const hoyInicio = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
     const hoyFin = hoyInicio + 86400000;
     const notificacionesActuales = centroNotificacionesService.notificaciones.value;
@@ -386,37 +391,100 @@ export class ActividadesService {
         (n) => n.metadatos?.actividadId === act.id
       );
 
-      if (yaExisteNotif) return;
-
       // Alerta para actividades vencidas
       if (tiempoLimite < hoyInicio) {
-        centroNotificacionesService.agregarNotificacion({
-          tipo: 'tarea',
-          titulo: `Tarea Vencida: ${act.titulo}`,
-          mensaje: `Compromiso pendiente con ${act.clienteNombre}. Fecha límite: ${formatDate(act.fechaLimite, 'datetime')}.`,
-          prioridad: 'alta',
-          ruta: '/agenda',
-          etiquetaAccion: 'Abrir Agenda',
-          metadatos: { actividadId: act.id, estado: 'vencida' },
-        });
-        vencidasDisparadas++;
+        if (!yaExisteNotif) {
+          centroNotificacionesService.agregarNotificacion({
+            tipo: 'tarea',
+            titulo: `Tarea Vencida: ${act.titulo}`,
+            mensaje: `Compromiso pendiente con ${act.clienteNombre}. Fecha límite: ${formatDate(act.fechaLimite, 'datetime')}.`,
+            prioridad: 'alta',
+            ruta: '/agenda',
+            etiquetaAccion: 'Abrir Agenda',
+            metadatos: { actividadId: act.id, estado: 'vencida' },
+          });
+          vencidasDisparadas++;
+        }
+
+        // Si se solicitó disparo de avisos nativos y aún no se ha alertado en esta sesión
+        if (dispararAvisosNativos && !this.alertasDisparadas.has(`vencida-${act.id}`)) {
+          this.alertasDisparadas.add(`vencida-${act.id}`);
+          toastService.advertencia(`⚠️ Tarea Vencida: ${act.titulo}`);
+          notificacionesNativasService.notificar(`Tarea Vencida: ${act.titulo}`, {
+            cuerpo: `Compromiso pendiente con ${act.clienteNombre}.`,
+            ruta: '/agenda',
+            tipoSonido: 'urgente',
+            tag: `tarea-vencida-${act.id}`,
+          });
+        }
       }
-      // Alerta para actividades de hoy
+      // Alerta para actividades inminentes (dentro de los próximos 30 minutos)
+      else if (tiempoLimite >= ahoraMs && tiempoLimite <= ahoraMs + 30 * 60 * 1000) {
+        const minutosFaltantes = Math.max(1, Math.round((tiempoLimite - ahoraMs) / 60000));
+
+        if (!yaExisteNotif) {
+          centroNotificacionesService.agregarNotificacion({
+            tipo: 'tarea',
+            titulo: `Tarea Próxima (${minutosFaltantes} min): ${act.titulo}`,
+            mensaje: `Programada con ${act.clienteNombre} a las ${new Date(act.fechaLimite).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}.`,
+            prioridad: 'alta',
+            ruta: '/agenda',
+            etiquetaAccion: 'Abrir Agenda',
+            metadatos: { actividadId: act.id, estado: 'inminente' },
+          });
+          hoyDisparadas++;
+        }
+
+        if (dispararAvisosNativos && !this.alertasDisparadas.has(`inminente-${act.id}`)) {
+          this.alertasDisparadas.add(`inminente-${act.id}`);
+          toastService.info(`⏰ Tarea en ${minutosFaltantes} min: ${act.titulo}`);
+          notificacionesNativasService.notificar(`Tarea en ${minutosFaltantes} min: ${act.titulo}`, {
+            cuerpo: `Compromiso con ${act.clienteNombre} a las ${new Date(act.fechaLimite).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}`,
+            ruta: '/agenda',
+            tipoSonido: 'tarea',
+            tag: `tarea-inminente-${act.id}`,
+          });
+        }
+      }
+      // Alerta para actividades del día de hoy
       else if (tiempoLimite >= hoyInicio && tiempoLimite < hoyFin) {
-        centroNotificacionesService.agregarNotificacion({
-          tipo: 'tarea',
-          titulo: `Tarea para Hoy: ${act.titulo}`,
-          mensaje: `Programada con ${act.clienteNombre} a las ${new Date(act.fechaLimite).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}.`,
-          prioridad: 'media',
-          ruta: '/agenda',
-          etiquetaAccion: 'Abrir Agenda',
-          metadatos: { actividadId: act.id, estado: 'hoy' },
-        });
-        hoyDisparadas++;
+        if (!yaExisteNotif) {
+          centroNotificacionesService.agregarNotificacion({
+            tipo: 'tarea',
+            titulo: `Tarea para Hoy: ${act.titulo}`,
+            mensaje: `Programada con ${act.clienteNombre} a las ${new Date(act.fechaLimite).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}.`,
+            prioridad: 'media',
+            ruta: '/agenda',
+            etiquetaAccion: 'Abrir Agenda',
+            metadatos: { actividadId: act.id, estado: 'hoy' },
+          });
+          hoyDisparadas++;
+        }
       }
     });
 
     return { vencidas: vencidasDisparadas, hoy: hoyDisparadas };
+  }
+
+  /**
+   * Inicia el vigilante periódico de la agenda para comprobar compromisos en segundo plano
+   */
+  iniciarVigilanteAgenda(intervaloMs: number = 60000): void {
+    if (this.vigilanteTimer) return;
+    this.sincronizarConCentroNotificaciones(false);
+    this.vigilanteTimer = setInterval(() => {
+      this.sincronizarConCentroNotificaciones(true);
+    }, intervaloMs);
+  }
+
+  /**
+   * Detiene el vigilante periódico de la agenda
+   */
+  detenerVigilanteAgenda(): void {
+    if (this.vigilanteTimer) {
+      clearInterval(this.vigilanteTimer);
+      this.vigilanteTimer = null;
+    }
   }
 
   /**

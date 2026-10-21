@@ -1,6 +1,17 @@
 {
   "chats": [
     {
+      "jid": "149632533455026@lid",
+      "telefono": "149632533455026@lid",
+      "nombre": "Luis Taveras",
+      "contacto": "Luis Taveras",
+      "ultimoMensaje": "Eyeyru",
+      "ultimoTimestamp": "2026-10-21T20:47:37.000Z",
+      "noLeidos": 0,
+      "avatar": "LU",
+      "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
+    },
+    {
       "jid": "18298843035@s.whatsapp.net",
       "telefono": "+18298843035",
       "nombre": "PEPE",
@@ -9,10 +20,8 @@
       "ultimoTimestamp": "2026-10-21T19:06:26.651Z",
       "noLeidos": 0,
       "avatar": "PE",
-      "etiquetas": [
-        "vip",
-        "negociacion"
-      ]
+      "etiquetas": [],
+      "fotoUrl": "/api/whatsapp/media/avatar_18298843035_s_whatsapp_net.jpg"
     },
     {
       "jid": "25147788538099@lid",
@@ -22,17 +31,8 @@
       "ultimoMensaje": "esta bien",
       "ultimoTimestamp": "2026-10-21T19:55:24.000Z",
       "noLeidos": 0,
-      "avatar": "AL"
-    },
-    {
-      "jid": "149632533455026@lid",
-      "telefono": "149632533455026@lid",
-      "nombre": "Luis Taveras",
-      "contacto": "Luis Taveras",
-      "ultimoMensaje": "🎤 Nota de voz (0:03)",
-      "ultimoTimestamp": "2026-10-21T19:38:43.000Z",
-      "noLeidos": 0,
-      "avatar": "LU"
+      "avatar": "AL",
+      "fotoUrl": "/api/whatsapp/media/avatar_25147788538099_lid.jpg"
     },
     {
       "jid": "18299643035@s.whatsapp.net",
@@ -42,7 +42,8 @@
       "ultimoMensaje": "¡Hola! Un gusto saludarle. ¿En qué podemos apoyarle hoy?",
       "ultimoTimestamp": "2026-10-21T18:51:42.000Z",
       "noLeidos": 0,
-      "avatar": "EL"
+      "avatar": "EL",
+      "fotoUrl": "/api/whatsapp/media/avatar_18299643035_s_whatsapp_net.jpg"
     }
   ],
   "mensajes": {
@@ -264,6 +265,87 @@
         "archivoUrl": "/api/whatsapp/media/wa_audio_1792611523345_ACF1D69634D8275ADB9F410224B4D022.ogg",
         "archivoTamano": "7 KB",
         "archivoMime": "audio/ogg; codecs=opus"
+      },
+      {
+        "id": "ACA1FD6D8FA2A3BEF936311DBEBE05A9",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Hola",
+        "timestamp": "2026-10-21T20:28:44.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0E1BD049BB70C12DA9A",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "*hola*",
+        "timestamp": "2026-10-21T20:37:25.266Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACD37213DB0E58A8A968C1449F56DB84",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Hi",
+        "timestamp": "2026-10-21T20:46:51.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACAEE71E57C0F5F89EA4AE7E7B83D007",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "R",
+        "timestamp": "2026-10-21T20:47:07.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACDBA179A50DE97196733B31A0FFA31B",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "7",
+        "timestamp": "2026-10-21T20:47:15.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACFA60ED345028F6CC1A0B6DBC137FDC",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "477",
+        "timestamp": "2026-10-21T20:47:20.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACAF3F7C6D4A2C9D6F8B1718C699CA7A",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "T",
+        "timestamp": "2026-10-21T20:47:20.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACD5CF5E45B58C485F0CF28BAFCAC3D9",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Ty",
+        "timestamp": "2026-10-21T20:47:22.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC4C49C323A74C8086226309ABAA8289",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Eyeyru",
+        "timestamp": "2026-10-21T20:47:37.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
       }
     ],
     "25147788538099@lid": [

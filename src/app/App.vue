@@ -6,11 +6,17 @@ import HeaderBar from '@/shared/components/HeaderBar.vue';
 import ToastContainer from '@/shared/components/ToastContainer.vue';
 import AppConfirmModal from '@/shared/components/AppConfirmModal.vue';
 import { themeService } from '@/core/theme/theme.service';
+import { whatsAppChatService } from '@/modules/comunicaciones/services/whatsapp-chat.service';
+import { actividadesService } from '@/modules/agenda/services/actividades.service';
 
 const route = useRoute();
 
 onMounted(() => {
   themeService.inicializarTema();
+  // Conectar escucha global en tiempo real de WhatsApp
+  whatsAppChatService.conectarSSE();
+  // Iniciar vigilante periódico de tareas y compromisos de la agenda
+  actividadesService.iniciarVigilanteAgenda();
 });
 </script>
 

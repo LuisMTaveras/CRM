@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { whatsAppChatService } from '../services/whatsapp-chat.service';
 import { whatsAppService } from '../services/whatsapp.service';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
@@ -50,6 +51,7 @@ import {
 } from 'lucide-vue-next';
 import { formatRelativeTime } from '@/core/formatters/formatters';
 
+const route = useRoute();
 const busqueda = ref('');
 const filtroNoLeidos = ref(false);
 const etiquetaFiltroActiva = ref<string>('todas');
@@ -88,6 +90,17 @@ const inputArchivo = ref<HTMLInputElement | null>(null);
 const archivoAdjunto = ref<File | null>(null);
 const archivoPreviewUrl = ref<string | null>(null);
 const modalImagenVistaPrevia = ref<string | null>(null);
+
+const sincronizandoFotos = ref(false);
+
+const sincronizarFotosPerfil = async () => {
+  sincronizandoFotos.value = true;
+  try {
+    await whatsAppChatService.sincronizarFotosPerfil();
+  } finally {
+    sincronizandoFotos.value = false;
+  }
+};
 
 const chats = computed(() => whatsAppChatService.chats.value);
 const chatActivo = computed(() => whatsAppChatService.chatActivo.value);
@@ -574,8 +587,12 @@ onMounted(async () => {
   whatsAppChatService.conectarSSE();
   await whatsAppChatService.cargarChats();
 
-  // Seleccionar primera conversación si existe
-  if (chats.value.length > 0 && !chatActivo.value) {
+  // Seleccionar conversación según query param ?jid=... si viene de una notificación
+  const jidQuery = route.query.jid as string | undefined;
+  if (jidQuery) {
+    await whatsAppChatService.seleccionarChatPorJid(jidQuery);
+    hacerScrollAbajo();
+  } else if (chats.value.length > 0 && !chatActivo.value) {
     await whatsAppChatService.seleccionarChat(chats.value[0]);
     hacerScrollAbajo();
   }
@@ -589,9 +606,16 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
-  whatsAppChatService.desconectarSSE();
-});
+// Reaccionar dinámicamente si el usuario hace clic en una notificación estando ya en la vista
+watch(
+  () => route.query.jid,
+  async (nuevoJid) => {
+    if (nuevoJid && typeof nuevoJid === 'string') {
+      await whatsAppChatService.seleccionarChatPorJid(nuevoJid);
+      hacerScrollAbajo();
+    }
+  }
+);
 </script>
 
 <template>
@@ -636,6 +660,17 @@ onUnmounted(() => {
       </div>
 
       <div class="flex items-center gap-2">
+        <button
+          type="button"
+          @click="sincronizarFotosPerfil"
+          :disabled="sincronizandoFotos || !conectado"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium shadow-2xs transition disabled:opacity-50"
+          title="Actualizar fotos de perfil de contactos desde WhatsApp"
+        >
+          <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': sincronizandoFotos }" />
+          <span class="hidden sm:inline">Actualizar Fotos</span>
+        </button>
+
         <button
           type="button"
           @click="modalNuevoChatAbierto = true"
@@ -765,9 +800,22 @@ onUnmounted(() => {
                 : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
             ]"
           >
-            <!-- Avatar -->
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-700 dark:text-emerald-300 shrink-0">
-              {{ c.avatar || 'WA' }}
+            <!-- Avatar: Foto real de perfil de WhatsApp o iniciales como fallback -->
+            <div class="w-10 h-10 rounded-xl overflow-hidden shrink-0 relative bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+              <img
+                v-if="c.fotoUrl"
+                :src="obtenerUrlMedia(c.fotoUrl)"
+                :alt="c.nombre"
+                class="w-full h-full object-cover"
+                loading="lazy"
+                @error="(e) => ((e.target as HTMLElement).style.display = 'none')"
+              />
+              <div
+                v-else
+                class="w-full h-full bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-700 dark:text-emerald-300"
+              >
+                {{ c.avatar || 'WA' }}
+              </div>
             </div>
 
             <!-- Detalles del chat -->
@@ -824,8 +872,21 @@ onUnmounted(() => {
           <!-- Cabecera del Chat Activo -->
           <div class="h-14 px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between shrink-0 shadow-sm">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-700 dark:text-emerald-300">
-                {{ chatActivo.avatar || 'WA' }}
+              <!-- Avatar del chat activo: Foto real o iniciales como fallback -->
+              <div class="w-9 h-9 rounded-xl overflow-hidden shrink-0 relative bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+                <img
+                  v-if="chatActivo.fotoUrl"
+                  :src="obtenerUrlMedia(chatActivo.fotoUrl)"
+                  :alt="chatActivo.nombre"
+                  class="w-full h-full object-cover"
+                  @error="(e) => ((e.target as HTMLElement).style.display = 'none')"
+                />
+                <div
+                  v-else
+                  class="w-full h-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-700 dark:text-emerald-300"
+                >
+                  {{ chatActivo.avatar || 'WA' }}
+                </div>
               </div>
               <div>
                 <div class="font-bold text-xs text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
