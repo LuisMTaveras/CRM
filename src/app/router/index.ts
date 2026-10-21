@@ -8,6 +8,8 @@ import LoginView from '@/modules/auth/views/LoginView.vue';
 import UsuariosView from '@/modules/auth/views/UsuariosView.vue';
 import ComunicacionesView from '@/modules/comunicaciones/views/ComunicacionesView.vue';
 import { AgendaView } from '@/modules/agenda';
+import CatalogoView from '@/modules/catalogo/views/CatalogoView.vue';
+import PropuestaClienteView from '@/modules/catalogo/views/PropuestaClienteView.vue';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const router = createRouter({
@@ -17,6 +19,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { publica: true },
+    },
+    {
+      path: '/propuesta/:token',
+      name: 'propuesta-cliente',
+      component: PropuestaClienteView,
       meta: { publica: true },
     },
     {
@@ -39,6 +47,12 @@ const router = createRouter({
       path: '/pipeline/:id',
       name: 'pipeline-detalle',
       component: PipelineView,
+    },
+    {
+      path: '/catalogo',
+      name: 'catalogo',
+      component: CatalogoView,
+      alias: ['/cpq', '/cotizaciones'],
     },
     {
       path: '/agenda',

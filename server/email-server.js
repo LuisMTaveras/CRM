@@ -39,12 +39,17 @@ if (!fs.existsSync(DATA_DIR)) {
 const EMAILS_DB_FILE = path.join(DATA_DIR, 'emails-db.json');
 const CARPETAS_DB_FILE = path.join(DATA_DIR, 'carpetas-db.json');
 
+import whatsappRoutes from './whatsapp/whatsapp-routes.js';
+
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Montar Rutas de WhatsApp Bridge
+app.use('/api/whatsapp', whatsappRoutes);
 
 // ─── PERSISTENCIA DE CONFIGURACIÓN ──────────────────────────────────────────
 let configuracionActiva = null;
@@ -1811,16 +1816,12 @@ function traducirErrorSmtp(code, mensaje) {
 
 // ─── START ─────────────────────────────────────────────────────────────────────
 const server = app.listen(PORT, () => {
-  console.log(`\n🚀 CRM Email Server activo en http://localhost:${PORT}`);
-  console.log(`   GET   /api/email/estado          → Health check`);
-  console.log(`   POST  /api/email/configuracion   → Guardar configuración`);
-  console.log(`   POST  /api/email/sincronizar     → Sincronizar IMAP real`);
-  console.log(`   GET   /api/email/carpetas        → Listar carpetas y contadores`);
-  console.log(`   GET   /api/email/mensajes        → Bandeja y paginación`);
-  console.log(`   POST  /api/email/responder       → Responder correo con firma y cita`);
-  console.log(`   POST  /api/email/redactar        → Redactar nuevo correo`);
-  console.log(`   POST  /api/email/probar-conexion → Test SMTP handshake`);
-  console.log(`   POST  /api/email/probar-imap     → Test IMAP handshake\n`);
+  console.log(`\n🚀 CRM Unified Server (Email & WhatsApp) activo en http://localhost:${PORT}`);
+  console.log(`   GET   /api/email/estado          → Health check Email`);
+  console.log(`   GET   /api/whatsapp/estado       → Health check & QR WhatsApp`);
+  console.log(`   POST  /api/whatsapp/conectar     → Iniciar conexión WhatsApp Web`);
+  console.log(`   POST  /api/whatsapp/enviar-mensaje → Enviar WhatsApp texto`);
+  console.log(`   POST  /api/whatsapp/enviar-documento → Enviar PDF por WhatsApp\n`);
 });
 
 server.on('error', (err) => {

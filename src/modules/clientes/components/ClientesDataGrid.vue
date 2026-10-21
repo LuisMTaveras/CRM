@@ -15,7 +15,8 @@ import {
   Mail,
   CheckCircle2,
   Download,
-  Loader2
+  Loader2,
+  MessageCircle
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { FlickerlessSurface } from '@flickerless/vue';
@@ -44,6 +45,7 @@ const emit = defineEmits<{
   (e: 'seleccionar', cliente: Cliente): void;
   (e: 'nuevoCliente'): void;
   (e: 'enviarMasivo', clientes: Cliente[]): void;
+  (e: 'enviarWhatsApp', cliente: Cliente): void;
 }>();
 
 const seleccionadosIds = ref<Set<string>>(new Set());
@@ -558,14 +560,26 @@ const exportarClientes = async () => {
               </td>
 
               <!-- Acciones -->
-              <td class="py-2.5 px-3.5 text-right" @click.stop>
-                <button
-                  @click="emit('seleccionar', cliente)"
-                  title="Ver detalle de cliente"
-                  class="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition"
-                >
-                  <Eye class="w-3.5 h-3.5" />
-                </button>
+              <td class="py-2.5 px-3.5 text-right whitespace-nowrap" @click.stop>
+                <div class="inline-flex items-center gap-1 justify-end">
+                  <button
+                    v-if="cliente.telefono"
+                    type="button"
+                    @click="emit('enviarWhatsApp', cliente)"
+                    title="Enviar WhatsApp"
+                    class="p-1.5 rounded-md text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10 transition"
+                  >
+                    <MessageCircle class="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    @click="emit('seleccionar', cliente)"
+                    title="Ver detalle de cliente"
+                    class="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition"
+                  >
+                    <Eye class="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </td>
             </tr>
           </template>

@@ -10,7 +10,8 @@ import {
   Users,
   Mail,
   Send,
-  CalendarClock
+  CalendarClock,
+  Calculator
 } from 'lucide-vue-next';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { webmailService } from '@/modules/comunicaciones/services/webmail.service';
@@ -50,6 +51,7 @@ const enlaces = computed((): EnlaceMenu[] => [
     etiquetaConteo: totalTarjetasPipelineHoy.value === 1 ? '1 para hoy' : `${totalTarjetasPipelineHoy.value} para hoy`,
     tipoBadge: 'indigo',
   },
+  { nombre: 'Catálogo & CPQ', ruta: '/catalogo', icono: Calculator },
   { 
     nombre: 'Agenda & Tareas', 
     ruta: '/agenda', 

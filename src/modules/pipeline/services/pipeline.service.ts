@@ -1,5 +1,8 @@
 import { ref, computed, type ComputedRef } from 'vue';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
+import { actividadesService } from '@/modules/agenda/services/actividades.service';
+import { timelineService } from '@/modules/clientes/services/timeline.service';
+import { toastService } from '@/core/notifications/toast.service';
 import type {
   Pipeline,
   ColumnaPipeline,
@@ -983,6 +986,32 @@ class PipelineService {
     ) {
       try {
         await clienteService.moverEtapaOportunidad(tarjetaId, nuevaColumnaId as EtapaOportunidad);
+
+        // Automatización: Si se mueve a 'propuesta', generar tarea de seguimiento en Agenda
+        if (nuevaColumnaId === 'propuesta' && tarjeta.cliente_id) {
+          actividadesService.crearActividad({
+            clienteId: tarjeta.cliente_id,
+            clienteNombre: tarjeta.cliente_nombre || 'Cliente',
+            titulo: `Seguimiento de Propuesta: ${tarjeta.titulo}`,
+            descripcion: `Llamar a ${tarjeta.cliente_nombre} para validar recepción de la propuesta comercial formal.`,
+            fechaLimite: new Date(Date.now() + 86400000 * 2).toISOString(),
+            prioridad: 'alta',
+            tipo: 'llamada',
+            responsable: tarjeta.responsable || 'Equipo Comercial',
+          });
+        }
+
+        // Automatización: Si se mueve a 'ganada', registrar evento de éxito en bitácora y notificar
+        if (nuevaColumnaId === 'ganada' && tarjeta.cliente_id) {
+          timelineService.registrarEvento({
+            clienteId: tarjeta.cliente_id,
+            tipo: 'cambio_etapa',
+            titulo: `¡Trato Ganado con Éxito! (${tarjeta.titulo})`,
+            descripcion: `Oportunidad cerrada formalmente por un monto de RD$ ${(tarjeta.monto || 0).toLocaleString()}.`,
+            autor: tarjeta.responsable || 'Equipo Comercial',
+          });
+          toastService.exito(`¡Felicidades! Trato ganado con ${tarjeta.cliente_nombre}.`);
+        }
       } catch {
         // continuar
       }

@@ -6,8 +6,9 @@ import ClientesDataGrid from '../components/ClientesDataGrid.vue';
 import ClienteDrawer from '../components/ClienteDrawer.vue';
 import NuevoClienteModal from '../components/NuevoClienteModal.vue';
 import EnvioMasivoModal from '@/modules/comunicaciones/components/EnvioMasivoModal.vue';
+import ModalEnviarWhatsApp from '@/modules/comunicaciones/components/ModalEnviarWhatsApp.vue';
 import { RefreshCw, AlertCircle, Building2, Plus } from 'lucide-vue-next';
-import type { Cliente } from '../types/cliente.types';
+import type { Cliente, Contacto } from '../types/cliente.types';
 
 const {
   parametrosURL,
@@ -31,6 +32,10 @@ const {
 const modalEnvioMasivoAbierto = ref(false);
 const clientesParaEnvio = ref<Cliente[]>([]);
 
+const modalWhatsAppAbierto = ref(false);
+const clienteParaWhatsApp = ref<Cliente | null>(null);
+const contactoParaWhatsApp = ref<Contacto | undefined>(undefined);
+
 const abrirEnvioMasivo = (seleccionados: Cliente[]) => {
   clientesParaEnvio.value = [...seleccionados];
   modalEnvioMasivoAbierto.value = true;
@@ -39,6 +44,12 @@ const abrirEnvioMasivo = (seleccionados: Cliente[]) => {
 const abrirEnvioIndividual = (cliente: Cliente) => {
   clientesParaEnvio.value = [cliente];
   modalEnvioMasivoAbierto.value = true;
+};
+
+const abrirWhatsApp = (cliente: Cliente, contacto?: Contacto) => {
+  clienteParaWhatsApp.value = cliente;
+  contactoParaWhatsApp.value = contacto;
+  modalWhatsAppAbierto.value = true;
 };
 
 const onEnvioCompletado = () => {
@@ -119,6 +130,7 @@ const onEnvioCompletado = () => {
       @seleccionar="seleccionarCliente"
       @nuevo-cliente="modalNuevoClienteAbierto = true"
       @enviar-masivo="abrirEnvioMasivo"
+      @enviar-whats-app="abrirWhatsApp"
     />
 
     <!-- Panel Lateral de Detalle (Split-Pane / Drawer) -->
@@ -129,6 +141,7 @@ const onEnvioCompletado = () => {
       @cambiar-estado="cambiarEstadoCliente"
       @eliminar="eliminarCliente"
       @enviar-documento="abrirEnvioIndividual"
+      @enviar-whats-app="abrirWhatsApp"
       @actualizar="consultarClientes"
     />
 
@@ -146,6 +159,16 @@ const onEnvioCompletado = () => {
       :clientes="clientesParaEnvio"
       @cerrar="modalEnvioMasivoAbierto = false"
       @completado="onEnvioCompletado"
+    />
+
+    <!-- Modal de Envío por WhatsApp (Baileys / wa.me) -->
+    <ModalEnviarWhatsApp
+      v-if="modalWhatsAppAbierto"
+      :abierto="modalWhatsAppAbierto"
+      :cliente="clienteParaWhatsApp"
+      :contacto="contactoParaWhatsApp"
+      @cerrar="modalWhatsAppAbierto = false"
+      @enviado="onEnvioCompletado"
     />
   </div>
 </template>

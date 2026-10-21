@@ -19,12 +19,13 @@ import {
   Star,
   Loader2,
   Edit3,
-  History
+  History,
+  MessageCircle
 } from 'lucide-vue-next';
 import TimelineCliente from './TimelineCliente.vue';
 import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
 import Can from '@/shared/components/Can.vue';
-import type { Cliente, EstadoCliente, Oportunidad } from '../types/cliente.types';
+import type { Cliente, Contacto, EstadoCliente, Oportunidad } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import EditarClienteModal from './EditarClienteModal.vue';
 import { toastService } from '@/core/notifications/toast.service';
@@ -58,6 +59,7 @@ const emit = defineEmits<{
   (e: 'cambiarEstado', id: string, nuevoEstado: EstadoCliente): void;
   (e: 'eliminar', id: string): void;
   (e: 'enviarDocumento', cliente: Cliente): void;
+  (e: 'enviarWhatsApp', cliente: Cliente, contacto?: Contacto): void;
   (e: 'actualizar'): void;
   (e: 'update:cliente', cliente: Cliente): void;
 }>();
@@ -342,6 +344,16 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 <span>Enviar PDF</span>
               </button>
 
+              <button
+                type="button"
+                @click="cliente && emit('enviarWhatsApp', cliente)"
+                title="Enviar Mensaje o Documento vía WhatsApp"
+                class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition shadow-sm shadow-emerald-950/30 border border-emerald-500/30 active:scale-95"
+              >
+                <MessageCircle class="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </button>
+
               <Can I="delete" an="Cliente">
                 <button
                   @click="emit('eliminar', cliente?.id || '')"
@@ -517,9 +529,21 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 </a>
               </div>
 
-              <div class="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                <Phone class="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                <span class="font-mono">{{ formatPhoneNumber(cliente?.telefono) }}</span>
+              <div class="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
+                <div class="flex items-center gap-2.5">
+                  <Phone class="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                  <span class="font-mono">{{ formatPhoneNumber(cliente?.telefono) }}</span>
+                </div>
+                <button
+                  v-if="cliente?.telefono"
+                  type="button"
+                  @click="cliente && emit('enviarWhatsApp', cliente)"
+                  title="Enviar WhatsApp al número de la empresa"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded transition"
+                >
+                  <MessageCircle class="w-3 h-3" />
+                  <span>WhatsApp</span>
+                </button>
               </div>
 
               <div v-if="cliente?.sitio_web" class="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
@@ -716,6 +740,14 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                     <span v-if="contacto.telefono" class="flex items-center gap-1.5">
                       <Phone class="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
                       <span class="font-mono">{{ formatPhoneNumber(contacto.telefono) }}</span>
+                      <button
+                        type="button"
+                        @click="cliente && emit('enviarWhatsApp', cliente, contacto)"
+                        title="Enviar WhatsApp al contacto"
+                        class="p-0.5 rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition ml-0.5"
+                      >
+                        <MessageCircle class="w-3 h-3" />
+                      </button>
                     </span>
                   </div>
                 </div>

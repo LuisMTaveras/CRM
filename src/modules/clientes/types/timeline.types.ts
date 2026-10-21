@@ -4,6 +4,7 @@ export type TipoEventoTimeline =
   | 'reunion'
   | 'videollamada'
   | 'correo'
+  | 'whatsapp'
   | 'propuesta'
   | 'cambio_etapa'
   | 'tarea';

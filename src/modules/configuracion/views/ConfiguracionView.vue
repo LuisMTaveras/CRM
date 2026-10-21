@@ -20,7 +20,8 @@ import {
   X,
   Check,
   UploadCloud,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Smartphone
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
@@ -38,9 +39,12 @@ import {
 } from '@/modules/clientes/types/sector.types';
 import { useRoute } from 'vue-router';
 import ConfiguracionCorreoSection from '../components/ConfiguracionCorreoSection.vue';
+import ModalConexionWhatsApp from '@/modules/comunicaciones/components/ModalConexionWhatsApp.vue';
+import { whatsAppService } from '@/modules/comunicaciones/services/whatsapp.service';
 
 const route = useRoute();
 const pestanaActiva = ref<'empresa' | 'correo' | 'sectores' | 'sistema'>('empresa');
+const modalWhatsAppAbierto = ref(false);
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
 const mensajeGuardado = ref(false);
 const guardando = ref(false);
@@ -827,6 +831,55 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <!-- Tarjeta de Servidor WhatsApp Web (Baileys Bridge) -->
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div class="flex items-center gap-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+            <Smartphone class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Servidor WhatsApp Web Bridge (Despacho Autónomo)</span>
+          </div>
+          <span 
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border"
+            :class="whatsAppService.conectado.value 
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="whatsAppService.conectado.value ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'"></span>
+            {{ whatsAppService.conectado.value ? 'Conectado' : 'Desconectado' }}
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-1">
+            <div class="font-medium text-zinc-800 dark:text-zinc-200">Envío de Cotizaciones PDF & Notificaciones</div>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Permite al equipo comercial enviar cotizaciones PDF oficiales directamente al WhatsApp del cliente, automatizar seguimientos y despachar mensajes sin costos de la API oficial de Meta.
+            </p>
+          </div>
+
+          <div class="bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-2 flex flex-col justify-between">
+            <div>
+              <div class="font-medium text-zinc-800 dark:text-zinc-200">
+                {{ whatsAppService.conectado.value ? `Vinculado: ${whatsAppService.usuarioConectado.value?.nombre || 'Empresa'}` : 'Vincular Teléfono Móvil' }}
+              </div>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Escanea el código QR desde WhatsApp en tu teléfono para mantener la sesión abierta permanentemente en el servidor.
+              </p>
+            </div>
+            <div>
+              <button
+                type="button"
+                @click="modalWhatsAppAbierto = true"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-sm transition"
+              >
+                <Smartphone class="w-3.5 h-3.5" />
+                <span>{{ whatsAppService.conectado.value ? 'Ver Estado / Probar WhatsApp' : 'Vincular WhatsApp vía QR →' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
 
@@ -1117,5 +1170,11 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Modal de Vinculación de WhatsApp Web vía QR -->
+    <ModalConexionWhatsApp
+      :abierto="modalWhatsAppAbierto"
+      @cerrar="modalWhatsAppAbierto = false"
+    />
   </div>
 </template>
