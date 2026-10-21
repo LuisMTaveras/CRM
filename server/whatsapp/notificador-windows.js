@@ -1,7 +1,7 @@
 /**
  * Notificador Nativo de Windows para DEVFORGE CRM
- * Permite emitir notificaciones Toast en el escritorio de Windows con sonido
- * identificado oficialmente como "DEVFORGE CRM" incluso cuando el navegador está 100% CERRADO.
+ * Emite notificaciones Toast en el escritorio de Windows con sonido real
+ * y redirige al puerto oficial donde corre la aplicación web (puerto 3000).
  */
 
 import { execFile } from 'child_process';
@@ -13,28 +13,53 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SCRIPT_PATH = path.join(__dirname, 'toast-notifier.ps1');
 
+const PUERTO_FRONTEND = process.env.VITE_PORT || process.env.FRONTEND_PORT || 3000;
+const BASE_URL_APP = `http://localhost:${PUERTO_FRONTEND}`;
+
 const SCRIPT_CONTENT = `
 param(
     [string]$Titulo = "DEVFORGE CRM",
     [string]$Mensaje = "Mensaje nuevo de WhatsApp",
-    [string]$Url = "http://localhost:5173/whatsapp"
+    [string]$Url = "http://localhost:3000/whatsapp",
+    [string]$Tipo = "general"
 )
 
 try {
-    # 1. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" como aplicación oficial en Windows
-    $shortcutPath = "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\DEVFORGE CRM.lnk"
-    if (-not (Test-Path $shortcutPath)) {
-        try {
-            $wsh = New-Object -ComObject WScript.Shell
-            $sc = $wsh.CreateShortcut($shortcutPath)
-            $sc.TargetPath = "http://localhost:5173"
-            $sc.Description = "DEVFORGE CRM Enterprise"
-            $sc.Save()
-        } catch {}
+    # 1. Reproducir sonido físico en los altavoces de Windows según el tipo de alerta
+    try {
+        $wav = "C:\\Windows\\Media\\Windows Notify.wav"
+        if ($Tipo -eq "email" -or $Tipo -eq "correo") {
+            $wav = "C:\\Windows\\Media\\Windows Notify Email.wav"
+        } elseif ($Tipo -eq "whatsapp" -or $Tipo -eq "mensaje") {
+            $wav = "C:\\Windows\\Media\\Windows Notify Messaging.wav"
+        }
+        if (-not (Test-Path $wav)) {
+            $wav = "C:\\Windows\\Media\\notify.wav"
+        }
+        if (Test-Path $wav) {
+            $player = New-Object System.Media.SoundPlayer $wav
+            $player.Play()
+        } else {
+            [System.Media.SystemSounds]::Asterisk.Play()
+        }
+    } catch {
+        try { [System.Media.SystemSounds]::Asterisk.Play() } catch {}
     }
+
+    # 2. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" con el puerto correcto
+    $shortcutPath = "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\DEVFORGE CRM.lnk"
+    try {
+        $wsh = New-Object -ComObject WScript.Shell
+        $sc = $wsh.CreateShortcut($shortcutPath)
+        $sc.TargetPath = "$Url"
+        $sc.Description = "DEVFORGE CRM Enterprise"
+        $sc.Save()
+    } catch {}
 
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+
+    $soundEvent = if ($Tipo -eq "email" -or $Tipo -eq "correo") { "Notification.Mail" } else { "Notification.IM" }
 
     $xmlStr = @"
 <toast activationType="protocol" launch="$Url">
@@ -44,7 +69,7 @@ try {
             <text>$Mensaje</text>
         </binding>
     </visual>
-    <audio src="ms-winsoundevent:Notification.Default" />
+    <audio src="ms-winsoundevent:$soundEvent" />
 </toast>
 "@
 
@@ -69,15 +94,24 @@ try {
 } catch {}
 
 /**
- * Emite una notificación nativa de Windows en el escritorio
+ * Emite una notificación nativa de Windows en el escritorio con sonido
  * @param {string} titulo - Título de la notificación
  * @param {string} mensaje - Cuerpo del mensaje
- * @param {string} url - URL para abrir al hacer clic
+ * @param {string} url - URL para abrir al hacer clic (puerto 3000)
+ * @param {string} tipo - Tipo de alerta: 'email' | 'whatsapp' | 'general'
  */
-export function notificarEscritorioWindows(titulo, mensaje, url = 'http://localhost:5173/whatsapp') {
+export function notificarEscritorioWindows(
+  titulo,
+  mensaje,
+  url = `${BASE_URL_APP}/comunicaciones`,
+  tipo = 'general'
+) {
   if (process.platform !== 'win32') return;
 
   try {
+    // Si la URL contenía el puerto 5173 por error, corregirla automáticamente al puerto 3000 de Vite
+    const urlCorregida = String(url).replace(':5173', `:${PUERTO_FRONTEND}`);
+
     if (!fs.existsSync(SCRIPT_PATH)) {
       fs.writeFileSync(SCRIPT_PATH, SCRIPT_CONTENT, 'utf8');
     }
@@ -94,9 +128,10 @@ export function notificarEscritorioWindows(titulo, mensaje, url = 'http://localh
         SCRIPT_PATH,
         String(titulo || 'DEVFORGE CRM'),
         String(mensaje || 'Nuevo aviso comercial'),
-        String(url),
+        String(urlCorregida),
+        String(tipo || 'general'),
       ],
-      { timeout: 5000 },
+      { timeout: 6000 },
       () => {}
     );
   } catch {}

@@ -18,7 +18,7 @@
     "cuerpoTexto": "Hola, cómo estás?\n",
     "cuerpoHtml": "<div dir=\"auto\">Hola, cómo estás? </div>\n",
     "fecha": "2026-10-21T21:15:14.000Z",
-    "leido": false,
+    "leido": true,
     "destacado": false,
     "tieneAdjuntos": false,
     "esCoincidenciaServidor": false
@@ -42,7 +42,7 @@
     "cuerpoTexto": "Hola\n",
     "cuerpoHtml": "<div dir=\"auto\">Hola</div>\n",
     "fecha": "2026-10-21T20:57:49.000Z",
-    "leido": false,
+    "leido": true,
     "destacado": false,
     "tieneAdjuntos": false,
     "esCoincidenciaServidor": false
@@ -66,7 +66,7 @@
     "cuerpoTexto": "Esto es un correo de pruebas\n",
     "cuerpoHtml": "<div dir=\"auto\">Esto es un correo de pruebas </div>\n",
     "fecha": "2026-10-21T20:49:00.000Z",
-    "leido": false,
+    "leido": true,
     "destacado": false,
     "tieneAdjuntos": false,
     "esCoincidenciaServidor": false

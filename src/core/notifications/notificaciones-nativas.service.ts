@@ -24,6 +24,23 @@ class NotificacionesNativasService {
 
   constructor() {
     this.actualizarEstadoPermiso();
+    this.desbloquearAudioAlInterpretar();
+  }
+
+  private desbloquearAudioAlInterpretar(): void {
+    if (typeof window === 'undefined') return;
+    const activar = () => {
+      const ctx = this.obtenerAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      window.removeEventListener('click', activar);
+      window.removeEventListener('keydown', activar);
+      window.removeEventListener('touchstart', activar);
+    };
+    window.addEventListener('click', activar, { once: true, passive: true });
+    window.addEventListener('keydown', activar, { once: true, passive: true });
+    window.addEventListener('touchstart', activar, { once: true, passive: true });
   }
 
   private leerBooleanoStorage(clave: string, porDefecto: boolean): boolean {

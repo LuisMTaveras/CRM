@@ -208,10 +208,12 @@ class ServicioEscuchaEmail {
             const asunto = nuevo.asunto || '(Sin asunto)';
 
             console.log(`📢 [NOTIFICACIÓN CORREO] Emitiendo Toast Windows para: "${asunto}" de ${remitente}`);
+            const portFrontend = process.env.VITE_PORT || process.env.FRONTEND_PORT || 3000;
             notificarEscritorioWindows(
               `Nuevo Correo: ${remitente}`,
               `Asunto: ${asunto}\nBandeja de entrada • DEVFORGE CRM`,
-              'http://localhost:5173/comunicaciones'
+              `http://localhost:${portFrontend}/comunicaciones`,
+              'email'
             );
 
             this.totalCorreosNotificados++;

@@ -536,10 +536,12 @@ class WhatsAppService {
       if (!fromMe) {
         const remitente = msg.pushName || chat.nombre || 'Contacto';
         const textoResumen = texto || (isAudio ? '🎤 Nota de voz recibida' : (nuevoMensaje.tipo === 'imagen' ? '📷 Imagen recibida' : '📎 Archivo adjunto'));
+        const portFrontend = process.env.VITE_PORT || process.env.FRONTEND_PORT || 3000;
         notificarEscritorioWindows(
           `WhatsApp: ${remitente}`,
           textoResumen,
-          `http://localhost:5173/whatsapp?jid=${encodeURIComponent(remoteJid)}`
+          `http://localhost:${portFrontend}/whatsapp?jid=${encodeURIComponent(remoteJid)}`,
+          'whatsapp'
         );
       }
 

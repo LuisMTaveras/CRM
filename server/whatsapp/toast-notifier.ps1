@@ -2,24 +2,46 @@
 param(
     [string]$Titulo = "DEVFORGE CRM",
     [string]$Mensaje = "Mensaje nuevo de WhatsApp",
-    [string]$Url = "http://localhost:5173/whatsapp"
+    [string]$Url = "http://localhost:3000/whatsapp",
+    [string]$Tipo = "general"
 )
 
 try {
-    # 1. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" como aplicación oficial en Windows
-    $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\DEVFORGE CRM.lnk"
-    if (-not (Test-Path $shortcutPath)) {
-        try {
-            $wsh = New-Object -ComObject WScript.Shell
-            $sc = $wsh.CreateShortcut($shortcutPath)
-            $sc.TargetPath = "http://localhost:5173"
-            $sc.Description = "DEVFORGE CRM Enterprise"
-            $sc.Save()
-        } catch {}
+    # 1. Reproducir sonido físico en los altavoces de Windows según el tipo de alerta
+    try {
+        $wav = "C:\Windows\Media\Windows Notify.wav"
+        if ($Tipo -eq "email" -or $Tipo -eq "correo") {
+            $wav = "C:\Windows\Media\Windows Notify Email.wav"
+        } elseif ($Tipo -eq "whatsapp" -or $Tipo -eq "mensaje") {
+            $wav = "C:\Windows\Media\Windows Notify Messaging.wav"
+        }
+        if (-not (Test-Path $wav)) {
+            $wav = "C:\Windows\Media\notify.wav"
+        }
+        if (Test-Path $wav) {
+            $player = New-Object System.Media.SoundPlayer $wav
+            $player.Play()
+        } else {
+            [System.Media.SystemSounds]::Asterisk.Play()
+        }
+    } catch {
+        try { [System.Media.SystemSounds]::Asterisk.Play() } catch {}
     }
+
+    # 2. Asegurar acceso directo en el Menú Inicio para registrar a "DEVFORGE CRM" con el puerto correcto
+    $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\DEVFORGE CRM.lnk"
+    try {
+        $wsh = New-Object -ComObject WScript.Shell
+        $sc = $wsh.CreateShortcut($shortcutPath)
+        $sc.TargetPath = "$Url"
+        $sc.Description = "DEVFORGE CRM Enterprise"
+        $sc.Save()
+    } catch {}
 
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+
+    $soundEvent = if ($Tipo -eq "email" -or $Tipo -eq "correo") { "Notification.Mail" } else { "Notification.IM" }
 
     $xmlStr = @"
 <toast activationType="protocol" launch="$Url">
@@ -29,7 +51,7 @@ try {
             <text>$Mensaje</text>
         </binding>
     </visual>
-    <audio src="ms-winsoundevent:Notification.Default" />
+    <audio src="ms-winsoundevent:$soundEvent" />
 </toast>
 "@
 

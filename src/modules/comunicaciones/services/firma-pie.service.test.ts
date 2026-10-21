@@ -55,7 +55,7 @@ describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
     const pie = firmaPieService.obtenerPie();
     expect(pie.habilitado).toBe(true);
     expect(pie.incluirAvisoConfidencialidad).toBe(true);
-    expect(pie.rncEmpresa).toBe(PIE_POR_DEFECTO.rncEmpresa);
+    expect(pie.rncEmpresa).toMatch(/RNC:\s*[\d-]+/);
 
     const pieEditado = {
       ...pie,

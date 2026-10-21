@@ -5,9 +5,9 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "Estas?",
-      "ultimoTimestamp": "2026-10-21T21:15:27.000Z",
-      "noLeidos": 1,
+      "ultimoMensaje": "Aquí?",
+      "ultimoTimestamp": "2026-10-21T21:21:02.000Z",
+      "noLeidos": 2,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
     },
@@ -362,6 +362,15 @@
         "emisor": "Luis Taveras",
         "texto": "Estas?",
         "timestamp": "2026-10-21T21:15:27.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACC912E76FD12B94FA0DA0255A19EEAA",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Aquí?",
+        "timestamp": "2026-10-21T21:21:02.000Z",
         "estado": "recibido",
         "tipo": "texto"
       }
