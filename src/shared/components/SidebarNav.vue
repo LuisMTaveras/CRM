@@ -141,9 +141,9 @@ const esRutaActiva = (ruta: string) => {
         />
         <img
           v-else
-          src="/crm-logo.jpg"
+          src="/crm-logo.svg"
           alt="DEVFORGE CRM"
-          class="w-full h-full object-cover"
+          class="w-full h-full object-cover p-0.5"
         />
       </div>
       <div class="overflow-hidden min-w-0">
