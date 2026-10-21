@@ -1,5 +1,29 @@
 [
   {
+    "id": "msg-imap-2701",
+    "uid": 2701,
+    "carpeta": "inbox",
+    "de": {
+      "nombre": "Luis Taveras",
+      "correo": "luistaveras741@gmail.com"
+    },
+    "para": [
+      {
+        "nombre": "luismiguel@alliance.do",
+        "correo": "luismiguel@alliance.do"
+      }
+    ],
+    "asunto": "Whjswdhuw",
+    "extracto": "Ehwwueu",
+    "cuerpoTexto": "Ehwwueu\n",
+    "cuerpoHtml": "<div dir=\"auto\">Ehwwueu</div>\n",
+    "fecha": "2026-10-21T21:26:57.000Z",
+    "leido": false,
+    "destacado": false,
+    "tieneAdjuntos": false,
+    "esCoincidenciaServidor": false
+  },
+  {
     "id": "msg-imap-2700",
     "uid": 2700,
     "carpeta": "inbox",

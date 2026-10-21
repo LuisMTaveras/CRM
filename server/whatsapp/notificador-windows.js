@@ -25,17 +25,27 @@ param(
 )
 
 try {
-    # 1. Reproducir sonido físico en los altavoces de Windows según el tipo de alerta
+    # 1. Reproducir sonido físico de alto impacto en los altavoces de Windows
     try {
-        $wav = "C:\\Windows\\Media\\Windows Notify.wav"
-        if ($Tipo -eq "email" -or $Tipo -eq "correo") {
-            $wav = "C:\\Windows\\Media\\Windows Notify Email.wav"
-        } elseif ($Tipo -eq "whatsapp" -or $Tipo -eq "mensaje") {
-            $wav = "C:\\Windows\\Media\\Windows Notify Messaging.wav"
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $serverDir = Split-Path -Parent $scriptDir
+        $soundsDir = Join-Path $serverDir "data\\sounds"
+
+        $wav = if ($Tipo -eq "email" -or $Tipo -eq "correo") {
+            Join-Path $soundsDir "correo-notificacion.wav"
+        } else {
+            Join-Path $soundsDir "whatsapp-notificacion.wav"
         }
+
+        # Si no existiera en data/sounds, recurrir a Windows Media como respaldo
         if (-not (Test-Path $wav)) {
-            $wav = "C:\\Windows\\Media\\notify.wav"
+            $wav = if ($Tipo -eq "email" -or $Tipo -eq "correo") {
+                "C:\\Windows\\Media\\Windows Notify Email.wav"
+            } else {
+                "C:\\Windows\\Media\\Windows Notify Messaging.wav"
+            }
         }
+
         if (Test-Path $wav) {
             $player = New-Object System.Media.SoundPlayer $wav
             $player.Play()

@@ -134,11 +134,33 @@ class NotificacionesNativasService {
   }
 
   /**
-   * Reproduce un chime sintetizado mediante Web Audio API (0 dependencias externas)
+   * Reproduce el sonido de alerta de alto impacto con fallback a sintetizador Web Audio
    */
   reproducirChime(tipo: TipoSonidoNotificacion = 'general'): void {
     if (!this.sonidoHabilitado.value) return;
 
+    // 1. Reproducir archivo de audio real de alta fidelidad y volumen máximo
+    if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
+      try {
+        const rutaAudio = tipo === 'correo'
+          ? '/sounds/correo-notificacion.wav'
+          : '/sounds/whatsapp-notificacion.wav';
+        const audio = new Audio(rutaAudio);
+        audio.volume = 1.0;
+        const p = audio.play();
+        if (p) {
+          p.catch(() => {
+            this.reproducirSintetizador(tipo);
+          });
+          return;
+        }
+      } catch {}
+    }
+
+    this.reproducirSintetizador(tipo);
+  }
+
+  private reproducirSintetizador(tipo: TipoSonidoNotificacion = 'general'): void {
     const ctx = this.obtenerAudioContext();
     if (!ctx) return;
 
