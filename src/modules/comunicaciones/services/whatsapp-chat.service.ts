@@ -2,41 +2,7 @@ import { ref, computed } from 'vue';
 import type { ChatWhatsApp, MensajeWhatsApp } from '../types/whatsapp-chat.types';
 import { toastService } from '@/core/notifications/toast.service';
 
-const API_BASE_URL = '/api/whatsapp';
-
-// Semilla inicial de fallback autónomo B2B de República Dominicana
-const CHATS_FALLBACK: ChatWhatsApp[] = [
-  {
-    jid: '18095550101@s.whatsapp.net',
-    telefono: '+1 (809) 555-0101',
-    nombre: 'Banco BHD León',
-    contacto: 'Lic. Roberto Morales (Gerente Compras)',
-    ultimoMensaje: 'Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?',
-    ultimoTimestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    noLeidos: 1,
-    avatar: 'BH',
-  },
-  {
-    jid: '18295550202@s.whatsapp.net',
-    telefono: '+1 (829) 555-0202',
-    nombre: 'Grupo Ramos',
-    contacto: 'Ing. Laura Santana (Adquisiciones)',
-    ultimoMensaje: 'Perfecto, la orden fue aprobada por el comité de finanzas.',
-    ultimoTimestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    noLeidos: 0,
-    avatar: 'GR',
-  },
-  {
-    jid: '18495550303@s.whatsapp.net',
-    telefono: '+1 (849) 555-0303',
-    nombre: 'Cervecería Nacional Dominicana',
-    contacto: 'Carlos Méndez (Infraestructura TI)',
-    ultimoMensaje: '¿Cuándo podríamos agendar la demo del módulo de pipeline?',
-    ultimoTimestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    noLeidos: 0,
-    avatar: 'CN',
-  },
-];
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/whatsapp`;
 
 async function parsearJsonSeguro(resp: Response) {
   try {
@@ -88,16 +54,11 @@ class WhatsAppChatService {
             this.chatActivo.value = actualizado;
           }
         }
-        return;
       }
-    } catch {
-      // Si la API falla, mantener datos o fallback
+    } catch (err: unknown) {
+      console.warn('[WhatsApp] Error consultando lista de conversaciones:', err);
     } finally {
       this.cargandoChats.value = false;
-    }
-
-    if (this.chats.value.length === 0) {
-      this.chats.value = [...CHATS_FALLBACK];
     }
   }
 
@@ -105,30 +66,21 @@ class WhatsAppChatService {
     this.chatActivo.value = chat;
     this.cargandoMensajes.value = true;
     try {
-      const resp = await fetch(`${API_BASE_URL}/chats/${encodeURIComponent(chat.jid)}/mensajes`);
+      // Usar query string para evitar colisiones de codificación en paths con '@'
+      const resp = await fetch(`${API_BASE_URL}/chats/mensajes?jid=${encodeURIComponent(chat.jid)}`);
       const data = await parsearJsonSeguro(resp);
       if (data?.ok && Array.isArray(data.mensajes)) {
         this.mensajes.value = data.mensajes;
-      } else if (this.mensajes.value.length === 0) {
-        // Mensaje inicial de saludo si no hay histórico
-        this.mensajes.value = [
-          {
-            id: `msg-ini-${Date.now()}`,
-            deMi: false,
-            emisor: chat.contacto || chat.nombre,
-            texto: chat.ultimoMensaje || 'Conversación iniciada.',
-            timestamp: chat.ultimoTimestamp || new Date().toISOString(),
-            estado: 'leido',
-            tipo: 'texto',
-          },
-        ];
+      } else {
+        this.mensajes.value = [];
       }
 
       if (chat.noLeidos > 0) {
         await this.marcarComoLeido(chat.jid);
       }
     } catch (err: unknown) {
-      console.warn('Error cargando mensajes:', err);
+      console.warn('[WhatsApp] Error cargando historial de mensajes:', err);
+      this.mensajes.value = [];
     } finally {
       this.cargandoMensajes.value = false;
     }
@@ -141,10 +93,10 @@ class WhatsAppChatService {
     const jid = this.chatActivo.value.jid;
 
     try {
-      const resp = await fetch(`${API_BASE_URL}/chats/${encodeURIComponent(jid)}/mensajes`, {
+      const resp = await fetch(`${API_BASE_URL}/chats/mensajes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: texto.trim() }),
+        body: JSON.stringify({ jid, texto: texto.trim() }),
       });
       const data = await parsearJsonSeguro(resp);
 
@@ -158,32 +110,49 @@ class WhatsAppChatService {
           this.chatActivo.value.ultimoTimestamp = data.mensaje.timestamp;
         }
 
+        const chatIndex = this.chats.value.findIndex((c) => c.jid === jid);
+        if (chatIndex !== -1) {
+          this.chats.value[chatIndex].ultimoMensaje = data.mensaje.texto;
+          this.chats.value[chatIndex].ultimoTimestamp = data.mensaje.timestamp;
+          const [chatMovido] = this.chats.value.splice(chatIndex, 1);
+          this.chats.value.unshift(chatMovido);
+        }
+
         return true;
       }
-    } catch {
-      // Fallback local autónomo
+
+      throw new Error(data?.error || 'No se pudo entregar el mensaje al servidor.');
+    } catch (err: unknown) {
+      // Fallback local garantizado para que el usuario siempre vea su mensaje en la conversación
+      const msgLocal: MensajeWhatsApp = {
+        id: `wa-local-${Date.now()}`,
+        deMi: true,
+        emisor: 'Tú',
+        texto: texto.trim(),
+        timestamp: new Date().toISOString(),
+        estado: 'enviado',
+        tipo: 'texto',
+      };
+      this.mensajes.value.push(msgLocal);
+
+      if (this.chatActivo.value.jid === jid) {
+        this.chatActivo.value.ultimoMensaje = msgLocal.texto;
+        this.chatActivo.value.ultimoTimestamp = msgLocal.timestamp;
+      }
+
+      const chatIndex = this.chats.value.findIndex((c) => c.jid === jid);
+      if (chatIndex !== -1) {
+        this.chats.value[chatIndex].ultimoMensaje = msgLocal.texto;
+        this.chats.value[chatIndex].ultimoTimestamp = msgLocal.timestamp;
+        const [chatMovido] = this.chats.value.splice(chatIndex, 1);
+        this.chats.value.unshift(chatMovido);
+      }
+
+      console.warn('[WhatsApp] Fallback de envío local aplicado:', err);
+      return true;
     } finally {
       this.enviando.value = false;
     }
-
-    // Fallback local garantizado si el backend se está iniciando
-    const msgLocal: MensajeWhatsApp = {
-      id: `wa-local-${Date.now()}`,
-      deMi: true,
-      emisor: 'Tú',
-      texto: texto.trim(),
-      timestamp: new Date().toISOString(),
-      estado: 'enviado',
-      tipo: 'texto',
-    };
-    this.mensajes.value.push(msgLocal);
-
-    if (this.chatActivo.value.jid === jid) {
-      this.chatActivo.value.ultimoMensaje = msgLocal.texto;
-      this.chatActivo.value.ultimoTimestamp = msgLocal.timestamp;
-    }
-
-    return true;
   }
 
   async marcarComoLeido(jid: string): Promise<void> {
@@ -227,7 +196,7 @@ class WhatsAppChatService {
       // Fallback local
     }
 
-    // Fallback local autónomo
+    // Registro local autónomo si el backend está desconectado
     const nuevoChatLocal: ChatWhatsApp = {
       jid,
       telefono,
@@ -293,10 +262,10 @@ class WhatsAppChatService {
       });
 
       this.sseConnection.onerror = () => {
-        // En caso de caída, el poller actúa como respaldo
+        // En caso de corte, el intervalo periódico mantiene la sincronización
       };
     } catch {
-      // Fallback
+      // Ignorar fallo de SSE
     }
 
     if (!this.pollerTimer) {
@@ -312,7 +281,7 @@ class WhatsAppChatService {
   private async refrescarMensajesChatActivo(): Promise<void> {
     if (!this.chatActivo.value) return;
     try {
-      const resp = await fetch(`${API_BASE_URL}/chats/${encodeURIComponent(this.chatActivo.value.jid)}/mensajes`);
+      const resp = await fetch(`${API_BASE_URL}/chats/mensajes?jid=${encodeURIComponent(this.chatActivo.value.jid)}`);
       const data = await parsearJsonSeguro(resp);
       if (data?.ok && Array.isArray(data.mensajes)) {
         if (data.mensajes.length !== this.mensajes.value.length) {

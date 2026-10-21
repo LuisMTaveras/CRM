@@ -148,7 +148,33 @@ router.get('/chats', (_req, res) => {
   }
 });
 
-// 11. Obtener mensajes de un chat específico
+// 11. Obtener mensajes (soporta jid en query o en path)
+router.get('/chats/mensajes', (req, res) => {
+  try {
+    const jid = req.query.jid;
+    if (!jid) {
+      return res.status(400).json({ ok: false, error: 'Parámetro query jid requerido.' });
+    }
+    const mensajes = whatsAppService.obtenerMensajes(String(jid));
+    res.json({ ok: true, mensajes });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/chats/mensajes', async (req, res) => {
+  try {
+    const { jid, texto } = req.body || {};
+    if (!jid || !texto || !texto.trim()) {
+      return res.status(400).json({ ok: false, error: 'JID y texto son requeridos.' });
+    }
+    const resultado = await whatsAppService.enviarMensajeChat(String(jid), texto);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.get('/chats/:jid/mensajes', (req, res) => {
   try {
     const { jid } = req.params;

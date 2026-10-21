@@ -5,141 +5,21 @@
       "telefono": "+18298843035",
       "nombre": "PEPE",
       "contacto": "",
-      "ultimoMensaje": "¡Hola! Este es un mensaje de prueba desde DEVFORGE CRM.",
-      "ultimoTimestamp": "2026-10-21T18:38:52.000Z",
+      "ultimoMensaje": "Hola Pepe, probando envio de mensajes",
+      "ultimoTimestamp": "2026-10-21T18:47:51.730Z",
       "noLeidos": 0,
       "avatar": "PE"
-    },
-    {
-      "jid": "18299643035@s.whatsapp.net",
-      "telefono": "+1 (829) 964-3035",
-      "nombre": "+1 (829) 964-3035",
-      "contacto": "",
-      "ultimoMensaje": "¡Hola! Este es un mensaje de prueba desde DEVFORGE CRM.",
-      "ultimoTimestamp": "2026-10-21T18:37:38.000Z",
-      "noLeidos": 0,
-      "avatar": "WA"
-    },
-    {
-      "jid": "18095550101@s.whatsapp.net",
-      "telefono": "+1 (809) 555-0101",
-      "nombre": "Banco BHD León",
-      "contacto": "Lic. Roberto Morales (Gerente Compras)",
-      "ultimoMensaje": "Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?",
-      "ultimoTimestamp": "2026-10-21T18:10:59.777Z",
-      "noLeidos": 1,
-      "avatar": "BH"
-    },
-    {
-      "jid": "18295550202@s.whatsapp.net",
-      "telefono": "+1 (829) 555-0202",
-      "nombre": "Grupo Ramos",
-      "contacto": "Ing. Laura Santana (Adquisiciones)",
-      "ultimoMensaje": "Perfecto, la orden fue aprobada por el comité de finanzas.",
-      "ultimoTimestamp": "2026-10-21T16:25:59.777Z",
-      "noLeidos": 0,
-      "avatar": "GR"
-    },
-    {
-      "jid": "18495550303@s.whatsapp.net",
-      "telefono": "+1 (849) 555-0303",
-      "nombre": "Cervecería Nacional Dominicana",
-      "contacto": "Carlos Méndez (Infraestructura TI)",
-      "ultimoMensaje": "¿Cuándo podríamos agendar la demo del módulo de pipeline?",
-      "ultimoTimestamp": "2026-10-20T18:25:59.777Z",
-      "noLeidos": 0,
-      "avatar": "CN"
     }
   ],
   "mensajes": {
-    "18095550101@s.whatsapp.net": [
-      {
-        "id": "wa-msg-bhd-1",
-        "deMi": false,
-        "emisor": "Lic. Roberto Morales",
-        "texto": "Hola Luis Miguel, buen día. Estamos revisando la renovación de infraestructura para el próximo trimestre.",
-        "timestamp": "2026-10-21T17:25:59.777Z",
-        "estado": "leido",
-        "tipo": "texto"
-      },
-      {
-        "id": "wa-msg-bhd-2",
-        "deMi": true,
-        "emisor": "Luis M. Taveras",
-        "texto": "¡Hola Roberto! Excelente noticia. Les preparé la propuesta con el descuento corporativo de Alliance.",
-        "timestamp": "2026-10-21T17:45:59.777Z",
-        "estado": "leido",
-        "tipo": "texto"
-      },
-      {
-        "id": "wa-msg-bhd-3",
-        "deMi": false,
-        "emisor": "Lic. Roberto Morales",
-        "texto": "Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?",
-        "timestamp": "2026-10-21T18:10:59.777Z",
-        "estado": "recibido",
-        "tipo": "texto"
-      }
-    ],
-    "18295550202@s.whatsapp.net": [
-      {
-        "id": "wa-msg-gr-1",
-        "deMi": true,
-        "emisor": "Luis M. Taveras",
-        "texto": "Estimada Laura, le comparto los términos del acuerdo de soporte técnico 24/7.",
-        "timestamp": "2026-10-21T14:25:59.777Z",
-        "estado": "leido",
-        "tipo": "texto"
-      },
-      {
-        "id": "wa-msg-gr-2",
-        "deMi": false,
-        "emisor": "Ing. Laura Santana",
-        "texto": "Perfecto, la orden fue aprobada por el comité de finanzas.",
-        "timestamp": "2026-10-21T16:25:59.777Z",
-        "estado": "leido",
-        "tipo": "texto"
-      }
-    ],
-    "18495550303@s.whatsapp.net": [
-      {
-        "id": "wa-msg-cnd-1",
-        "deMi": false,
-        "emisor": "Carlos Méndez",
-        "texto": "¿Cuándo podríamos agendar la demo del módulo de pipeline?",
-        "timestamp": "2026-10-20T18:25:59.777Z",
-        "estado": "leido",
-        "tipo": "texto"
-      }
-    ],
     "18298843035@s.whatsapp.net": [
       {
-        "id": "wa-1792607177676",
+        "id": "wa-1792608471730",
         "deMi": true,
         "emisor": "Tú",
-        "texto": "¡Hola PEPE! Mensaje de prueba desde DEVFORGE CRM.",
-        "timestamp": "2026-10-21T18:26:17.676Z",
+        "texto": "Hola Pepe, probando envio de mensajes",
+        "timestamp": "2026-10-21T18:47:51.730Z",
         "estado": "pendiente",
-        "tipo": "texto"
-      },
-      {
-        "id": "3EB063801F5E5643AAD405",
-        "deMi": true,
-        "emisor": "ALLIANCE",
-        "texto": "¡Hola! Este es un mensaje de prueba desde DEVFORGE CRM.",
-        "timestamp": "2026-10-21T18:38:52.000Z",
-        "estado": "enviado",
-        "tipo": "texto"
-      }
-    ],
-    "18299643035@s.whatsapp.net": [
-      {
-        "id": "3EB064A58B5A316CAF4A17",
-        "deMi": true,
-        "emisor": "ALLIANCE",
-        "texto": "¡Hola! Este es un mensaje de prueba desde DEVFORGE CRM.",
-        "timestamp": "2026-10-21T18:37:38.000Z",
-        "estado": "enviado",
         "tipo": "texto"
       }
     ]
