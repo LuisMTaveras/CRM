@@ -532,17 +532,79 @@ onUnmounted(() => {
                   {{ m.emisor }}
                 </div>
 
-                <!-- Mensaje tipo documento -->
-                <div v-if="m.tipo === 'documento'" class="flex items-center gap-3 p-2 bg-black/10 rounded-lg my-1">
-                  <FileText class="w-6 h-6 text-white shrink-0" />
-                  <div class="min-w-0">
-                    <div class="font-medium truncate">{{ m.archivoNombre || 'Documento Comercial.pdf' }}</div>
-                    <div class="text-[10px] opacity-80">Documento Adjunto</div>
+                <!-- Mensaje tipo imagen -->
+                <div v-if="m.tipo === 'imagen'" class="my-1 rounded-xl overflow-hidden">
+                  <div
+                    class="relative group cursor-pointer"
+                    @click="m.archivoUrl && abrirImagenModal(obtenerUrlMedia(m.archivoUrl))"
+                  >
+                    <img
+                      v-if="m.archivoUrl"
+                      :src="obtenerUrlMedia(m.archivoUrl)"
+                      :alt="m.archivoNombre || 'Imagen adjunta'"
+                      class="rounded-xl max-h-60 max-w-full object-cover border border-black/10 transition group-hover:brightness-95 shadow-sm"
+                      loading="lazy"
+                    />
+                    <div
+                      v-else
+                      class="p-6 bg-black/10 rounded-xl flex items-center justify-center text-zinc-400 gap-2"
+                    >
+                      <ImageIcon class="w-5 h-5" />
+                      <span>Imagen no disponible</span>
+                    </div>
+                    <div
+                      v-if="m.archivoUrl"
+                      class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 rounded-xl text-white backdrop-blur-[1px]"
+                    >
+                      <span class="p-1.5 rounded-full bg-black/50 backdrop-blur-sm" title="Ampliar imagen">
+                        <Eye class="w-4 h-4" />
+                      </span>
+                      <a
+                        :href="obtenerUrlMedia(m.archivoUrl)"
+                        :download="m.archivoNombre || 'imagen.jpg'"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="p-1.5 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition"
+                        title="Descargar imagen"
+                        @click.stop
+                      >
+                        <Download class="w-4 h-4" />
+                      </a>
+                    </div>
                   </div>
                 </div>
 
+                <!-- Mensaje tipo documento -->
+                <div
+                  v-else-if="m.tipo === 'documento'"
+                  class="flex items-center gap-3 p-2.5 rounded-xl my-1 border transition"
+                  :class="m.deMi ? 'bg-white/10 border-white/20 text-white' : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100'"
+                >
+                  <div class="p-2 rounded-lg bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
+                    <FileText class="w-5 h-5" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-xs truncate">{{ m.archivoNombre || 'Documento Comercial' }}</div>
+                    <div class="text-[10px] opacity-75">
+                      {{ m.archivoTamano || 'Documento adjunto' }}
+                    </div>
+                  </div>
+                  <a
+                    v-if="m.archivoUrl"
+                    :href="obtenerUrlMedia(m.archivoUrl)"
+                    :download="m.archivoNombre || 'documento.pdf'"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="p-2 rounded-lg transition shrink-0"
+                    :class="m.deMi ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'"
+                    title="Descargar documento"
+                  >
+                    <Download class="w-3.5 h-3.5" />
+                  </a>
+                </div>
+
                 <!-- Texto del mensaje -->
-                <p class="whitespace-pre-wrap leading-relaxed select-text">{{ m.texto }}</p>
+                <p v-if="m.texto" class="whitespace-pre-wrap leading-relaxed select-text mt-1">{{ m.texto }}</p>
 
                 <!-- Pie de la burbuja: hora y estado -->
                 <div
@@ -579,20 +641,71 @@ onUnmounted(() => {
             </button>
           </div>
 
+          <!-- Selector de archivo oculto -->
+          <input
+            ref="inputArchivo"
+            type="file"
+            class="hidden"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+            @change="manejarArchivoSeleccionado"
+          />
+
+          <!-- Banner de archivo adjunto pendiente de envío -->
+          <div
+            v-if="archivoAdjunto"
+            class="px-4 py-2.5 bg-emerald-50/90 dark:bg-emerald-950/40 border-t border-emerald-500/20 flex items-center justify-between gap-3 text-xs"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div v-if="archivoPreviewUrl" class="w-9 h-9 rounded-lg overflow-hidden border border-emerald-500/30 shrink-0 bg-black/10">
+                <img :src="archivoPreviewUrl" alt="Vista previa" class="w-full h-full object-cover" />
+              </div>
+              <div v-else class="p-2 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                <FileText class="w-5 h-5" />
+              </div>
+              <div class="min-w-0">
+                <div class="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                  {{ archivoAdjunto.name }}
+                </div>
+                <div class="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {{ formatearTamanoArchivo(archivoAdjunto.size) }} • Listo para enviar
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="cancelarArchivoAdjunto"
+              class="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-black/5 transition shrink-0"
+              title="Descartar adjunto"
+            >
+              <X class="w-4 h-4" />
+            </button>
+          </div>
+
           <!-- Barra de Redacción de Mensaje -->
           <div class="p-3 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
+            <!-- Botón para adjuntar documento o imagen -->
+            <button
+              type="button"
+              @click="activarSelectorArchivos"
+              :disabled="enviando"
+              class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition shrink-0"
+              title="Adjuntar documento o imagen"
+            >
+              <Paperclip class="w-4 h-4" />
+            </button>
+
             <input
               v-model="textoNuevoMensaje"
               @keydown.enter.prevent="enviarMensaje"
               type="text"
-              placeholder="Escribe un mensaje de WhatsApp... (Enter para enviar)"
+              :placeholder="archivoAdjunto ? 'Añade un comentario al archivo... (Enter para enviar)' : 'Escribe un mensaje de WhatsApp... (Enter para enviar)'"
               class="flex-1 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
             />
 
             <button
               type="button"
               @click="enviarMensaje"
-              :disabled="!textoNuevoMensaje.trim() || enviando"
+              :disabled="(!textoNuevoMensaje.trim() && !archivoAdjunto) || enviando"
               class="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white shadow-sm transition shrink-0 flex items-center justify-center"
             >
               <Send class="w-4 h-4" />
@@ -770,5 +883,49 @@ onUnmounted(() => {
       :abierto="modalConexionAbierto"
       @cerrar="modalConexionAbierto = false"
     />
+
+    <!-- MODAL VISTA PREVIA DE IMAGEN EN ALTA RESOLUCIÓN -->
+    <Teleport to="body">
+      <div
+        v-if="modalImagenVistaPrevia"
+        class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        @click="cerrarImagenModal"
+      >
+        <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" @click.stop>
+          <button
+            type="button"
+            @click="cerrarImagenModal"
+            class="absolute -top-10 right-0 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition"
+            title="Cerrar vista previa"
+          >
+            <X class="w-5 h-5" />
+          </button>
+          <img
+            :src="modalImagenVistaPrevia"
+            alt="Vista previa ampliada"
+            class="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl border border-white/10"
+          />
+          <div class="mt-3 flex items-center gap-3">
+            <a
+              :href="modalImagenVistaPrevia"
+              download="whatsapp_imagen.jpg"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow transition"
+            >
+              <Download class="w-4 h-4" />
+              <span>Descargar Imagen</span>
+            </a>
+            <button
+              type="button"
+              @click="cerrarImagenModal"
+              class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

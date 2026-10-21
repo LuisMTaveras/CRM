@@ -40,6 +40,7 @@ const EMAILS_DB_FILE = path.join(DATA_DIR, 'emails-db.json');
 const CARPETAS_DB_FILE = path.join(DATA_DIR, 'carpetas-db.json');
 
 import whatsappRoutes from './whatsapp/whatsapp-routes.js';
+import { whatsAppService } from './whatsapp/whatsapp-service.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -1822,6 +1823,14 @@ const server = app.listen(PORT, () => {
   console.log(`   POST  /api/whatsapp/conectar     → Iniciar conexión WhatsApp Web`);
   console.log(`   POST  /api/whatsapp/enviar-mensaje → Enviar WhatsApp texto`);
   console.log(`   POST  /api/whatsapp/enviar-documento → Enviar PDF por WhatsApp\n`);
+
+  // Auto-reconexión persistente de WhatsApp Web si ya fue vinculado previamente
+  if (typeof whatsAppService.tieneSesionGuardada === 'function' && whatsAppService.tieneSesionGuardada()) {
+    console.log('🔄 [WhatsApp] Sesión previa detectada en disco. Restaurando conexión de WhatsApp Web...');
+    whatsAppService.iniciarConexion().catch((err) => {
+      console.warn('[WhatsApp] Aviso al restaurar conexión automática:', err.message);
+    });
+  }
 });
 
 server.on('error', (err) => {
@@ -1831,3 +1840,17 @@ server.on('error', (err) => {
     console.error('❌ [EMAIL SERVER] Error inesperado en el servidor:', err);
   }
 });
+
+// Cierre ordenado para no corromper la sesión de WhatsApp ni el socket
+const cerrarGracefully = () => {
+  console.log('\n🛑 Cerrando servidor unificado de forma limpia...');
+  if (whatsAppService && whatsAppService.sock) {
+    try {
+      whatsAppService.sock.end(undefined);
+    } catch {}
+  }
+  process.exit(0);
+};
+
+process.on('SIGINT', cerrarGracefully);
+process.on('SIGTERM', cerrarGracefully);

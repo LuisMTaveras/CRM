@@ -107,10 +107,22 @@ class WhatsAppService {
     }
   }
 
+  tieneSesionGuardada() {
+    const credsFile = path.join(AUTH_DIR, 'creds.json');
+    if (!fs.existsSync(credsFile)) return false;
+    try {
+      const data = JSON.parse(fs.readFileSync(credsFile, 'utf8'));
+      return Boolean(data?.me?.id);
+    } catch {
+      return false;
+    }
+  }
+
   obtenerEstado() {
     return {
       estado: this.estado,
       conectado: this.estado === 'conectado',
+      tieneSesionGuardada: this.tieneSesionGuardada(),
       qrCode: this.qrCodeDataUrl,
       codigoEmparejamiento: this.codigoEmparejamiento,
       usuarioConectado: this.usuarioConectado,
@@ -144,14 +156,35 @@ class WhatsAppService {
       await this.cerrarSesion();
     }
 
-    if (this.sock && this.estado === 'conectado') {
+    // Evitar sockets duplicados si ya está conectado o en proceso de conexión
+    if (this.sock && (this.estado === 'conectado' || this.estado === 'conectando')) {
       return this.obtenerEstado();
+    }
+
+    // Limpiar socket anterior si quedó en estado inconsistente
+    if (this.sock) {
+      try {
+        this.sock.ev.removeAllListeners('connection.update');
+        this.sock.ev.removeAllListeners('creds.update');
+        this.sock.ev.removeAllListeners('messages.upsert');
+        this.sock.end(undefined);
+      } catch {}
+      this.sock = null;
     }
 
     try {
       this.estado = 'conectando';
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
       const { version, isLatest } = await fetchLatestBaileysVersion();
+
+      // Si la sesión ya tiene un usuario vinculado ('me'), asegurar que esté marcada como registrada
+      // Esto evita que Baileys regenere códigos QR o intente vincular de nuevo tras reiniciar el servidor
+      if (state.creds?.me && !state.creds.registered) {
+        state.creds.registered = true;
+        try {
+          await saveCreds();
+        } catch {}
+      }
 
       console.log(`[WhatsApp] Iniciando cliente Baileys v${version.join('.')} (Última: ${isLatest})`);
 
@@ -172,6 +205,12 @@ class WhatsAppService {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
+          // Si ya existen credenciales válidas vinculadas, NO mostrar QR para no confundir al usuario
+          if (state.creds?.me?.id) {
+            console.log('[WhatsApp] QR emitido por Baileys omitido porque ya existe sesión de usuario registrada.');
+            return;
+          }
+
           try {
             this.qrCodeDataUrl = await QRCode.toDataURL(qr, {
               margin: 2,
@@ -189,23 +228,22 @@ class WhatsAppService {
         }
 
         if (connection === 'close') {
-          const shouldReconnect =
-            lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
           const status = lastDisconnect?.error?.output?.statusCode;
+          const esLogoutReal = status === DisconnectReason.loggedOut;
+          const shouldReconnect = !esLogoutReal;
           console.log(`[WhatsApp] Conexión cerrada. Código: ${status}. Reconectar: ${shouldReconnect}`);
 
           this.estado = 'desconectado';
           this.qrCodeDataUrl = null;
-          this.usuarioConectado = null;
 
-          if (shouldReconnect && this.intentosReconexion < this.maxIntentos) {
+          if (shouldReconnect) {
             this.intentosReconexion++;
-            const tiempoEspera = Math.min(this.intentosReconexion * 3000, 15000);
-            console.log(`[WhatsApp] Reintentando conexión en ${tiempoEspera / 1000}s (Intento ${this.intentosReconexion}/${this.maxIntentos})...`);
+            const tiempoEspera = Math.min(this.intentosReconexion * 2500, 20000);
+            console.log(`[WhatsApp] Reintentando conexión en ${tiempoEspera / 1000}s (Intento ${this.intentosReconexion})...`);
             setTimeout(() => this.iniciarConexion(), tiempoEspera);
-          } else if (status === DisconnectReason.loggedOut) {
-            console.log('[WhatsApp] Sesión cerrada permanentemente en el teléfono móvil.');
-            await this.limpiarCredenciales();
+          } else {
+            console.log('[WhatsApp] Sesión desconectada por el servidor o usuario.');
+            this.usuarioConectado = null;
           }
         } else if (connection === 'open') {
           this.estado = 'conectado';
@@ -215,11 +253,12 @@ class WhatsAppService {
 
           const usuario = this.sock.user;
           this.usuarioConectado = {
-            id: usuario?.id?.split(':')[0] || 'Desconocido',
-            nombre: usuario?.name || usuario?.notify || 'Cuenta Conectada',
+            id: usuario?.id?.split(':')[0] || state.creds?.me?.id?.split(':')[0] || 'Desconocido',
+            nombre: usuario?.name || usuario?.notify || state.creds?.me?.name || 'Cuenta Conectada',
           };
 
           console.log(`✅ [WhatsApp] Conectado exitosamente como: ${this.usuarioConectado.nombre} (${this.usuarioConectado.id})`);
+          this.emitirEvento('estado_actualizado', this.obtenerEstado());
         }
       });
 
@@ -461,7 +500,7 @@ class WhatsAppService {
     };
   }
 
-  async enviarArchivoChat(jid, archivoBase64, nombreArchivo = 'archivo.bin', mimeType = 'application/octet-stream', caption = '') {
+  async enviarArchivoChat(jid, archivoBase64, archivoNombre = 'archivo.bin', mimeType = 'application/octet-stream', caption = '') {
     if (!jid || !archivoBase64) {
       throw new Error('JID y contenido del archivo en base64 son requeridos.');
     }
@@ -475,8 +514,8 @@ class WhatsAppService {
     const buffer = Buffer.from(base64Limpia, 'base64');
 
     // Determinar extensión y nombre en disco seguro
-    const ext = path.extname(nombreArchivo) || (mimeType.startsWith('image/') ? '.jpg' : '.pdf');
-    const baseSinExt = path.basename(nombreArchivo, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const ext = path.extname(archivoNombre) || (mimeType.startsWith('image/') ? '.jpg' : '.pdf');
+    const baseSinExt = path.basename(archivoNombre, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
     const nombreDisco = `wa_${Date.now()}_${baseSinExt}${ext}`;
     const rutaArchivo = path.join(MEDIA_DIR, nombreDisco);
 
@@ -508,7 +547,7 @@ class WhatsAppService {
           resultado = await this.sock.sendMessage(jid, {
             document: buffer,
             mimetype: mimeType,
-            fileName: nombreArchivo,
+            fileName: archivoNombre,
             caption: caption && caption.trim() ? caption.trim() : undefined,
           });
         }
@@ -545,7 +584,7 @@ class WhatsAppService {
     let chat = this.chats.find((c) => c.jid === jid);
     const textoResumen = textoMensaje
       ? `${esImagen ? '📷 ' : '📎 '}${textoMensaje}`
-      : (esImagen ? '📷 Imagen' : `📎 ${nombreArchivo}`);
+      : (esImagen ? '📷 Imagen' : `📎 ${archivoNombre}`);
 
     if (chat) {
       chat.ultimoMensaje = textoResumen;

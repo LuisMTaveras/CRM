@@ -5,10 +5,20 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "Si que me entiendes wee",
-      "ultimoTimestamp": "2026-10-21T18:52:44.000Z",
-      "noLeidos": 0,
+      "ultimoMensaje": "📷 Imagen",
+      "ultimoTimestamp": "2026-10-21T19:12:16.000Z",
+      "noLeidos": 1,
       "avatar": "LU"
+    },
+    {
+      "jid": "18298843035@s.whatsapp.net",
+      "telefono": "+18298843035",
+      "nombre": "PEPE",
+      "contacto": "",
+      "ultimoMensaje": "📷 Comprobante de transferencia bancaria",
+      "ultimoTimestamp": "2026-10-21T19:06:26.651Z",
+      "noLeidos": 0,
+      "avatar": "PE"
     },
     {
       "jid": "18299643035@s.whatsapp.net",
@@ -19,16 +29,6 @@
       "ultimoTimestamp": "2026-10-21T18:51:42.000Z",
       "noLeidos": 0,
       "avatar": "EL"
-    },
-    {
-      "jid": "18298843035@s.whatsapp.net",
-      "telefono": "+18298843035",
-      "nombre": "PEPE",
-      "contacto": "",
-      "ultimoMensaje": "Hola Pepe, probando envio de mensajes",
-      "ultimoTimestamp": "2026-10-21T18:47:51.730Z",
-      "noLeidos": 0,
-      "avatar": "PE"
     }
   ],
   "mensajes": {
@@ -41,6 +41,32 @@
         "timestamp": "2026-10-21T18:47:51.730Z",
         "estado": "pendiente",
         "tipo": "texto"
+      },
+      {
+        "id": "wa-file-1792609579823",
+        "deMi": true,
+        "emisor": "Tú",
+        "texto": "Estimado cliente, adjuntamos su cotización.",
+        "timestamp": "2026-10-21T19:06:19.823Z",
+        "estado": "pendiente",
+        "tipo": "documento",
+        "archivoNombre": "Cotizacion_Comercial_Alliance.pdf",
+        "archivoUrl": "/api/whatsapp/media/wa_1792609579823_Cotizacion_Comercial_Alliance.pdf",
+        "archivoTamano": "0 KB",
+        "archivoMime": "application/pdf"
+      },
+      {
+        "id": "wa-file-1792609586651",
+        "deMi": true,
+        "emisor": "Tú",
+        "texto": "Comprobante de transferencia bancaria",
+        "timestamp": "2026-10-21T19:06:26.651Z",
+        "estado": "pendiente",
+        "tipo": "imagen",
+        "archivoNombre": "recibo_pago.png",
+        "archivoUrl": "/api/whatsapp/media/wa_1792609586651_recibo_pago.png",
+        "archivoTamano": "0 KB",
+        "archivoMime": "image/png"
       }
     ],
     "18299643035@s.whatsapp.net": [
@@ -90,6 +116,99 @@
         "timestamp": "2026-10-21T18:52:44.000Z",
         "estado": "recibido",
         "tipo": "texto"
+      },
+      {
+        "id": "wa-file-1792609764105",
+        "deMi": true,
+        "emisor": "Tú",
+        "texto": "Esto es una prueba",
+        "timestamp": "2026-10-21T19:09:24.105Z",
+        "estado": "pendiente",
+        "tipo": "documento",
+        "archivoNombre": "Correo Jucabelso.pdf",
+        "archivoUrl": "/api/whatsapp/media/wa_1792609764105_Correo_Jucabelso.pdf",
+        "archivoTamano": "374 KB",
+        "archivoMime": "application/pdf"
+      },
+      {
+        "id": "wa-1792609778214",
+        "deMi": true,
+        "emisor": "Tú",
+        "texto": "fgh",
+        "timestamp": "2026-10-21T19:09:38.214Z",
+        "estado": "pendiente",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0393993E483B0C846D3",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "655654",
+        "timestamp": "2026-10-21T19:10:41.113Z",
+        "estado": "enviado",
+        "tipo": "documento",
+        "archivoNombre": "Correo Jucabelso.pdf",
+        "archivoUrl": "/api/whatsapp/media/wa_1792609841113_Correo_Jucabelso.pdf",
+        "archivoTamano": "374 KB",
+        "archivoMime": "application/pdf"
+      },
+      {
+        "id": "ACDDC8D723078787DC69E5CF9E5E3FBE",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Hola",
+        "timestamp": "2026-10-21T19:11:05.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC37563873C8EE881A3B6B656E54EF26",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Pepe",
+        "timestamp": "2026-10-21T19:11:11.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC53533257985FF536AC2FCF75E1E799",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Yd7e8",
+        "timestamp": "2026-10-21T19:11:16.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC57F138A63DFB0BBB13289F9024FA71",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Foto del f",
+        "timestamp": "2026-10-21T19:11:17.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC792B683C70268DF0571C9FB1C85861",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Eftr",
+        "timestamp": "2026-10-21T19:11:21.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC9C7AB0086E38935FD5881107C45205",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "",
+        "timestamp": "2026-10-21T19:12:16.000Z",
+        "estado": "recibido",
+        "tipo": "imagen",
+        "archivoNombre": "Imagen_1792609936899.jpg",
+        "archivoUrl": "/api/whatsapp/media/wa_1792609937382_AC9C7AB0086E38935FD5881107C45205.jpg",
+        "archivoTamano": "78 KB",
+        "archivoMime": "image/jpeg"
       }
     ]
   }

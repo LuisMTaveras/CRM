@@ -136,4 +136,88 @@ describe('WhatsAppChatService - Gestión de Conversaciones y Mensajes', () => {
     expect(whatsAppChatService.mensajes.value.length).toBe(1);
     expect(whatsAppChatService.chatActivo.value.ultimoMensaje).toContain('términos del acuerdo');
   });
+
+  it('adjunta y envía un documento PDF correctamente', async () => {
+    whatsAppChatService.chatActivo.value = {
+      jid: '18095550101@s.whatsapp.net',
+      telefono: '+1 (809) 555-0101',
+      nombre: 'Banco BHD León',
+      ultimoMensaje: 'Hola',
+      ultimoTimestamp: '2026-10-21T14:00:00.000Z',
+      noLeidos: 0,
+      avatar: 'BH',
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mensaje: {
+          id: 'msg-doc-1',
+          deMi: true,
+          emisor: 'Tú',
+          texto: 'Cotización comercial adjunta',
+          timestamp: '2026-10-21T14:10:00.000Z',
+          estado: 'enviado',
+          tipo: 'documento',
+          archivoNombre: 'Cotizacion_Formal.pdf',
+          archivoUrl: '/api/whatsapp/media/wa_123_cotizacion.pdf',
+          archivoTamano: '1.2 MB',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const archivoMock = new File(['fake pdf content'], 'Cotizacion_Formal.pdf', {
+      type: 'application/pdf',
+    });
+
+    const enviado = await whatsAppChatService.enviarArchivo(archivoMock, 'Cotización comercial adjunta');
+    expect(enviado).toBe(true);
+    expect(whatsAppChatService.mensajes.value.length).toBe(1);
+    expect(whatsAppChatService.mensajes.value[0].tipo).toBe('documento');
+    expect(whatsAppChatService.mensajes.value[0].archivoNombre).toBe('Cotizacion_Formal.pdf');
+  });
+
+  it('adjunta y envía una imagen correctamente', async () => {
+    whatsAppChatService.chatActivo.value = {
+      jid: '18095550101@s.whatsapp.net',
+      telefono: '+1 (809) 555-0101',
+      nombre: 'Banco BHD León',
+      ultimoMensaje: 'Hola',
+      ultimoTimestamp: '2026-10-21T14:00:00.000Z',
+      noLeidos: 0,
+      avatar: 'BH',
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mensaje: {
+          id: 'msg-img-1',
+          deMi: true,
+          emisor: 'Tú',
+          texto: 'Comprobante de entrega',
+          timestamp: '2026-10-21T14:12:00.000Z',
+          estado: 'enviado',
+          tipo: 'imagen',
+          archivoNombre: 'comprobante.png',
+          archivoUrl: '/api/whatsapp/media/wa_456_comprobante.png',
+          archivoTamano: '450 KB',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const archivoMock = new File(['fake image content'], 'comprobante.png', {
+      type: 'image/png',
+    });
+
+    const enviado = await whatsAppChatService.enviarArchivo(archivoMock, 'Comprobante de entrega');
+    expect(enviado).toBe(true);
+    expect(whatsAppChatService.mensajes.value.length).toBe(1);
+    expect(whatsAppChatService.mensajes.value[0].tipo).toBe('imagen');
+    expect(whatsAppChatService.mensajes.value[0].archivoNombre).toBe('comprobante.png');
+  });
 });
