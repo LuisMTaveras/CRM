@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { globalAbility } from '@/core/permissions/ability';
-import { authService, USUARIOS_CRM } from '../services/auth.service';
+import { authService } from '../services/auth.service';
 import { rolesPermisosService } from '../services/roles-permisos.service';
-import type { CredencialesLogin, RolUsuario, Usuario } from '../types/auth.types';
+import type { CredencialesLogin, Usuario } from '../types/auth.types';
 
 export const useAuthStore = defineStore('auth', () => {
   const usuario = ref<Omit<Usuario, 'contrasena'> | null>(null);
@@ -75,37 +75,6 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('crm_sesion_auth');
   };
 
-  // Simulador de escenarios y cambio rápido de rol
-  const cambiarRolRapido = (nuevoRol: RolUsuario) => {
-    const usuarioEjemplo = USUARIOS_CRM.find((u) => u.rol === nuevoRol) || USUARIOS_CRM[0];
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { contrasena, ...sinPass } = usuarioEjemplo;
-    
-    const usuarioModificado = {
-      ...sinPass,
-      rol: nuevoRol,
-    };
-
-    usuario.value = usuarioModificado;
-    token.value = `crm_jwt_${nuevoRol}_quick`;
-    
-    const permisos = rolesPermisosService.calcularPermisosEfectivos(usuarioModificado as Usuario);
-    const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisos);
-
-    globalAbility.setUser(usuario.value);
-    globalAbility.updateRules(reglas);
-
-    localStorage.setItem(
-      'crm_sesion_auth',
-      JSON.stringify({
-        usuario: usuario.value,
-        token: token.value,
-        reglas,
-        permisosEfectivos: permisos,
-      })
-    );
-  };
-
   const actualizarPerfilActual = (cambios: Partial<Usuario>) => {
     if (!usuario.value) return;
     usuario.value = { ...usuario.value, ...cambios };
@@ -134,7 +103,6 @@ export const useAuthStore = defineStore('auth', () => {
     inicializarSesion,
     iniciarSesion,
     cerrarSesion,
-    cambiarRolRapido,
     actualizarPerfilActual,
   };
 });

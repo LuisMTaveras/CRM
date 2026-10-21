@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth.store';
 import { authService } from '../services/auth.service';
 import { rolesPermisosService } from '../services/roles-permisos.service';
-import type { Usuario, RolUsuario } from '../types/auth.types';
+import type { Usuario } from '../types/auth.types';
 import { 
   CATALOGO_PERMISOS, 
   MODULOS_SISTEMA, 
@@ -16,7 +16,6 @@ import {
   Shield, 
   Check, 
   X, 
-  Sparkles, 
   RefreshCw, 
   Edit3, 
   Save, 
@@ -93,14 +92,6 @@ const opcionesRolesSelect = computed<Array<SelectOption<string>>>(() => {
     label: r.nombre,
     description: r.descripcion,
     badge: r.esSistema ? 'Sistema' : 'Personalizado',
-  }));
-});
-
-// Opciones de Simulador de Rol en Cabecera
-const opcionesSimuladorRol = computed<Array<SelectOption<string>>>(() => {
-  return roles.value.map((r) => ({
-    value: r.id,
-    label: r.nombre,
   }));
 });
 
@@ -398,24 +389,9 @@ onMounted(async () => {
     </div>
   </Teleport>
 
-  <!-- Teleport de Simulador hacia la Barra Superior -->
+  <!-- Teleport de Acciones hacia la Barra Superior -->
   <Teleport to="#header-portal-right">
     <div class="flex items-center gap-2">
-      <!-- Selector de simulación con AppSelect -->
-      <div class="hidden sm:flex items-center gap-2">
-        <span class="text-zinc-500 dark:text-zinc-400 text-[11px] flex items-center gap-1 font-medium">
-          <Sparkles class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          Probar Rol:
-        </span>
-        <AppSelect
-          :model-value="authStore.rol"
-          @update:model-value="(nuevo) => authStore.cambiarRolRapido(nuevo as RolUsuario)"
-          :options="opcionesSimuladorRol"
-          size="sm"
-          min-width-class="min-w-[190px]"
-        />
-      </div>
-
       <button
         @click="recargarDatos"
         :disabled="cargando"

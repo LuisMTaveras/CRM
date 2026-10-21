@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
-import { rolesPermisosService } from '@/modules/auth/services/roles-permisos.service';
 import { themeService } from '@/core/theme/theme.service';
-import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import CommandPaletteModal from '@/shared/components/CommandPaletteModal.vue';
 import CentroNotificaciones from '@/shared/components/CentroNotificaciones.vue';
 import { LogOut, ChevronDown, User, Sun, Moon, Search } from 'lucide-vue-next';
-import type { RolUsuario } from '@/modules/auth/types/auth.types';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -29,18 +26,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', manejarAtajoTeclado);
 });
-
-const opcionesRoles = computed<Array<SelectOption<string>>>(() => {
-  return rolesPermisosService.obtenerRoles().map((r) => ({
-    value: r.id,
-    label: r.nombre,
-  }));
-});
-
-const cambiarRol = (rol: RolUsuario) => {
-  authStore.cambiarRolRapido(rol);
-  menuUsuarioAbierto.value = false;
-};
 
 const alternarTema = () => {
   themeService.alternarTema();
@@ -101,19 +86,6 @@ const cerrarSesion = () => {
         <Sun v-if="themeService.tema.value === 'dark'" class="w-4 h-4 text-amber-400 transition-transform rotate-0 hover:rotate-45" />
         <Moon v-else class="w-4 h-4 text-indigo-600 transition-transform -rotate-12 hover:rotate-0" />
       </button>
-
-      <!-- Selector Rápido de Rol Activo con AppSelect -->
-      <div class="hidden sm:flex items-center gap-1.5">
-        <AppSelect
-          :model-value="authStore.rol"
-          @update:model-value="(nuevo) => cambiarRol(nuevo as RolUsuario)"
-          :options="opcionesRoles"
-          size="sm"
-          label-prefix="Rol:"
-          align="right"
-          min-width-class="min-w-[210px]"
-        />
-      </div>
 
       <div class="h-4 w-px bg-zinc-200 dark:bg-white/[0.08]"></div>
 
