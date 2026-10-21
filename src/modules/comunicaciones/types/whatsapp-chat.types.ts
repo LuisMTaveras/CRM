@@ -1,3 +1,9 @@
+export interface MensajeCitado {
+  id: string;
+  emisor: string;
+  texto: string;
+}
+
 export interface MensajeWhatsApp {
   id: string;
   deMi: boolean;
@@ -5,11 +11,14 @@ export interface MensajeWhatsApp {
   texto: string;
   timestamp: string;
   estado: 'pendiente' | 'enviado' | 'entregado' | 'leido' | 'recibido';
-  tipo: 'texto' | 'documento' | 'imagen';
+  tipo: 'texto' | 'documento' | 'imagen' | 'audio';
+  esNotaVoz?: boolean;
+  duracionSegundos?: number;
   archivoNombre?: string;
   archivoUrl?: string;
   archivoTamano?: string;
   archivoMime?: string;
+  mensajeCitado?: MensajeCitado;
 }
 
 export interface ChatWhatsApp {

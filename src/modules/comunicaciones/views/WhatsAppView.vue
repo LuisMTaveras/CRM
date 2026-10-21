@@ -4,8 +4,11 @@ import { whatsAppChatService } from '../services/whatsapp-chat.service';
 import { whatsAppService } from '../services/whatsapp.service';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import type { Cliente } from '@/modules/clientes/types/cliente.types';
-import type { ChatWhatsApp } from '../types/whatsapp-chat.types';
+import type { ChatWhatsApp, MensajeWhatsApp, MensajeCitado } from '../types/whatsapp-chat.types';
 import ModalConexionWhatsApp from '../components/ModalConexionWhatsApp.vue';
+import ReproductorNotaVoz from '../components/ReproductorNotaVoz.vue';
+import { asistenteIaService, type IntencionComercial } from '../services/asistente-ia.service';
+import { toastService } from '@/core/notifications/toast.service';
 import {
   MessageSquare,
   Search,
@@ -25,6 +28,11 @@ import {
   Image as ImageIcon,
   Download,
   Eye,
+  CornerUpLeft,
+  Copy,
+  ChevronUp,
+  ChevronDown,
+  Bot,
 } from 'lucide-vue-next';
 import { formatRelativeTime } from '@/core/formatters/formatters';
 
@@ -38,6 +46,18 @@ const clienteSeleccionadoId = ref('');
 const telefonoManual = ref('');
 const nombreManual = ref('');
 const contenedorMensajes = ref<HTMLDivElement | null>(null);
+const inputBusquedaChat = ref<HTMLInputElement | null>(null);
+
+// Búsqueda en conversación activa
+const busquedaChatActivo = ref('');
+const barraBusquedaAbierta = ref(false);
+const indiceCoincidenciaActual = ref(0);
+
+// Citas y respuestas a mensajes
+const mensajeRespondido = ref<MensajeWhatsApp | null>(null);
+
+// Asistente IA de respuestas rápidas
+const menuIaAbierto = ref(false);
 
 // Adjuntos y Multimedia
 const inputArchivo = ref<HTMLInputElement | null>(null);
@@ -164,6 +184,169 @@ const cerrarImagenModal = () => {
   modalImagenVistaPrevia.value = null;
 };
 
+const formatearTextoWhatsApp = (texto?: string): string => {
+  if (!texto) return '';
+  let safe = texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // Enlaces web clicables
+  safe = safe.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:opacity-80 break-all font-semibold">$1</a>'
+  );
+
+  // Formato WhatsApp
+  safe = safe.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+  safe = safe.replace(/~([^~\n]+)~/g, '<del class="opacity-75">$1</del>');
+  safe = safe.replace(/```([^`]+)```/g, '<code class="px-1.5 py-0.5 rounded bg-black/15 dark:bg-white/15 font-mono text-[11px]">$1</code>');
+
+  return safe;
+};
+
+const esPrimerMensajeDelDia = (indice: number): boolean => {
+  if (indice === 0) return true;
+  const msgActual = mensajes.value[indice];
+  const msgAnterior = mensajes.value[indice - 1];
+  if (!msgActual?.timestamp || !msgAnterior?.timestamp) return false;
+
+  const dActual = new Date(msgActual.timestamp).toDateString();
+  const dAnterior = new Date(msgAnterior.timestamp).toDateString();
+  return dActual !== dAnterior;
+};
+
+const formatearEtiquetaFecha = (iso: string): string => {
+  try {
+    const fecha = new Date(iso);
+    const hoy = new Date();
+    const ayer = new Date();
+    ayer.setDate(hoy.getDate() - 1);
+
+    if (fecha.toDateString() === hoy.toDateString()) {
+      return 'Hoy';
+    }
+    if (fecha.toDateString() === ayer.toDateString()) {
+      return 'Ayer';
+    }
+
+    const opciones: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: fecha.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined,
+    };
+    const formateada = fecha.toLocaleDateString('es-DO', opciones);
+    return formateada.charAt(0).toUpperCase() + formateada.slice(1);
+  } catch {
+    return 'Fecha anterior';
+  }
+};
+
+const copiarTextoMensaje = async (texto?: string) => {
+  if (!texto) return;
+  try {
+    await navigator.clipboard.writeText(texto);
+    toastService.exito('Mensaje copiado al portapapeles');
+  } catch {
+    toastService.advertencia('No se pudo acceder al portapapeles');
+  }
+};
+
+const iniciarRespuesta = (m: MensajeWhatsApp) => {
+  mensajeRespondido.value = m;
+};
+
+const cancelarRespuesta = () => {
+  mensajeRespondido.value = null;
+};
+
+const irAMensajePorId = (id?: string) => {
+  if (!id) return;
+  const el = document.getElementById(`msg-${id}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-emerald-400');
+    setTimeout(() => {
+      el.classList.remove('ring-2', 'ring-emerald-400');
+    }, 2000);
+  }
+};
+
+// Búsqueda dentro del chat activo
+const coincidenciasBusqueda = computed(() => {
+  if (!busquedaChatActivo.value.trim()) return [];
+  const query = busquedaChatActivo.value.toLowerCase().trim();
+  const indices: number[] = [];
+  mensajes.value.forEach((m, idx) => {
+    const texto = (m.texto || '').toLowerCase();
+    const nombre = (m.archivoNombre || '').toLowerCase();
+    if (texto.includes(query) || nombre.includes(query)) {
+      indices.push(idx);
+    }
+  });
+  return indices;
+});
+
+const alternarBarraBusqueda = () => {
+  barraBusquedaAbierta.value = !barraBusquedaAbierta.value;
+  if (barraBusquedaAbierta.value) {
+    nextTick(() => {
+      inputBusquedaChat.value?.focus();
+    });
+  } else {
+    busquedaChatActivo.value = '';
+  }
+};
+
+const siguienteCoincidencia = () => {
+  if (coincidenciasBusqueda.value.length === 0) return;
+  indiceCoincidenciaActual.value =
+    (indiceCoincidenciaActual.value + 1) % coincidenciasBusqueda.value.length;
+  irAMensajePorIndice(coincidenciasBusqueda.value[indiceCoincidenciaActual.value]);
+};
+
+const anteriorCoincidencia = () => {
+  if (coincidenciasBusqueda.value.length === 0) return;
+  indiceCoincidenciaActual.value =
+    (indiceCoincidenciaActual.value - 1 + coincidenciasBusqueda.value.length) %
+    coincidenciasBusqueda.value.length;
+  irAMensajePorIndice(coincidenciasBusqueda.value[indiceCoincidenciaActual.value]);
+};
+
+const irAMensajePorIndice = (idx: number) => {
+  const m = mensajes.value[idx];
+  if (m) {
+    irAMensajePorId(m.id);
+  }
+};
+
+// Sugerencias con IA
+const generarSugerenciaIa = (tipo: 'seguimiento' | 'confirmacion' | 'cierre' | 'recordatorio') => {
+  const nombre = chatActivo.value?.contacto || chatActivo.value?.nombre || 'Estimado cliente';
+  const clienteNombre = clienteDelChat.value?.razon_social || chatActivo.value?.nombre || 'su empresa';
+
+  const mapaIntenciones: Record<string, IntencionComercial> = {
+    seguimiento: 'seguimiento_cotizacion',
+    confirmacion: 'confirmacion_reunion',
+    cierre: 'bienvenida_cierre',
+    recordatorio: 'recordatorio_pago',
+  };
+
+  const textoGenerado = asistenteIaService.generarMensajeWhatsApp({
+    intencion: mapaIntenciones[tipo] || 'seguimiento_cotizacion',
+    clienteNombre,
+    contactoNombre: nombre,
+  });
+
+  textoNuevoMensaje.value = textoGenerado;
+  menuIaAbierto.value = false;
+  toastService.exito('Respuesta sugerida con IA cargada en el editor');
+};
+
 const enviarMensaje = async () => {
   if (enviando.value) return;
 
@@ -181,12 +364,22 @@ const enviarMensaje = async () => {
     return;
   }
 
-  // Envío tradicional de texto
+  // Envío tradicional de texto (con soporte para cita/respuesta)
   if (!textoNuevoMensaje.value.trim()) return;
   const texto = textoNuevoMensaje.value;
   textoNuevoMensaje.value = '';
 
-  const exito = await whatsAppChatService.enviarMensaje(texto);
+  let mensajeCitadoPayload: MensajeCitado | undefined = undefined;
+  if (mensajeRespondido.value) {
+    mensajeCitadoPayload = {
+      id: mensajeRespondido.value.id,
+      emisor: mensajeRespondido.value.emisor,
+      texto: mensajeRespondido.value.texto || mensajeRespondido.value.archivoNombre || 'Archivo multimedia',
+    };
+    cancelarRespuesta();
+  }
+
+  const exito = await whatsAppChatService.enviarMensaje(texto, mensajeCitadoPayload);
   if (exito) {
     hacerScrollAbajo();
   } else {
@@ -291,6 +484,13 @@ onUnmounted(() => {
             >
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               WhatsApp Web Conectado
+            </span>
+            <span
+              v-else-if="whatsAppService.estado.value === 'conectando'"
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
+              Restaurando Sesión...
             </span>
             <span
               v-else
@@ -473,8 +673,28 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Botones de Acción Comercial -->
-            <div class="flex items-center gap-2">
+            <!-- Botones de Acción Comercial y Búsqueda -->
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                @click="alternarBarraBusqueda"
+                class="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                :class="barraBusquedaAbierta ? 'bg-zinc-100 dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400' : ''"
+                title="Buscar en la conversación activa"
+              >
+                <Search class="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                @click="menuIaAbierto = !menuIaAbierto"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium transition"
+                title="Asistente de respuestas sugeridas con IA"
+              >
+                <Sparkles class="w-3.5 h-3.5" />
+                <span>Asistente IA</span>
+              </button>
+
               <router-link
                 v-if="clienteDelChat"
                 :to="{ path: '/clientes', query: { buscar: clienteDelChat.identificacion_fiscal || clienteDelChat.codigo } }"
@@ -494,6 +714,102 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- Barra Desplegable de Búsqueda Dentro de la Conversación Activa -->
+          <div
+            v-if="barraBusquedaAbierta"
+            class="px-4 py-2 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 text-xs animate-in slide-in-from-top-1"
+          >
+            <div class="flex items-center gap-2 flex-1 max-w-md">
+              <Search class="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+              <input
+                v-model="busquedaChatActivo"
+                ref="inputBusquedaChat"
+                type="text"
+                placeholder="Buscar texto en mensajes..."
+                class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500"
+                @keydown.enter.prevent="siguienteCoincidencia"
+                @keydown.esc="barraBusquedaAbierta = false"
+              />
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span v-if="busquedaChatActivo.trim()">
+                {{ coincidenciasBusqueda.length > 0 ? `${indiceCoincidenciaActual + 1} de ${coincidenciasBusqueda.length}` : 'Sin coincidencias' }}
+              </span>
+              <div v-if="coincidenciasBusqueda.length > 0" class="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  @click="anteriorCoincidencia"
+                  class="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition"
+                  title="Coincidencia anterior"
+                >
+                  <ChevronUp class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  @click="siguienteCoincidencia"
+                  class="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition"
+                  title="Siguiente coincidencia"
+                >
+                  <ChevronDown class="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <button
+                type="button"
+                @click="barraBusquedaAbierta = false; busquedaChatActivo = ''"
+                class="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition"
+                title="Cerrar búsqueda"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Menú Flotante de Sugerencias con IA -->
+          <div
+            v-if="menuIaAbierto"
+            class="px-4 py-2.5 bg-amber-50/90 dark:bg-amber-950/40 border-b border-amber-500/20 flex flex-wrap items-center gap-2 text-xs"
+          >
+            <span class="text-amber-800 dark:text-amber-300 font-semibold flex items-center gap-1.5 shrink-0">
+              <Bot class="w-3.5 h-3.5 text-amber-500" />
+              <span>Plantillas IA:</span>
+            </span>
+            <button
+              type="button"
+              @click="generarSugerenciaIa('seguimiento')"
+              class="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/60 text-zinc-800 dark:text-zinc-200 hover:border-amber-500 transition text-[11px]"
+            >
+              📈 Seguimiento Cotización
+            </button>
+            <button
+              type="button"
+              @click="generarSugerenciaIa('confirmacion')"
+              class="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/60 text-zinc-800 dark:text-zinc-200 hover:border-amber-500 transition text-[11px]"
+            >
+              📅 Confirmar Reunión
+            </button>
+            <button
+              type="button"
+              @click="generarSugerenciaIa('cierre')"
+              class="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/60 text-zinc-800 dark:text-zinc-200 hover:border-amber-500 transition text-[11px]"
+            >
+              🤝 Bienvenida y Cierre
+            </button>
+            <button
+              type="button"
+              @click="generarSugerenciaIa('recordatorio')"
+              class="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/60 text-zinc-800 dark:text-zinc-200 hover:border-amber-500 transition text-[11px]"
+            >
+              💳 Recordatorio de Pago
+            </button>
+            <button
+              type="button"
+              @click="menuIaAbierto = false"
+              class="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 ml-auto"
+            >
+              <X class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           <!-- Historial de Mensajes -->
           <div
             ref="contenedorMensajes"
@@ -507,121 +823,191 @@ onUnmounted(() => {
               </span>
             </div>
 
-            <!-- Burbujas de Mensaje -->
-            <div
-              v-for="m in mensajes"
-              :key="m.id"
-              :class="[
-                'flex flex-col max-w-[78%] md:max-w-[65%]',
-                m.deMi ? 'ml-auto items-end' : 'mr-auto items-start'
-              ]"
-            >
+            <!-- Burbujas de Mensaje con Agrupación por Fecha -->
+            <template v-for="(m, idx) in mensajes" :key="m.id">
+              <!-- Separador Inteligente de Fecha -->
+              <div v-if="esPrimerMensajeDelDia(idx)" class="flex justify-center my-3 select-none">
+                <span class="px-3 py-0.5 rounded-full text-[10px] font-medium bg-zinc-200/80 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 shadow-sm border border-zinc-300/40 dark:border-zinc-700/40">
+                  {{ formatearEtiquetaFecha(m.timestamp) }}
+                </span>
+              </div>
+
+              <!-- Burbuja de Mensaje -->
               <div
+                :id="'msg-' + m.id"
                 :class="[
-                  'rounded-2xl px-4 py-2.5 text-xs shadow-sm transition',
-                  m.deMi
-                    ? 'bg-emerald-600 text-white dark:bg-emerald-700 rounded-br-none'
-                    : 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200/80 dark:border-zinc-700/60 rounded-bl-none'
+                  'flex flex-col max-w-[85%] sm:max-w-[75%] md:max-w-[65%] group relative transition',
+                  m.deMi ? 'ml-auto items-end' : 'mr-auto items-start'
                 ]"
               >
-                <!-- Nombre del Emisor si es grupo o cliente -->
+                <!-- Barra de Acciones al pasar el cursor (Hover) -->
                 <div
-                  v-if="!m.deMi"
-                  class="font-semibold text-[10px] text-emerald-600 dark:text-emerald-400 mb-0.5"
+                  class="absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 z-10"
+                  :class="m.deMi ? '-left-16' : '-right-16'"
                 >
-                  {{ m.emisor }}
-                </div>
-
-                <!-- Mensaje tipo imagen -->
-                <div v-if="m.tipo === 'imagen'" class="my-1 rounded-xl overflow-hidden">
-                  <div
-                    class="relative group cursor-pointer"
-                    @click="m.archivoUrl && abrirImagenModal(obtenerUrlMedia(m.archivoUrl))"
+                  <button
+                    type="button"
+                    @click="iniciarRespuesta(m)"
+                    class="p-1.5 rounded-full bg-white dark:bg-zinc-800 shadow-md border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                    title="Responder a este mensaje"
                   >
-                    <img
-                      v-if="m.archivoUrl"
-                      :src="obtenerUrlMedia(m.archivoUrl)"
-                      :alt="m.archivoNombre || 'Imagen adjunta'"
-                      class="rounded-xl max-h-60 max-w-full object-cover border border-black/10 transition group-hover:brightness-95 shadow-sm"
-                      loading="lazy"
-                    />
-                    <div
-                      v-else
-                      class="p-6 bg-black/10 rounded-xl flex items-center justify-center text-zinc-400 gap-2"
-                    >
-                      <ImageIcon class="w-5 h-5" />
-                      <span>Imagen no disponible</span>
-                    </div>
-                    <div
-                      v-if="m.archivoUrl"
-                      class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 rounded-xl text-white backdrop-blur-[1px]"
-                    >
-                      <span class="p-1.5 rounded-full bg-black/50 backdrop-blur-sm" title="Ampliar imagen">
-                        <Eye class="w-4 h-4" />
-                      </span>
-                      <a
-                        :href="obtenerUrlMedia(m.archivoUrl)"
-                        :download="m.archivoNombre || 'imagen.jpg'"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="p-1.5 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition"
-                        title="Descargar imagen"
-                        @click.stop
-                      >
-                        <Download class="w-4 h-4" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Mensaje tipo documento -->
-                <div
-                  v-else-if="m.tipo === 'documento'"
-                  class="flex items-center gap-3 p-2.5 rounded-xl my-1 border transition"
-                  :class="m.deMi ? 'bg-white/10 border-white/20 text-white' : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100'"
-                >
-                  <div class="p-2 rounded-lg bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
-                    <FileText class="w-5 h-5" />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="font-semibold text-xs truncate">{{ m.archivoNombre || 'Documento Comercial' }}</div>
-                    <div class="text-[10px] opacity-75">
-                      {{ m.archivoTamano || 'Documento adjunto' }}
-                    </div>
-                  </div>
-                  <a
-                    v-if="m.archivoUrl"
-                    :href="obtenerUrlMedia(m.archivoUrl)"
-                    :download="m.archivoNombre || 'documento.pdf'"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="p-2 rounded-lg transition shrink-0"
-                    :class="m.deMi ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'"
-                    title="Descargar documento"
+                    <CornerUpLeft class="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    v-if="m.texto"
+                    type="button"
+                    @click="copiarTextoMensaje(m.texto)"
+                    class="p-1.5 rounded-full bg-white dark:bg-zinc-800 shadow-md border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition"
+                    title="Copiar texto"
                   >
-                    <Download class="w-3.5 h-3.5" />
-                  </a>
+                    <Copy class="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
-                <!-- Texto del mensaje -->
-                <p v-if="m.texto" class="whitespace-pre-wrap leading-relaxed select-text mt-1">{{ m.texto }}</p>
-
-                <!-- Pie de la burbuja: hora y estado -->
+                <!-- Tarjeta Principal de la Burbuja -->
                 <div
                   :class="[
-                    'flex items-center justify-end gap-1 text-[9px] mt-1 font-mono',
-                    m.deMi ? 'text-emerald-100 dark:text-emerald-200' : 'text-zinc-400 dark:text-zinc-400'
+                    'rounded-2xl px-4 py-2.5 text-xs shadow-sm transition relative',
+                    m.deMi
+                      ? 'bg-emerald-600 text-white dark:bg-emerald-700 rounded-br-none'
+                      : 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200/80 dark:border-zinc-700/60 rounded-bl-none',
+                    coincidenciasBusqueda.includes(idx) ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''
                   ]"
                 >
-                  <span>{{ formatearHoraMensaje(m.timestamp) }}</span>
-                  <template v-if="m.deMi">
-                    <CheckCheck v-if="m.estado === 'leido'" class="w-3 h-3 text-cyan-200" />
-                    <CheckCheck v-else-if="m.estado === 'entregado'" class="w-3 h-3 text-white/80" />
-                    <Check v-else class="w-3 h-3 text-white/70" />
-                  </template>
+                  <!-- Nombre del Emisor si es grupo o cliente -->
+                  <div
+                    v-if="!m.deMi"
+                    class="font-semibold text-[10px] text-emerald-600 dark:text-emerald-400 mb-0.5"
+                  >
+                    {{ m.emisor }}
+                  </div>
+
+                  <!-- Mensaje Citado / Respondido -->
+                  <div
+                    v-if="m.mensajeCitado"
+                    @click="irAMensajePorId(m.mensajeCitado.id)"
+                    class="mb-2 p-2 rounded-lg text-[11px] border-l-4 transition flex flex-col gap-0.5 cursor-pointer"
+                    :class="[
+                      m.deMi
+                        ? 'bg-black/20 border-white/90 text-white/90 hover:bg-black/30'
+                        : 'bg-zinc-100 dark:bg-zinc-900 border-emerald-500 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-750'
+                    ]"
+                    title="Clic para ver mensaje original"
+                  >
+                    <div class="font-bold text-[10px] flex items-center gap-1 opacity-90">
+                      <CornerUpLeft class="w-3 h-3 text-emerald-400" />
+                      <span>{{ m.mensajeCitado.emisor }}</span>
+                    </div>
+                    <div class="truncate text-[10px] opacity-80">{{ m.mensajeCitado.texto }}</div>
+                  </div>
+
+                  <!-- Mensaje tipo audio / nota de voz -->
+                  <div v-if="m.tipo === 'audio'" class="my-1">
+                    <ReproductorNotaVoz
+                      :src="obtenerUrlMedia(m.archivoUrl)"
+                      :duracion-segundos="m.duracionSegundos || 0"
+                      :es-nota-voz="m.esNotaVoz !== false"
+                      :nombre-archivo="m.archivoNombre || 'nota_de_voz.ogg'"
+                      :tamano="m.archivoTamano"
+                      :de-mi="m.deMi"
+                    />
+                  </div>
+
+                  <!-- Mensaje tipo imagen -->
+                  <div v-else-if="m.tipo === 'imagen'" class="my-1 rounded-xl overflow-hidden">
+                    <div
+                      class="relative group cursor-pointer"
+                      @click="m.archivoUrl && abrirImagenModal(obtenerUrlMedia(m.archivoUrl))"
+                    >
+                      <img
+                        v-if="m.archivoUrl"
+                        :src="obtenerUrlMedia(m.archivoUrl)"
+                        :alt="m.archivoNombre || 'Imagen adjunta'"
+                        class="rounded-xl max-h-60 max-w-full object-cover border border-black/10 transition group-hover:brightness-95 shadow-sm"
+                        loading="lazy"
+                      />
+                      <div
+                        v-else
+                        class="p-6 bg-black/10 rounded-xl flex items-center justify-center text-zinc-400 gap-2"
+                      >
+                        <ImageIcon class="w-5 h-5" />
+                        <span>Imagen no disponible</span>
+                      </div>
+                      <div
+                        v-if="m.archivoUrl"
+                        class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 rounded-xl text-white backdrop-blur-[1px]"
+                      >
+                        <span class="p-1.5 rounded-full bg-black/50 backdrop-blur-sm" title="Ampliar imagen">
+                          <Eye class="w-4 h-4" />
+                        </span>
+                        <a
+                          :href="obtenerUrlMedia(m.archivoUrl)"
+                          :download="m.archivoNombre || 'imagen.jpg'"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="p-1.5 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition"
+                          title="Descargar imagen"
+                          @click.stop
+                        >
+                          <Download class="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Mensaje tipo documento -->
+                  <div
+                    v-else-if="m.tipo === 'documento'"
+                    class="flex items-center gap-3 p-2.5 rounded-xl my-1 border transition"
+                    :class="m.deMi ? 'bg-white/10 border-white/20 text-white' : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100'"
+                  >
+                    <div class="p-2 rounded-lg bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
+                      <FileText class="w-5 h-5" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="font-semibold text-xs truncate">{{ m.archivoNombre || 'Documento Comercial' }}</div>
+                      <div class="text-[10px] opacity-75">
+                        {{ m.archivoTamano || 'Documento adjunto' }}
+                      </div>
+                    </div>
+                    <a
+                      v-if="m.archivoUrl"
+                      :href="obtenerUrlMedia(m.archivoUrl)"
+                      :download="m.archivoNombre || 'documento.pdf'"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="p-2 rounded-lg transition shrink-0"
+                      :class="m.deMi ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300'"
+                      title="Descargar documento"
+                    >
+                      <Download class="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+
+                  <!-- Texto del mensaje formateado -->
+                  <div
+                    v-if="m.texto"
+                    class="whitespace-pre-wrap leading-relaxed select-text mt-1 text-xs"
+                    v-html="formatearTextoWhatsApp(m.texto)"
+                  ></div>
+
+                  <!-- Pie de la burbuja: hora y estado -->
+                  <div
+                    :class="[
+                      'flex items-center justify-end gap-1 text-[9px] mt-1 font-mono select-none',
+                      m.deMi ? 'text-emerald-100 dark:text-emerald-200' : 'text-zinc-400 dark:text-zinc-400'
+                    ]"
+                  >
+                    <span>{{ formatearHoraMensaje(m.timestamp) }}</span>
+                    <template v-if="m.deMi">
+                      <CheckCheck v-if="m.estado === 'leido'" class="w-3 h-3 text-emerald-200 dark:text-emerald-300" />
+                      <CheckCheck v-else-if="m.estado === 'entregado'" class="w-3 h-3 text-white/80" />
+                      <Check v-else class="w-3 h-3 text-white/70" />
+                    </template>
+                  </div>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
 
           <!-- Respuestas Rápidas Flotantes -->
@@ -646,9 +1032,35 @@ onUnmounted(() => {
             ref="inputArchivo"
             type="file"
             class="hidden"
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+            accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
             @change="manejarArchivoSeleccionado"
           />
+
+          <!-- Banner de respuesta/cita a mensaje previo -->
+          <div
+            v-if="mensajeRespondido"
+            class="px-4 py-2 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 text-xs animate-in slide-in-from-bottom-1"
+          >
+            <div class="flex items-center gap-2.5 border-l-4 border-emerald-500 pl-2.5 min-w-0">
+              <CornerUpLeft class="w-4 h-4 text-emerald-500 shrink-0" />
+              <div class="min-w-0">
+                <div class="font-bold text-[11px] text-emerald-600 dark:text-emerald-400">
+                  Respondiendo a {{ mensajeRespondido.emisor }}
+                </div>
+                <div class="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {{ mensajeRespondido.texto || mensajeRespondido.archivoNombre || (mensajeRespondido.tipo === 'audio' ? 'Nota de voz' : 'Archivo adjunto') }}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="cancelarRespuesta"
+              class="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-black/5 transition shrink-0"
+              title="Cancelar respuesta"
+            >
+              <X class="w-4 h-4" />
+            </button>
+          </div>
 
           <!-- Banner de archivo adjunto pendiente de envío -->
           <div
@@ -683,13 +1095,13 @@ onUnmounted(() => {
 
           <!-- Barra de Redacción de Mensaje -->
           <div class="p-3 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
-            <!-- Botón para adjuntar documento o imagen -->
+            <!-- Botón para adjuntar documento, imagen o audio -->
             <button
               type="button"
               @click="activarSelectorArchivos"
               :disabled="enviando"
               class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition shrink-0"
-              title="Adjuntar documento o imagen"
+              title="Adjuntar imagen, audio o documento"
             >
               <Paperclip class="w-4 h-4" />
             </button>
@@ -698,7 +1110,7 @@ onUnmounted(() => {
               v-model="textoNuevoMensaje"
               @keydown.enter.prevent="enviarMensaje"
               type="text"
-              :placeholder="archivoAdjunto ? 'Añade un comentario al archivo... (Enter para enviar)' : 'Escribe un mensaje de WhatsApp... (Enter para enviar)'"
+              :placeholder="mensajeRespondido ? `Respondiendo a ${mensajeRespondido.emisor}...` : (archivoAdjunto ? 'Añade un comentario al archivo... (Enter para enviar)' : 'Escribe un mensaje de WhatsApp... (*negrita*, _cursiva_)')"
               class="flex-1 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
             />
 

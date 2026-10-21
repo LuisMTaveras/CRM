@@ -14,6 +14,7 @@ export interface EstadoWhatsAppRespuesta {
   ok: boolean;
   estado: EstadoWhatsApp;
   conectado: boolean;
+  tieneSesionGuardada?: boolean;
   qrCode: string | null;
   usuarioConectado: UsuarioWhatsAppConectado | null;
   ultimaConexion: string | null;
@@ -36,6 +37,7 @@ export interface MensajeWhatsAppRegistro {
 class WhatsAppService {
   readonly estado = ref<EstadoWhatsApp>('desconectado');
   readonly conectado = computed(() => this.estado.value === 'conectado');
+  readonly tieneSesionGuardada = ref(false);
   readonly qrCode = ref<string | null>(null);
   readonly codigoEmparejamiento = ref<string | null>(null);
   readonly usuarioConectado = ref<UsuarioWhatsAppConectado | null>(null);
@@ -89,6 +91,14 @@ class WhatsAppService {
         this.qrCode.value = data.qrCode;
         this.usuarioConectado.value = data.usuarioConectado;
         this.ultimaConexion.value = data.ultimaConexion;
+        if (typeof data.tieneSesionGuardada === 'boolean') {
+          this.tieneSesionGuardada.value = data.tieneSesionGuardada;
+        }
+
+        // Si el backend reporta sesión guardada pero está desconectado y no estamos ocupados, reactivar
+        if (data.tieneSesionGuardada && data.estado === 'desconectado' && !this.cargando.value) {
+          this.iniciarConexion(false).catch(() => {});
+        }
       }
     } catch {
       // Servidor backend offline temporalmente
@@ -105,6 +115,13 @@ class WhatsAppService {
         this.qrCode.value = data.qrCode;
         this.usuarioConectado.value = data.usuarioConectado;
         this.ultimaConexion.value = data.ultimaConexion;
+        if (typeof data.tieneSesionGuardada === 'boolean') {
+          this.tieneSesionGuardada.value = data.tieneSesionGuardada;
+        }
+
+        if (data.tieneSesionGuardada && data.estado === 'desconectado') {
+          this.iniciarConexion(false).catch(() => {});
+        }
         return data;
       }
       return null;
@@ -130,10 +147,15 @@ class WhatsAppService {
         this.qrCode.value = data.qrCode;
         this.usuarioConectado.value = data.usuarioConectado;
         this.ultimaConexion.value = data.ultimaConexion;
+        if (typeof data.tieneSesionGuardada === 'boolean') {
+          this.tieneSesionGuardada.value = data.tieneSesionGuardada;
+        }
 
         this.iniciarMonitoreoQR();
         if (data.estado === 'conectado') {
           toastService.exito(`WhatsApp conectado como: ${data.usuarioConectado?.nombre || 'Empresa'}`);
+        } else if (data.estado === 'conectando') {
+          toastService.info('Restaurando sesión de WhatsApp...');
         } else {
           toastService.info('Escanea el código QR desde tu aplicación de WhatsApp.');
         }

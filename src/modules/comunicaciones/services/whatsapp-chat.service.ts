@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import type { ChatWhatsApp, MensajeWhatsApp } from '../types/whatsapp-chat.types';
+import type { ChatWhatsApp, MensajeWhatsApp, MensajeCitado } from '../types/whatsapp-chat.types';
 import { toastService } from '@/core/notifications/toast.service';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/whatsapp`;
@@ -86,7 +86,7 @@ class WhatsAppChatService {
     }
   }
 
-  async enviarMensaje(texto: string): Promise<boolean> {
+  async enviarMensaje(texto: string, mensajeCitado?: MensajeCitado): Promise<boolean> {
     if (!this.chatActivo.value || !texto.trim()) return false;
     this.enviando.value = true;
 
@@ -96,7 +96,7 @@ class WhatsAppChatService {
       const resp = await fetch(`${API_BASE_URL}/chats/mensajes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jid, texto: texto.trim() }),
+        body: JSON.stringify({ jid, texto: texto.trim(), mensajeCitado }),
       });
       const data = await parsearJsonSeguro(resp);
 
@@ -132,6 +132,7 @@ class WhatsAppChatService {
         timestamp: new Date().toISOString(),
         estado: 'enviado',
         tipo: 'texto',
+        mensajeCitado,
       };
       this.mensajes.value.push(msgLocal);
 
@@ -160,6 +161,7 @@ class WhatsAppChatService {
     this.enviando.value = true;
 
     const jid = this.chatActivo.value.jid;
+    const esAudio = archivo.type.startsWith('audio/');
     const esImagen = archivo.type.startsWith('image/');
 
     try {
@@ -177,7 +179,7 @@ class WhatsAppChatService {
           jid,
           archivoBase64: base64Data,
           nombreArchivo: archivo.name,
-          mimeType: archivo.type || (esImagen ? 'image/jpeg' : 'application/octet-stream'),
+          mimeType: archivo.type || (esAudio ? 'audio/ogg; codecs=opus' : (esImagen ? 'image/jpeg' : 'application/octet-stream')),
           caption: caption && caption.trim() ? caption.trim() : '',
         }),
       });
@@ -189,7 +191,7 @@ class WhatsAppChatService {
           this.mensajes.value.push(data.mensaje);
         }
 
-        const textoUltimo = caption?.trim() || (esImagen ? '📷 Imagen' : `📎 ${archivo.name}`);
+        const textoUltimo = caption?.trim() || (esAudio ? '🎤 Nota de voz' : (esImagen ? '📷 Imagen' : `📎 ${archivo.name}`));
 
         if (this.chatActivo.value.jid === jid) {
           this.chatActivo.value.ultimoMensaje = textoUltimo;
@@ -205,7 +207,7 @@ class WhatsAppChatService {
         }
 
         toastService.exito(
-          esImagen ? 'Imagen enviada por WhatsApp' : 'Documento enviado por WhatsApp'
+          esAudio ? 'Audio enviado por WhatsApp' : (esImagen ? 'Imagen enviada por WhatsApp' : 'Documento enviado por WhatsApp')
         );
         return true;
       }
@@ -225,7 +227,9 @@ class WhatsAppChatService {
         texto: caption?.trim() || '',
         timestamp: new Date().toISOString(),
         estado: 'enviado',
-        tipo: esImagen ? 'imagen' : 'documento',
+        tipo: esAudio ? 'audio' : (esImagen ? 'imagen' : 'documento'),
+        esNotaVoz: esAudio,
+        duracionSegundos: esAudio ? 4 : undefined,
         archivoNombre: archivo.name,
         archivoUrl: URL.createObjectURL(archivo),
         archivoTamano: tamanoFormateado,
@@ -234,7 +238,7 @@ class WhatsAppChatService {
 
       this.mensajes.value.push(msgLocal);
 
-      const textoUltimo = caption?.trim() || (esImagen ? '📷 Imagen' : `📎 ${archivo.name}`);
+      const textoUltimo = caption?.trim() || (esAudio ? '🎤 Nota de voz' : (esImagen ? '📷 Imagen' : `📎 ${archivo.name}`));
 
       if (this.chatActivo.value.jid === jid) {
         this.chatActivo.value.ultimoMensaje = textoUltimo;
@@ -250,7 +254,7 @@ class WhatsAppChatService {
       }
 
       toastService.exito(
-        esImagen ? 'Imagen adjuntada y enviada' : 'Documento adjuntado y enviado'
+        esAudio ? 'Nota de voz enviada' : (esImagen ? 'Imagen adjuntada y enviada' : 'Documento adjuntado y enviado')
       );
       return true;
     } finally {

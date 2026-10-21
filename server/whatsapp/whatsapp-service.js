@@ -151,6 +151,20 @@ class WhatsAppService {
     return `${limpio}@s.whatsapp.net`;
   }
 
+  asegurarCredencialesRegistradas() {
+    try {
+      const credsFile = path.join(AUTH_DIR, 'creds.json');
+      if (fs.existsSync(credsFile)) {
+        const raw = fs.readFileSync(credsFile, 'utf8');
+        const data = JSON.parse(raw);
+        if (data?.me?.id && data.registered !== true) {
+          data.registered = true;
+          fs.writeFileSync(credsFile, JSON.stringify(data, null, 2), 'utf8');
+        }
+      }
+    } catch {}
+  }
+
   async iniciarConexion(forzarNuevo = false) {
     if (forzarNuevo) {
       await this.cerrarSesion();
@@ -173,6 +187,7 @@ class WhatsAppService {
     }
 
     try {
+      this.asegurarCredencialesRegistradas();
       this.estado = 'conectando';
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
       const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -199,7 +214,14 @@ class WhatsAppService {
         keepAliveIntervalMs: 25000,
       });
 
-      this.sock.ev.on('creds.update', saveCreds);
+      this.sock.ev.on('creds.update', async () => {
+        if (state.creds?.me?.id && state.creds.registered !== true) {
+          state.creds.registered = true;
+        }
+        try {
+          await saveCreds();
+        } catch {}
+      });
 
       this.sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -229,9 +251,10 @@ class WhatsAppService {
 
         if (connection === 'close') {
           const status = lastDisconnect?.error?.output?.statusCode;
-          const esLogoutReal = status === DisconnectReason.loggedOut;
-          const shouldReconnect = !esLogoutReal;
-          console.log(`[WhatsApp] Conexión cerrada. Código: ${status}. Reconectar: ${shouldReconnect}`);
+          const tieneSesion = this.tieneSesionGuardada();
+          const esLogoutDefinitivo = status === DisconnectReason.loggedOut && (!tieneSesion || this.intentosReconexion >= 3);
+          const shouldReconnect = !esLogoutDefinitivo;
+          console.log(`[WhatsApp] Conexión cerrada. Código: ${status}. Reconectar: ${shouldReconnect} (Sesión en disco: ${tieneSesion})`);
 
           this.estado = 'desconectado';
           this.qrCodeDataUrl = null;
@@ -296,19 +319,50 @@ class WhatsAppService {
       const fromMe = Boolean(msg.key?.fromMe);
       const isImage = Boolean(msgContent.imageMessage);
       const isDoc = Boolean(msgContent.documentMessage);
+      const isAudio = Boolean(msgContent.audioMessage);
 
       let tipo = 'texto';
       let archivoNombre = null;
       let archivoUrl = null;
       let archivoTamano = null;
       let archivoMime = null;
+      let esNotaVoz = false;
+      let duracionSegundos = 0;
 
       let texto =
         msgContent.conversation ||
         msgContent.extendedTextMessage?.text ||
         '';
 
-      if (isImage) {
+      if (isAudio) {
+        tipo = 'audio';
+        esNotaVoz = Boolean(msgContent.audioMessage?.ptt);
+        duracionSegundos = Number(msgContent.audioMessage?.seconds || 0);
+        archivoMime = msgContent.audioMessage?.mimetype || 'audio/ogg; codecs=opus';
+        archivoNombre = esNotaVoz
+          ? `Nota_de_Voz_${Date.now()}.ogg`
+          : `Audio_${Date.now()}.mp3`;
+
+        try {
+          const buffer = await downloadMediaMessage(
+            msg,
+            'buffer',
+            {},
+            { logger: this.logger, reuploadRequest: this.sock?.updateMediaMessage }
+          );
+          if (buffer) {
+            const ext = esNotaVoz ? '.ogg' : (archivoMime.includes('mp4') ? '.m4a' : '.ogg');
+            const fileName = `wa_audio_${Date.now()}_${(msg.key?.id || 'aud').replace(/[^a-zA-Z0-9]/g, '')}${ext}`;
+            const filePath = path.join(MEDIA_DIR, fileName);
+            fs.writeFileSync(filePath, buffer);
+            archivoUrl = `/api/whatsapp/media/${fileName}`;
+            const tamanoKb = Math.round(buffer.length / 1024);
+            archivoTamano = `${tamanoKb} KB`;
+          }
+        } catch (mediaErr) {
+          console.warn('[WhatsApp] No se pudo descargar nota de voz/audio recibido:', mediaErr.message);
+        }
+      } else if (isImage) {
         tipo = 'imagen';
         texto = msgContent.imageMessage?.caption || '';
         archivoNombre = `Imagen_${Date.now()}.jpg`;
@@ -359,11 +413,51 @@ class WhatsAppService {
         }
       }
 
-      if (!texto && !isImage && !isDoc) {
+      // Extraer mensaje citado si existe (ContextInfo / QuotedMessage)
+      const contextInfo =
+        msgContent.extendedTextMessage?.contextInfo ||
+        msgContent.imageMessage?.contextInfo ||
+        msgContent.documentMessage?.contextInfo ||
+        msgContent.audioMessage?.contextInfo;
+
+      let mensajeCitado = null;
+      if (contextInfo?.quotedMessage) {
+        const qm = contextInfo.quotedMessage;
+        const qmTexto =
+          qm.conversation ||
+          qm.extendedTextMessage?.text ||
+          qm.imageMessage?.caption ||
+          (qm.audioMessage ? (qm.audioMessage.ptt ? '🎤 Nota de voz' : '🎵 Audio') : '') ||
+          (qm.documentMessage ? `📎 ${qm.documentMessage.fileName || 'Documento'}` : '') ||
+          '';
+
+        const qmEmisor = contextInfo.participant
+          ? contextInfo.participant.replace('@s.whatsapp.net', '')
+          : '';
+
+        if (qmTexto) {
+          mensajeCitado = {
+            id: contextInfo.stanzaId || '',
+            emisor: qmEmisor || 'Contacto',
+            texto: qmTexto,
+          };
+        }
+      }
+
+      if (!texto && !isImage && !isDoc && !isAudio) {
         return;
       }
 
-      const textoResumen = texto || (isImage ? '📷 Imagen' : `📎 ${archivoNombre || 'Documento'}`);
+      const durMin = Math.floor(duracionSegundos / 60);
+      const durSec = String(duracionSegundos % 60).padStart(2, '0');
+      const textoResumen =
+        texto ||
+        (isAudio
+          ? (esNotaVoz ? `🎤 Nota de voz (${durMin}:${durSec})` : '🎵 Audio')
+          : isImage
+          ? '📷 Imagen'
+          : `📎 ${archivoNombre || 'Documento'}`);
+
       const ts = msg.messageTimestamp
         ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
         : new Date().toISOString();
@@ -416,10 +510,13 @@ class WhatsAppService {
         timestamp: ts,
         estado: fromMe ? 'enviado' : 'recibido',
         tipo,
+        esNotaVoz: isAudio ? esNotaVoz : undefined,
+        duracionSegundos: isAudio ? duracionSegundos : undefined,
         archivoNombre: archivoNombre || undefined,
         archivoUrl: archivoUrl || undefined,
         archivoTamano: archivoTamano || undefined,
         archivoMime: archivoMime || undefined,
+        mensajeCitado: mensajeCitado || undefined,
       };
 
       if (!this.mensajes[remoteJid].some((m) => m.id === nuevoMensaje.id)) {
@@ -444,7 +541,7 @@ class WhatsAppService {
     return this.mensajes[jid] || [];
   }
 
-  async enviarMensajeChat(jid, texto) {
+  async enviarMensajeChat(jid, texto, mensajeCitado = null) {
     if (!jid || !texto || !texto.trim()) {
       throw new Error('JID y texto de mensaje requeridos.');
     }
@@ -456,7 +553,19 @@ class WhatsAppService {
     // Si Baileys está conectado, despachamos vía Baileys
     if (this.sock && this.estado === 'conectado') {
       try {
-        const resultado = await this.sock.sendMessage(jid, { text: texto.trim() });
+        const opciones = {};
+        if (mensajeCitado?.id) {
+          opciones.quoted = {
+            key: {
+              remoteJid: jid,
+              id: mensajeCitado.id,
+            },
+            message: {
+              conversation: mensajeCitado.texto,
+            },
+          };
+        }
+        const resultado = await this.sock.sendMessage(jid, { text: texto.trim() }, opciones);
         idGenerado = resultado?.key?.id || idGenerado;
         enviadoPorSocket = true;
       } catch (err) {
@@ -477,6 +586,7 @@ class WhatsAppService {
       timestamp: ts,
       estado: enviadoPorSocket ? 'enviado' : 'pendiente',
       tipo: 'texto',
+      mensajeCitado: mensajeCitado || undefined,
     };
 
     this.mensajes[jid].push(mensajeObj);
@@ -531,14 +641,21 @@ class WhatsAppService {
       ? `${(tamanoBytes / (1024 * 1024)).toFixed(1)} MB`
       : `${Math.round(tamanoBytes / 1024)} KB`;
 
+    const esAudio = mimeType.startsWith('audio/');
     const esImagen = mimeType.startsWith('image/');
-    const tipo = esImagen ? 'imagen' : 'documento';
+    const tipo = esAudio ? 'audio' : (esImagen ? 'imagen' : 'documento');
 
     // Despacho a través del socket de Baileys
     if (this.sock && this.estado === 'conectado') {
       try {
         let resultado;
-        if (esImagen) {
+        if (esAudio) {
+          resultado = await this.sock.sendMessage(jid, {
+            audio: buffer,
+            mimetype: mimeType || 'audio/ogg; codecs=opus',
+            ptt: true,
+          });
+        } else if (esImagen) {
           resultado = await this.sock.sendMessage(jid, {
             image: buffer,
             caption: caption && caption.trim() ? caption.trim() : undefined,
@@ -572,6 +689,7 @@ class WhatsAppService {
       timestamp: ts,
       estado: enviadoPorSocket ? 'enviado' : 'pendiente',
       tipo,
+      esNotaVoz: esAudio ? true : undefined,
       archivoNombre,
       archivoUrl,
       archivoTamano,

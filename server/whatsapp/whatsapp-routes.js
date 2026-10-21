@@ -195,11 +195,11 @@ router.get('/chats/mensajes', (req, res) => {
 
 router.post('/chats/mensajes', async (req, res) => {
   try {
-    const { jid, texto } = req.body || {};
+    const { jid, texto, mensajeCitado } = req.body || {};
     if (!jid || !texto || !texto.trim()) {
       return res.status(400).json({ ok: false, error: 'JID y texto son requeridos.' });
     }
-    const resultado = await whatsAppService.enviarMensajeChat(String(jid), texto);
+    const resultado = await whatsAppService.enviarMensajeChat(String(jid), texto, mensajeCitado);
     res.json(resultado);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -220,12 +220,12 @@ router.get('/chats/:jid/mensajes', (req, res) => {
 router.post('/chats/:jid/mensajes', async (req, res) => {
   try {
     const { jid } = req.params;
-    const { texto } = req.body || {};
+    const { texto, mensajeCitado } = req.body || {};
     if (!texto || !texto.trim()) {
       return res.status(400).json({ ok: false, error: 'El texto del mensaje es requerido.' });
     }
 
-    const resultado = await whatsAppService.enviarMensajeChat(decodeURIComponent(jid), texto);
+    const resultado = await whatsAppService.enviarMensajeChat(decodeURIComponent(jid), texto, mensajeCitado);
     res.json(resultado);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

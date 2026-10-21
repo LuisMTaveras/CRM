@@ -220,4 +220,89 @@ describe('WhatsAppChatService - Gestión de Conversaciones y Mensajes', () => {
     expect(whatsAppChatService.mensajes.value[0].tipo).toBe('imagen');
     expect(whatsAppChatService.mensajes.value[0].archivoNombre).toBe('comprobante.png');
   });
+
+  it('envía un mensaje citando una respuesta previa (mensajeCitado)', async () => {
+    whatsAppChatService.chatActivo.value = {
+      jid: '18095550101@s.whatsapp.net',
+      telefono: '+1 (809) 555-0101',
+      nombre: 'Banco BHD León',
+      ultimoMensaje: 'Hola',
+      ultimoTimestamp: '2026-10-21T14:00:00.000Z',
+      noLeidos: 0,
+      avatar: 'BH',
+    };
+
+    const citaMock = {
+      id: 'msg-previo-123',
+      emisor: 'Lic. Roberto',
+      texto: '¿Aceptan transferencia en dólares?',
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mensaje: {
+          id: 'msg-resp-1',
+          deMi: true,
+          emisor: 'Tú',
+          texto: 'Sí, aceptamos transferencias en USD y DOP.',
+          timestamp: '2026-10-21T14:15:00.000Z',
+          estado: 'enviado',
+          tipo: 'texto',
+          mensajeCitado: citaMock,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const enviado = await whatsAppChatService.enviarMensaje('Sí, aceptamos transferencias en USD y DOP.', citaMock);
+    expect(enviado).toBe(true);
+    expect(whatsAppChatService.mensajes.value.length).toBe(1);
+    expect(whatsAppChatService.mensajes.value[0].mensajeCitado?.id).toBe('msg-previo-123');
+  });
+
+  it('adjunta y envía una nota de voz o archivo de audio correctamente', async () => {
+    whatsAppChatService.chatActivo.value = {
+      jid: '18095550101@s.whatsapp.net',
+      telefono: '+1 (809) 555-0101',
+      nombre: 'Banco BHD León',
+      ultimoMensaje: 'Hola',
+      ultimoTimestamp: '2026-10-21T14:00:00.000Z',
+      noLeidos: 0,
+      avatar: 'BH',
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mensaje: {
+          id: 'msg-audio-1',
+          deMi: true,
+          emisor: 'Tú',
+          texto: '',
+          timestamp: '2026-10-21T14:16:00.000Z',
+          estado: 'enviado',
+          tipo: 'audio',
+          esNotaVoz: true,
+          duracionSegundos: 12,
+          archivoNombre: 'nota_voz.ogg',
+          archivoUrl: '/api/whatsapp/media/nota_voz.ogg',
+          archivoTamano: '84 KB',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const archivoMock = new File(['fake ogg audio'], 'nota_voz.ogg', {
+      type: 'audio/ogg',
+    });
+
+    const enviado = await whatsAppChatService.enviarArchivo(archivoMock);
+    expect(enviado).toBe(true);
+    expect(whatsAppChatService.mensajes.value.length).toBe(1);
+    expect(whatsAppChatService.mensajes.value[0].tipo).toBe('audio');
+    expect(whatsAppChatService.mensajes.value[0].esNotaVoz).toBe(true);
+  });
 });

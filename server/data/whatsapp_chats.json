@@ -5,9 +5,9 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "📷 Imagen",
-      "ultimoTimestamp": "2026-10-21T19:12:16.000Z",
-      "noLeidos": 1,
+      "ultimoMensaje": "🎤 Nota de voz (0:03)",
+      "ultimoTimestamp": "2026-10-21T19:38:43.000Z",
+      "noLeidos": 0,
       "avatar": "LU"
     },
     {
@@ -209,6 +209,36 @@
         "archivoUrl": "/api/whatsapp/media/wa_1792609937382_AC9C7AB0086E38935FD5881107C45205.jpg",
         "archivoTamano": "78 KB",
         "archivoMime": "image/jpeg"
+      },
+      {
+        "id": "wa-audio-sample-01",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "Hola equipo, les dejo esta nota de voz con las especificaciones del requerimiento.",
+        "timestamp": "2026-10-21T19:13:00.000Z",
+        "estado": "recibido",
+        "tipo": "audio",
+        "esNotaVoz": true,
+        "duracionSegundos": 4,
+        "archivoNombre": "Nota_de_Voz_01.ogg",
+        "archivoUrl": "/api/whatsapp/media/nota_voz_demo.wav",
+        "archivoTamano": "64 KB",
+        "archivoMime": "audio/wav"
+      },
+      {
+        "id": "ACF1D69634D8275ADB9F410224B4D022",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "",
+        "timestamp": "2026-10-21T19:38:43.000Z",
+        "estado": "recibido",
+        "tipo": "audio",
+        "esNotaVoz": true,
+        "duracionSegundos": 3,
+        "archivoNombre": "Nota_de_Voz_1792611523188.ogg",
+        "archivoUrl": "/api/whatsapp/media/wa_audio_1792611523345_ACF1D69634D8275ADB9F410224B4D022.ogg",
+        "archivoTamano": "7 KB",
+        "archivoMime": "audio/ogg; codecs=opus"
       }
     ]
   }
