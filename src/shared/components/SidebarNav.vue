@@ -11,10 +11,12 @@ import {
   Mail,
   Send,
   CalendarClock,
-  Calculator
+  Calculator,
+  MessageSquare
 } from 'lucide-vue-next';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { webmailService } from '@/modules/comunicaciones/services/webmail.service';
+import { whatsAppChatService } from '@/modules/comunicaciones/services/whatsapp-chat.service';
 import { actividadesService } from '@/modules/agenda/services/actividades.service';
 import { pipelineService } from '@/modules/pipeline/services/pipeline.service';
 
@@ -22,6 +24,7 @@ const route = useRoute();
 const perfilEmpresa = computed(() => empresaService.datos.value);
 
 const totalCorreosNoLeidos = computed(() => webmailService.totalNoLeidos.value);
+const totalWhatsAppNoLeidos = computed(() => whatsAppChatService.totalNoLeidos.value);
 
 const metricasAgenda = computed(() => actividadesService.obtenerMetricas());
 const totalTareasHoy = computed(() => metricasAgenda.value.pendientesHoy);
@@ -37,7 +40,7 @@ interface EnlaceMenu {
   icono: any;
   conteo?: number;
   etiquetaConteo?: string;
-  tipoBadge?: 'indigo' | 'amber';
+  tipoBadge?: 'indigo' | 'amber' | 'emerald';
 }
 
 const enlaces = computed((): EnlaceMenu[] => [
@@ -63,6 +66,14 @@ const enlaces = computed((): EnlaceMenu[] => [
     tipoBadge: 'amber',
   },
   { 
+    nombre: 'WhatsApp CRM', 
+    ruta: '/whatsapp', 
+    icono: MessageSquare,
+    conteo: totalWhatsAppNoLeidos.value,
+    etiquetaConteo: totalWhatsAppNoLeidos.value === 1 ? '1 nuevo' : `${totalWhatsAppNoLeidos.value} nuevos`,
+    tipoBadge: 'emerald',
+  },
+  { 
     nombre: 'Bandeja de Correo', 
     ruta: '/comunicaciones', 
     icono: Mail,
@@ -79,11 +90,13 @@ let timerSidebarPoller: ReturnType<typeof setInterval> | null = null;
 
 onMounted(async () => {
   webmailService.actualizarConteoNoLeidos();
+  whatsAppChatService.cargarChats();
   if (pipelineService.obtenerCantidadTarjetas() === 0) {
     await pipelineService.obtenerTarjetas('pipeline-visitas');
   }
   timerSidebarPoller = setInterval(() => {
     webmailService.actualizarConteoNoLeidos();
+    whatsAppChatService.cargarChats();
   }, 30000);
 });
 
@@ -181,7 +194,11 @@ const esRutaActiva = (ruta: string) => {
             v-if="enlace.conteo && enlace.conteo > 0"
             class="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-all duration-150 inline-flex items-center gap-1.5 shadow-xs"
             :class="[
-              enlace.tipoBadge === 'indigo'
+              enlace.tipoBadge === 'emerald'
+                ? (esRutaActiva(enlace.ruta)
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25')
+                : enlace.tipoBadge === 'indigo'
                 ? (esRutaActiva(enlace.ruta)
                     ? 'bg-indigo-600 text-white'
                     : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/25')
@@ -194,7 +211,9 @@ const esRutaActiva = (ruta: string) => {
             <span
               class="w-1.5 h-1.5 rounded-full shrink-0"
               :class="[
-                enlace.tipoBadge === 'indigo'
+                enlace.tipoBadge === 'emerald'
+                  ? (esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-emerald-600 dark:bg-emerald-400 animate-pulse')
+                  : enlace.tipoBadge === 'indigo'
                   ? (esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-indigo-600 dark:bg-indigo-400 animate-pulse')
                   : (esRutaActiva(enlace.ruta) ? 'bg-white animate-pulse' : 'bg-amber-600 dark:bg-amber-400 animate-pulse')
               ]"

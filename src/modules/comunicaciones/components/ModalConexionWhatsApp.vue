@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { whatsAppService } from '../services/whatsapp.service';
 import { 
   X, 
@@ -8,8 +8,12 @@ import {
   RefreshCw, 
   LogOut, 
   Send, 
-  ShieldCheck
+  ShieldCheck,
+  Copy,
+  Check,
+  KeyRound
 } from 'lucide-vue-next';
+import { toastService } from '@/core/notifications/toast.service';
 
 defineProps<{
   abierto: boolean;
@@ -19,12 +23,45 @@ const emit = defineEmits<{
   (e: 'cerrar'): void;
 }>();
 
+const metodoVinculacion = ref<'qr' | 'codigo'>('qr');
+const telefonoPairing = ref('+1 (829) 708-4706');
+const codigoGenerado = ref('');
+const solicitandoCodigo = ref(false);
+const copiado = ref(false);
+
 const numeroPrueba = ref('');
 const mensajePrueba = ref('¡Hola! Este es un mensaje de prueba desde DEVFORGE CRM.');
 const enviandoPrueba = ref(false);
 
 const conectar = async (forzar = false) => {
   await whatsAppService.iniciarConexion(forzar);
+};
+
+const solicitarCodigo = async () => {
+  if (!telefonoPairing.value.trim()) {
+    toastService.advertencia('Ingresa el número de teléfono para generar el código.');
+    return;
+  }
+  solicitandoCodigo.value = true;
+  codigoGenerado.value = '';
+  try {
+    const cod = await whatsAppService.solicitarPairingCode(telefonoPairing.value);
+    codigoGenerado.value = cod;
+  } catch {
+    // Error ya notificado en servicio
+  } finally {
+    solicitandoCodigo.value = false;
+  }
+};
+
+const copiarCodigo = () => {
+  if (!codigoGenerado.value) return;
+  navigator.clipboard.writeText(codigoGenerado.value.replace('-', ''));
+  copiado.value = true;
+  toastService.exito('Código de vinculación copiado.');
+  setTimeout(() => {
+    copiado.value = false;
+  }, 2500);
 };
 
 const desconectar = async () => {
@@ -163,26 +200,61 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Panel si está DESCONECTADO (Generar o mostrar QR) -->
+        <!-- Panel si está DESCONECTADO (Opciones de Vinculación) -->
         <div v-else class="space-y-4">
-          <div class="flex flex-col items-center justify-center p-6 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center">
+          <!-- Selector de Modo de Vinculación -->
+          <div class="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
+            <button
+              type="button"
+              @click="metodoVinculacion = 'qr'"
+              :class="[
+                'flex-1 py-1.5 px-3 rounded-lg font-medium transition flex items-center justify-center gap-1.5 text-xs',
+                metodoVinculacion === 'qr'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              ]"
+            >
+              <QrCode class="w-3.5 h-3.5" />
+              <span>Escanear Código QR</span>
+            </button>
+
+            <button
+              type="button"
+              @click="metodoVinculacion = 'codigo'"
+              :class="[
+                'flex-1 py-1.5 px-3 rounded-lg font-medium transition flex items-center justify-center gap-1.5 text-xs',
+                metodoVinculacion === 'codigo'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              ]"
+            >
+              <Smartphone class="w-3.5 h-3.5" />
+              <span>Código de 8 Dígitos (Pairing)</span>
+            </button>
+          </div>
+
+          <!-- MODO 1: Código QR -->
+          <div
+            v-if="metodoVinculacion === 'qr'"
+            class="flex flex-col items-center justify-center p-6 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-center animate-in fade-in"
+          >
             <!-- Imagen del QR -->
             <div v-if="whatsAppService.qrCode.value" class="p-3 bg-white rounded-xl shadow-md border border-zinc-200 dark:border-zinc-700 mb-4">
               <img
                 :src="whatsAppService.qrCode.value"
                 alt="Código QR de WhatsApp"
-                class="w-64 h-64 object-contain"
+                class="w-60 h-60 object-contain"
               />
             </div>
             
-            <div v-else class="w-64 h-64 flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl mb-4 text-zinc-400">
+            <div v-else class="w-60 h-60 flex flex-col items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl mb-4 text-zinc-400">
               <QrCode class="w-12 h-12 mb-2 stroke-1" />
               <span class="text-xs">Presiona "Generar Código QR" para iniciar</span>
             </div>
 
             <!-- Instrucciones -->
             <div class="max-w-xs text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1 mb-4 text-left">
-              <div class="font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Instrucciones de vinculación:</div>
+              <div class="font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Instrucciones de escaneo:</div>
               <ol class="list-decimal list-inside space-y-0.5">
                 <li>Abre WhatsApp en tu teléfono móvil.</li>
                 <li>Toca en <strong>Dispositivos vinculados</strong>.</li>
@@ -201,6 +273,72 @@ onUnmounted(() => {
                 <RefreshCw :class="['w-3.5 h-3.5', whatsAppService.cargando.value ? 'animate-spin' : '']" />
                 <span>{{ whatsAppService.qrCode.value ? 'Regenerar Código QR' : 'Generar Código QR' }}</span>
               </button>
+            </div>
+          </div>
+
+          <!-- MODO 2: Código de Emparejamiento por Teléfono (Pairing Code) -->
+          <div
+            v-else
+            class="p-6 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-4 animate-in fade-in"
+          >
+            <div>
+              <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                Número de Teléfono del Dispositivo WhatsApp *
+              </label>
+              <div class="flex gap-2">
+                <input
+                  v-model="telefonoPairing"
+                  type="text"
+                  placeholder="+1 (829) 708-4706"
+                  class="flex-1 px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  @click="solicitarCodigo"
+                  :disabled="solicitandoCodigo || !telefonoPairing"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-sm transition disabled:opacity-50"
+                >
+                  <RefreshCw :class="['w-3.5 h-3.5', solicitandoCodigo ? 'animate-spin' : '']" />
+                  <span>{{ solicitandoCodigo ? 'Generando...' : 'Obtener Código' }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Código Mostrado -->
+            <div
+              v-if="codigoGenerado || whatsAppService.codigoEmparejamiento.value"
+              class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-500/30 text-center space-y-2 shadow-sm"
+            >
+              <span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                Tu Código de Vinculación de 8 Dígitos
+              </span>
+              <div class="text-3xl font-extrabold font-mono tracking-widest text-zinc-900 dark:text-white selection:bg-emerald-500/30">
+                {{ codigoGenerado || whatsAppService.codigoEmparejamiento.value }}
+              </div>
+              <button
+                type="button"
+                @click="copiarCodigo"
+                class="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs transition"
+              >
+                <Check v-if="copiado" class="w-3.5 h-3.5 text-emerald-500" />
+                <Copy v-else class="w-3.5 h-3.5" />
+                <span>{{ copiado ? 'Copiado al portapapeles' : 'Copiar Código' }}</span>
+              </button>
+            </div>
+
+            <!-- Instrucciones de Uso -->
+            <div class="p-3.5 rounded-lg bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-400 space-y-1.5">
+              <div class="font-semibold text-zinc-900 dark:text-zinc-200 flex items-center gap-1.5">
+                <KeyRound class="w-3.5 h-3.5 text-emerald-500" />
+                <span>Pasos en tu teléfono:</span>
+              </div>
+              <ol class="list-decimal list-inside space-y-1 text-zinc-500 dark:text-zinc-400 pl-1">
+                <li>Abre WhatsApp en tu teléfono móvil.</li>
+                <li>Ve a <strong>Ajustes / Menú</strong> > <strong>Dispositivos vinculados</strong>.</li>
+                <li>Toca en <strong>Vincular un dispositivo</strong>.</li>
+                <li>Toca la opción inferior <strong>"Vincular con el número de teléfono en su lugar"</strong>.</li>
+                <li>Ingresa el código de 8 dígitos mostrado arriba.</li>
+              </ol>
             </div>
           </div>
         </div>

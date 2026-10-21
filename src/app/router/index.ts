@@ -7,6 +7,7 @@ import ConfiguracionView from '@/modules/configuracion/views/ConfiguracionView.v
 import LoginView from '@/modules/auth/views/LoginView.vue';
 import UsuariosView from '@/modules/auth/views/UsuariosView.vue';
 import ComunicacionesView from '@/modules/comunicaciones/views/ComunicacionesView.vue';
+import WhatsAppView from '@/modules/comunicaciones/views/WhatsAppView.vue';
 import { AgendaView } from '@/modules/agenda';
 import CatalogoView from '@/modules/catalogo/views/CatalogoView.vue';
 import PropuestaClienteView from '@/modules/catalogo/views/PropuestaClienteView.vue';
@@ -58,6 +59,12 @@ const router = createRouter({
       path: '/agenda',
       name: 'agenda',
       component: AgendaView,
+    },
+    {
+      path: '/whatsapp',
+      name: 'whatsapp',
+      component: WhatsAppView,
+      alias: ['/whatsapp-web', '/chat-whatsapp'],
     },
     {
       path: '/comunicaciones',

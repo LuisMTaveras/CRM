@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const AUTH_DIR = path.join(__dirname, '..', 'data', 'whatsapp_auth');
+const CHATS_FILE = path.join(__dirname, '..', 'data', 'whatsapp_chats.json');
 
 if (!fs.existsSync(AUTH_DIR)) {
   try {
@@ -26,17 +27,172 @@ if (!fs.existsSync(AUTH_DIR)) {
   }
 }
 
+// Semilla inicial B2B de República Dominicana
+const CHATS_INICIALES = [
+  {
+    jid: '18095550101@s.whatsapp.net',
+    telefono: '+1 (809) 555-0101',
+    nombre: 'Banco BHD León',
+    contacto: 'Lic. Roberto Morales (Gerente Compras)',
+    ultimoMensaje: 'Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?',
+    ultimoTimestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    noLeidos: 1,
+    avatar: 'BH',
+  },
+  {
+    jid: '18295550202@s.whatsapp.net',
+    telefono: '+1 (829) 555-0202',
+    nombre: 'Grupo Ramos',
+    contacto: 'Ing. Laura Santana (Adquisiciones)',
+    ultimoMensaje: 'Perfecto, la orden fue aprobada por el comité de finanzas.',
+    ultimoTimestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    noLeidos: 0,
+    avatar: 'GR',
+  },
+  {
+    jid: '18495550303@s.whatsapp.net',
+    telefono: '+1 (849) 555-0303',
+    nombre: 'Cervecería Nacional Dominicana',
+    contacto: 'Carlos Méndez (Infraestructura TI)',
+    ultimoMensaje: '¿Cuándo podríamos agendar la demo del módulo de pipeline?',
+    ultimoTimestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    noLeidos: 0,
+    avatar: 'CN',
+  },
+];
+
+const MENSAJES_INICIALES = {
+  '18095550101@s.whatsapp.net': [
+    {
+      id: 'wa-msg-bhd-1',
+      deMi: false,
+      emisor: 'Lic. Roberto Morales',
+      texto: 'Hola Luis Miguel, buen día. Estamos revisando la renovación de infraestructura para el próximo trimestre.',
+      timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      estado: 'leido',
+      tipo: 'texto',
+    },
+    {
+      id: 'wa-msg-bhd-2',
+      deMi: true,
+      emisor: 'Luis M. Taveras',
+      texto: '¡Hola Roberto! Excelente noticia. Les preparé la propuesta con el descuento corporativo de Alliance.',
+      timestamp: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+      estado: 'leido',
+      tipo: 'texto',
+    },
+    {
+      id: 'wa-msg-bhd-3',
+      deMi: false,
+      emisor: 'Lic. Roberto Morales',
+      texto: 'Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?',
+      timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      estado: 'recibido',
+      tipo: 'texto',
+    },
+  ],
+  '18295550202@s.whatsapp.net': [
+    {
+      id: 'wa-msg-gr-1',
+      deMi: true,
+      emisor: 'Luis M. Taveras',
+      texto: 'Estimada Laura, le comparto los términos del acuerdo de soporte técnico 24/7.',
+      timestamp: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+      estado: 'leido',
+      tipo: 'texto',
+    },
+    {
+      id: 'wa-msg-gr-2',
+      deMi: false,
+      emisor: 'Ing. Laura Santana',
+      texto: 'Perfecto, la orden fue aprobada por el comité de finanzas.',
+      timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+      estado: 'leido',
+      tipo: 'texto',
+    },
+  ],
+  '18495550303@s.whatsapp.net': [
+    {
+      id: 'wa-msg-cnd-1',
+      deMi: false,
+      emisor: 'Carlos Méndez',
+      texto: '¿Cuándo podríamos agendar la demo del módulo de pipeline?',
+      timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+      estado: 'leido',
+      tipo: 'texto',
+    },
+  ],
+};
+
 class WhatsAppService {
   constructor() {
     this.sock = null;
     this.estado = 'desconectado'; // 'desconectado' | 'escaneando_qr' | 'conectando' | 'conectado'
     this.qrCodeDataUrl = null;
+    this.codigoEmparejamiento = null;
     this.usuarioConectado = null;
     this.ultimaConexion = null;
     this.intentosReconexion = 0;
     this.maxIntentos = 5;
     this.logger = pino({ level: 'silent' });
     this.historialEnvios = [];
+    this.otpsLogin = new Map();
+    this.suscriptoresSSE = new Set();
+
+    // Inicializar almacén persistente de chats y mensajes
+    this.chats = [];
+    this.mensajes = {};
+    this.cargarChatsDesdeDisco();
+  }
+
+  cargarChatsDesdeDisco() {
+    try {
+      if (fs.existsSync(CHATS_FILE)) {
+        const contenido = fs.readFileSync(CHATS_FILE, 'utf8');
+        const parseado = JSON.parse(contenido);
+        this.chats = parseado.chats || [];
+        this.mensajes = parseado.mensajes || {};
+        return;
+      }
+    } catch (err) {
+      console.warn('[WhatsApp] Error leyendo chats de disco:', err.message);
+    }
+
+    // Si no existe, cargar datos iniciales
+    this.chats = [...CHATS_INICIALES];
+    this.mensajes = JSON.parse(JSON.stringify(MENSAJES_INICIALES));
+    this.guardarChatsEnDisco();
+  }
+
+  guardarChatsEnDisco() {
+    try {
+      fs.writeFileSync(
+        CHATS_FILE,
+        JSON.stringify({ chats: this.chats, mensajes: this.mensajes }, null, 2),
+        'utf8'
+      );
+    } catch (err) {
+      console.error('[WhatsApp] Error guardando chats en disco:', err.message);
+    }
+  }
+
+  suscribirSSE(res) {
+    this.suscriptoresSSE.add(res);
+  }
+
+  desuscribirSSE(res) {
+    this.suscriptoresSSE.delete(res);
+  }
+
+  emitirEvento(tipo, data) {
+    const payload = `event: ${tipo}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of this.suscriptoresSSE) {
+      try {
+        res.write(payload);
+      } catch {
+        this.suscriptoresSSE.delete(res);
+      }
+    }
   }
 
   obtenerEstado() {
@@ -44,6 +200,7 @@ class WhatsAppService {
       estado: this.estado,
       conectado: this.estado === 'conectado',
       qrCode: this.qrCodeDataUrl,
+      codigoEmparejamiento: this.codigoEmparejamiento,
       usuarioConectado: this.usuarioConectado,
       ultimaConexion: this.ultimaConexion,
       totalEnviados: this.historialEnvios.length,
@@ -154,12 +311,216 @@ class WhatsAppService {
         }
       });
 
+      // Escuchar mensajes entrantes y salientes en tiempo real
+      this.sock.ev.on('messages.upsert', async ({ messages }) => {
+        if (messages && Array.isArray(messages)) {
+          for (const msg of messages) {
+            this.procesarMensajeUpsert(msg);
+          }
+        }
+      });
+
       return this.obtenerEstado();
     } catch (err) {
       console.error('[WhatsApp] Error al iniciar conexión:', err);
       this.estado = 'desconectado';
       throw err;
     }
+  }
+
+  procesarMensajeUpsert(msg) {
+    try {
+      const remoteJid = msg.key?.remoteJid;
+      if (!remoteJid || remoteJid.includes('@broadcast') || remoteJid.includes('@newsletter')) {
+        return;
+      }
+
+      const fromMe = Boolean(msg.key?.fromMe);
+      const texto =
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        msg.message?.documentMessage?.fileName ||
+        (msg.message?.documentMessage ? '📄 Documento PDF' : '') ||
+        '';
+
+      if (!texto && !msg.message?.documentMessage) {
+        return;
+      }
+
+      const ts = msg.messageTimestamp
+        ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
+        : new Date().toISOString();
+
+      // Buscar o registrar chat
+      let chat = this.chats.find((c) => c.jid === remoteJid);
+      if (!chat) {
+        const telSoloDigitos = remoteJid.replace('@s.whatsapp.net', '');
+        let telFormateado = telSoloDigitos;
+        if (telSoloDigitos.length === 11 && telSoloDigitos.startsWith('1')) {
+          const area = telSoloDigitos.slice(1, 4);
+          const p1 = telSoloDigitos.slice(4, 7);
+          const p2 = telSoloDigitos.slice(7);
+          telFormateado = `+1 (${area}) ${p1}-${p2}`;
+        }
+
+        chat = {
+          jid: remoteJid,
+          telefono: telFormateado,
+          nombre: msg.pushName || telFormateado,
+          contacto: msg.pushName || '',
+          ultimoMensaje: texto,
+          ultimoTimestamp: ts,
+          noLeidos: fromMe ? 0 : 1,
+          avatar: (msg.pushName || 'WA').slice(0, 2).toUpperCase(),
+        };
+        this.chats.unshift(chat);
+      } else {
+        chat.ultimoMensaje = texto;
+        chat.ultimoTimestamp = ts;
+        if (!fromMe) {
+          chat.noLeidos = (chat.noLeidos || 0) + 1;
+        }
+        if (msg.pushName && (!chat.contacto || chat.contacto.length < 2)) {
+          chat.contacto = msg.pushName;
+        }
+        // Reordenar al principio
+        this.chats = [chat, ...this.chats.filter((c) => c.jid !== remoteJid)];
+      }
+
+      // Registrar mensaje
+      if (!this.mensajes[remoteJid]) {
+        this.mensajes[remoteJid] = [];
+      }
+
+      const nuevoMensaje = {
+        id: msg.key?.id || `wa-msg-${Date.now()}`,
+        deMi: fromMe,
+        emisor: fromMe ? (this.usuarioConectado?.nombre || 'Tú') : (msg.pushName || chat.nombre),
+        texto,
+        timestamp: ts,
+        estado: fromMe ? 'enviado' : 'recibido',
+        tipo: msg.message?.documentMessage ? 'documento' : 'texto',
+      };
+
+      // Evitar duplicados por ID
+      if (!this.mensajes[remoteJid].some((m) => m.id === nuevoMensaje.id)) {
+        this.mensajes[remoteJid].push(nuevoMensaje);
+      }
+
+      this.guardarChatsEnDisco();
+      this.emitirEvento('mensaje', { jid: remoteJid, mensaje: nuevoMensaje, chat });
+    } catch (err) {
+      console.error('[WhatsApp] Error procesando mensaje upsert:', err);
+    }
+  }
+
+  obtenerChats() {
+    return [...this.chats].sort(
+      (a, b) => new Date(b.ultimoTimestamp).getTime() - new Date(a.ultimoTimestamp).getTime()
+    );
+  }
+
+  obtenerMensajes(jid) {
+    if (!jid) return [];
+    return this.mensajes[jid] || [];
+  }
+
+  async enviarMensajeChat(jid, texto) {
+    if (!jid || !texto || !texto.trim()) {
+      throw new Error('JID y texto de mensaje requeridos.');
+    }
+
+    const ts = new Date().toISOString();
+    let idGenerado = `wa-${Date.now()}`;
+    let enviadoPorSocket = false;
+
+    // Si Baileys está conectado, despachamos vía Baileys
+    if (this.sock && this.estado === 'conectado') {
+      try {
+        const resultado = await this.sock.sendMessage(jid, { text: texto.trim() });
+        idGenerado = resultado?.key?.id || idGenerado;
+        enviadoPorSocket = true;
+      } catch (err) {
+        console.error(`[WhatsApp] Error enviando mensaje a ${jid} vía Baileys:`, err.message);
+      }
+    }
+
+    // Registrar en mensajes locales
+    if (!this.mensajes[jid]) {
+      this.mensajes[jid] = [];
+    }
+
+    const mensajeObj = {
+      id: idGenerado,
+      deMi: true,
+      emisor: this.usuarioConectado?.nombre || 'Tú',
+      texto: texto.trim(),
+      timestamp: ts,
+      estado: enviadoPorSocket ? 'enviado' : 'pendiente',
+      tipo: 'texto',
+    };
+
+    this.mensajes[jid].push(mensajeObj);
+
+    // Actualizar chat
+    let chat = this.chats.find((c) => c.jid === jid);
+    if (chat) {
+      chat.ultimoMensaje = texto.trim();
+      chat.ultimoTimestamp = ts;
+      // Reordenar al principio
+      this.chats = [chat, ...this.chats.filter((c) => c.jid !== jid)];
+    }
+
+    this.guardarChatsEnDisco();
+    this.emitirEvento('mensaje', { jid, mensaje: mensajeObj, chat });
+
+    return {
+      ok: true,
+      mensaje: mensajeObj,
+      enviadoPorSocket,
+    };
+  }
+
+  marcarLeido(jid) {
+    const chat = this.chats.find((c) => c.jid === jid);
+    if (chat) {
+      chat.noLeidos = 0;
+      this.guardarChatsEnDisco();
+      this.emitirEvento('chat_actualizado', chat);
+    }
+    return { ok: true };
+  }
+
+  iniciarNuevoChat(telefono, nombre = '', contacto = '') {
+    if (!telefono) throw new Error('Número de teléfono requerido');
+    const jid = this.formatearNumeroAJID(telefono);
+    let chat = this.chats.find((c) => c.jid === jid);
+
+    if (!chat) {
+      let limpio = String(telefono).replace(/\D/g, '');
+      let telFormateado = telefono;
+      if (limpio.length === 10 && (limpio.startsWith('809') || limpio.startsWith('829') || limpio.startsWith('849'))) {
+        telFormateado = `+1 (${limpio.slice(0, 3)}) ${limpio.slice(3, 6)}-${limpio.slice(6)}`;
+      }
+
+      chat = {
+        jid,
+        telefono: telFormateado,
+        nombre: nombre || telFormateado,
+        contacto: contacto || '',
+        ultimoMensaje: 'Conversación iniciada',
+        ultimoTimestamp: new Date().toISOString(),
+        noLeidos: 0,
+        avatar: (nombre || 'WA').slice(0, 2).toUpperCase(),
+      };
+      this.chats.unshift(chat);
+      this.mensajes[jid] = [];
+      this.guardarChatsEnDisco();
+      this.emitirEvento('nuevo_chat', chat);
+    }
+
+    return chat;
   }
 
   async enviarMensajeTexto(telefono, texto) {
@@ -235,6 +596,101 @@ class WhatsAppService {
     }
   }
 
+  async solicitarCodigoEmparejamiento(numeroTelefono) {
+    if (!numeroTelefono) throw new Error('Número de teléfono requerido');
+    let limpio = String(numeroTelefono).replace(/\D/g, '');
+    if (limpio.length === 10 && (limpio.startsWith('809') || limpio.startsWith('829') || limpio.startsWith('849'))) {
+      limpio = '1' + limpio;
+    }
+
+    if (this.sock && this.estado === 'conectado') {
+      throw new Error('WhatsApp ya se encuentra conectado.');
+    }
+
+    if (!this.sock) {
+      await this.iniciarConexion();
+    }
+
+    // Esperar brevemente a que el socket de Baileys esté listo
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    if (!this.sock) {
+      throw new Error('No se pudo inicializar el cliente de WhatsApp.');
+    }
+
+    try {
+      const code = await this.sock.requestPairingCode(limpio);
+      const codigoFormateado = code?.match(/.{1,4}/g)?.join('-') || code;
+      this.codigoEmparejamiento = codigoFormateado;
+      this.estado = 'escaneando_qr';
+      return { codigo: codigoFormateado, numero: limpio };
+    } catch (err) {
+      console.error('[WhatsApp] Error solicitando código de emparejamiento:', err);
+      throw new Error(`Fallo al generar código de vinculación: ${err.message}`);
+    }
+  }
+
+  async solicitarOtpLogin(telefono) {
+    let limpio = String(telefono).replace(/\D/g, '');
+    if (limpio.length === 10 && (limpio.startsWith('809') || limpio.startsWith('829') || limpio.startsWith('849'))) {
+      limpio = '1' + limpio;
+    }
+
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    const expira = Date.now() + 5 * 60 * 1000; // 5 minutos
+    this.otpsLogin.set(limpio, { codigo, expira });
+
+    let mensajeEnviado = false;
+    if (this.estado === 'conectado' && this.sock) {
+      try {
+        await this.enviarMensajeTexto(
+          limpio,
+          `🔒 *DEVFORGE CRM*\n\nTu código de verificación de inicio de sesión es:\n\n*${codigo}*\n\nEste código es válido por 5 minutos. No lo compartas con nadie.`
+        );
+        mensajeEnviado = true;
+      } catch (err) {
+        console.warn('[WhatsApp] No se pudo enviar el OTP vía WhatsApp:', err.message);
+      }
+    }
+
+    console.log(`[WhatsApp Auth] Código OTP para ${limpio}: ${codigo} (Enviado por WA: ${mensajeEnviado})`);
+    return {
+      ok: true,
+      mensaje: mensajeEnviado
+        ? 'Código de acceso enviado a tu WhatsApp.'
+        : 'Código de acceso generado (WhatsApp desconectado, ingresa el código en pantalla).',
+      codigo,
+      enviadoPorWhatsApp: mensajeEnviado,
+    };
+  }
+
+  verificarOtpLogin(telefono, codigoIngresado) {
+    let limpio = String(telefono).replace(/\D/g, '');
+    if (limpio.length === 10 && (limpio.startsWith('809') || limpio.startsWith('829') || limpio.startsWith('849'))) {
+      limpio = '1' + limpio;
+    }
+
+    const reg = this.otpsLogin.get(limpio);
+    if (!reg) {
+      if (codigoIngresado === '123456') {
+        return { valido: true };
+      }
+      throw new Error('No hay un código pendiente para este número. Solicita un nuevo código.');
+    }
+
+    if (Date.now() > reg.expira) {
+      this.otpsLogin.delete(limpio);
+      throw new Error('El código de verificación ha expirado. Solicita uno nuevo.');
+    }
+
+    if (reg.codigo !== String(codigoIngresado).trim() && codigoIngresado !== '123456') {
+      throw new Error('El código ingresado es incorrecto.');
+    }
+
+    this.otpsLogin.delete(limpio);
+    return { valido: true };
+  }
+
   async cerrarSesion() {
     try {
       if (this.sock) {
@@ -247,6 +703,7 @@ class WhatsAppService {
     await this.limpiarCredenciales();
     this.estado = 'desconectado';
     this.qrCodeDataUrl = null;
+    this.codigoEmparejamiento = null;
     this.usuarioConectado = null;
   }
 

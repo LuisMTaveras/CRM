@@ -93,6 +93,23 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('crm_sesion_auth', JSON.stringify(sesion));
   };
 
+  const solicitarOtpWhatsApp = async (telefono: string) => {
+    return await authService.solicitarOtpWhatsApp(telefono);
+  };
+
+  const iniciarSesionConOtp = async (telefono: string, codigo: string, recordarme = true) => {
+    const sesion = await authService.loginConOtp(telefono, codigo);
+    usuario.value = sesion.usuario;
+    token.value = sesion.token;
+
+    globalAbility.setUser(sesion.usuario);
+    globalAbility.updateRules(sesion.reglas);
+
+    if (recordarme) {
+      localStorage.setItem('crm_sesion_auth', JSON.stringify(sesion));
+    }
+  };
+
   return {
     usuario,
     token,
@@ -102,6 +119,8 @@ export const useAuthStore = defineStore('auth', () => {
     tienePermiso,
     inicializarSesion,
     iniciarSesion,
+    solicitarOtpWhatsApp,
+    iniciarSesionConOtp,
     cerrarSesion,
     actualizarPerfilActual,
   };

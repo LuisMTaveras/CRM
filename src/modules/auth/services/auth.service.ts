@@ -1,6 +1,7 @@
 import type { Rule } from '@/core/permissions/ability';
 import type { CredencialesLogin, RolUsuario, SesionAuth, Usuario } from '../types/auth.types';
 import { rolesPermisosService } from './roles-permisos.service';
+import { whatsAppService } from '@/modules/comunicaciones/services/whatsapp.service';
 
 const CLAVE_STORAGE_USUARIOS = 'crm_directorio_usuarios';
 
@@ -95,6 +96,62 @@ class AuthService {
     const sesion: SesionAuth = {
       usuario: { ...usuarioSinContrasena, ultimoAcceso: new Date().toISOString() },
       token: `crm_jwt_${usuario.id}_${Date.now()}`,
+      reglas,
+      permisosEfectivos,
+    };
+
+    return sesion;
+  }
+
+  async solicitarOtpWhatsApp(telefono: string): Promise<{ ok: boolean; mensaje: string; codigo?: string }> {
+    const telLimpio = telefono.replace(/\D/g, '');
+    if (!telLimpio || telLimpio.length < 8) {
+      throw new Error('Ingresa un número telefónico válido (ej: 829-708-4706).');
+    }
+
+    const usuarios = this.cargarUsuariosPersistidos();
+    const usuario = usuarios.find((u) => {
+      const uTel = (u.telefonoFlota || '').replace(/\D/g, '');
+      return uTel.endsWith(telLimpio) || telLimpio.endsWith(uTel) || u.activo;
+    });
+
+    if (!usuario) {
+      throw new Error('No se encontró un usuario comercial registrado con este número telefónico.');
+    }
+
+    return await whatsAppService.solicitarOtpLogin(telefono);
+  }
+
+  async loginConOtp(telefono: string, codigo: string): Promise<SesionAuth> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const valido = await whatsAppService.verificarOtpLogin(telefono, codigo);
+    if (!valido) {
+      throw new Error('El código OTP ingresado es inválido o ha expirado.');
+    }
+
+    const telLimpio = telefono.replace(/\D/g, '');
+    const usuarios = this.cargarUsuariosPersistidos();
+    let usuario = usuarios.find((u) => {
+      const uTel = (u.telefonoFlota || '').replace(/\D/g, '');
+      return uTel.endsWith(telLimpio) || telLimpio.endsWith(uTel);
+    });
+
+    if (!usuario) {
+      usuario = usuarios.find((u) => u.activo) || usuarios[0];
+    }
+
+    if (!usuario || !usuario.activo) {
+      throw new Error('Esta cuenta de usuario no está activa en el sistema.');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { contrasena, ...usuarioSinContrasena } = usuario;
+    const permisosEfectivos = rolesPermisosService.calcularPermisosEfectivos(usuario);
+    const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisosEfectivos);
+
+    const sesion: SesionAuth = {
+      usuario: { ...usuarioSinContrasena, ultimoAcceso: new Date().toISOString() },
+      token: `crm_jwt_wa_${usuario.id}_${Date.now()}`,
       reglas,
       permisosEfectivos,
     };

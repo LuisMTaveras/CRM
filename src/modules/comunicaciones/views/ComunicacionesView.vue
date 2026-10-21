@@ -24,7 +24,8 @@ import {
   UploadCloud, 
   Trash2, 
   RefreshCw,
-  Sliders
+  Sliders,
+  MessageSquare
 } from 'lucide-vue-next';
 import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
@@ -139,6 +140,15 @@ onMounted(() => {
   <!-- Teleport de Acciones hacia la Barra Superior -->
   <Teleport to="#header-portal-right">
     <div class="flex items-center gap-2">
+      <router-link
+        to="/whatsapp"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold shadow-sm transition"
+        title="Abrir WhatsApp CRM y Chat con Clientes"
+      >
+        <MessageSquare class="w-3.5 h-3.5" />
+        <span class="hidden sm:inline">WhatsApp CRM</span>
+      </router-link>
+
       <router-link
         to="/configuracion?tab=correo"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
