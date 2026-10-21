@@ -27,103 +27,6 @@ if (!fs.existsSync(AUTH_DIR)) {
   }
 }
 
-// Semilla inicial B2B de República Dominicana
-const CHATS_INICIALES = [
-  {
-    jid: '18095550101@s.whatsapp.net',
-    telefono: '+1 (809) 555-0101',
-    nombre: 'Banco BHD León',
-    contacto: 'Lic. Roberto Morales (Gerente Compras)',
-    ultimoMensaje: 'Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?',
-    ultimoTimestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    noLeidos: 1,
-    avatar: 'BH',
-  },
-  {
-    jid: '18295550202@s.whatsapp.net',
-    telefono: '+1 (829) 555-0202',
-    nombre: 'Grupo Ramos',
-    contacto: 'Ing. Laura Santana (Adquisiciones)',
-    ultimoMensaje: 'Perfecto, la orden fue aprobada por el comité de finanzas.',
-    ultimoTimestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    noLeidos: 0,
-    avatar: 'GR',
-  },
-  {
-    jid: '18495550303@s.whatsapp.net',
-    telefono: '+1 (849) 555-0303',
-    nombre: 'Cervecería Nacional Dominicana',
-    contacto: 'Carlos Méndez (Infraestructura TI)',
-    ultimoMensaje: '¿Cuándo podríamos agendar la demo del módulo de pipeline?',
-    ultimoTimestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    noLeidos: 0,
-    avatar: 'CN',
-  },
-];
-
-const MENSAJES_INICIALES = {
-  '18095550101@s.whatsapp.net': [
-    {
-      id: 'wa-msg-bhd-1',
-      deMi: false,
-      emisor: 'Lic. Roberto Morales',
-      texto: 'Hola Luis Miguel, buen día. Estamos revisando la renovación de infraestructura para el próximo trimestre.',
-      timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-      estado: 'leido',
-      tipo: 'texto',
-    },
-    {
-      id: 'wa-msg-bhd-2',
-      deMi: true,
-      emisor: 'Luis M. Taveras',
-      texto: '¡Hola Roberto! Excelente noticia. Les preparé la propuesta con el descuento corporativo de Alliance.',
-      timestamp: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-      estado: 'leido',
-      tipo: 'texto',
-    },
-    {
-      id: 'wa-msg-bhd-3',
-      deMi: false,
-      emisor: 'Lic. Roberto Morales',
-      texto: 'Recibimos la cotización comercial, ¿pueden enviarnos el desglose de licencias?',
-      timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-      estado: 'recibido',
-      tipo: 'texto',
-    },
-  ],
-  '18295550202@s.whatsapp.net': [
-    {
-      id: 'wa-msg-gr-1',
-      deMi: true,
-      emisor: 'Luis M. Taveras',
-      texto: 'Estimada Laura, le comparto los términos del acuerdo de soporte técnico 24/7.',
-      timestamp: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-      estado: 'leido',
-      tipo: 'texto',
-    },
-    {
-      id: 'wa-msg-gr-2',
-      deMi: false,
-      emisor: 'Ing. Laura Santana',
-      texto: 'Perfecto, la orden fue aprobada por el comité de finanzas.',
-      timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      estado: 'leido',
-      tipo: 'texto',
-    },
-  ],
-  '18495550303@s.whatsapp.net': [
-    {
-      id: 'wa-msg-cnd-1',
-      deMi: false,
-      emisor: 'Carlos Méndez',
-      texto: '¿Cuándo podríamos agendar la demo del módulo de pipeline?',
-      timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-      estado: 'leido',
-      tipo: 'texto',
-    },
-  ],
-};
-
 class WhatsAppService {
   constructor() {
     this.sock = null;
@@ -139,7 +42,7 @@ class WhatsAppService {
     this.otpsLogin = new Map();
     this.suscriptoresSSE = new Set();
 
-    // Inicializar almacén persistente de chats y mensajes
+    // Inicializar almacén persistente de chats y mensajes sin datos hardcodeados
     this.chats = [];
     this.mensajes = {};
     this.cargarChatsDesdeDisco();
@@ -158,9 +61,8 @@ class WhatsAppService {
       console.warn('[WhatsApp] Error leyendo chats de disco:', err.message);
     }
 
-    // Si no existe, cargar datos iniciales
-    this.chats = [...CHATS_INICIALES];
-    this.mensajes = JSON.parse(JSON.stringify(MENSAJES_INICIALES));
+    this.chats = [];
+    this.mensajes = {};
     this.guardarChatsEnDisco();
   }
 
