@@ -124,11 +124,6 @@ export function useClientes() {
     consultarClientes();
   });
 
-  const restablecerDatosIniciales = async () => {
-    clienteService.restablecerSemilla();
-    await consultarClientes();
-  };
-
   return {
     parametrosURL,
     actualizarEstado,
@@ -142,7 +137,6 @@ export function useClientes() {
     drawerAbierto,
     modalNuevoClienteAbierto,
     consultarClientes,
-    restablecerDatosIniciales,
     seleccionarCliente,
     cerrarDrawer,
     cambiarEstadoCliente,

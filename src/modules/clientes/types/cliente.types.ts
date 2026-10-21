@@ -89,7 +89,7 @@ export const ClienteSchema = z.object({
   sitio_web: z.string().url({ message: 'URL de sitio web inválida' }).optional().or(z.literal('')),
   ciudad: z.string().min(2, { message: 'La ciudad es requerida' }),
   direccion: z.string().optional(),
-  valor_estimado: z.number().min(0, { message: 'El valor estimado no puede ser negativo' }),
+  valor_estimado: z.coerce.number().min(0, { message: 'El valor estimado no puede ser negativo' }),
   responsable: z.string().min(2, { message: 'Debe asignar un responsable comercial' }),
   // Datos opcionales del Contacto Principal inicial
   contacto_nombre: z.string().optional(),

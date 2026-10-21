@@ -16,7 +16,6 @@ import {
   Server, 
   Sparkles,
   ExternalLink,
-  RotateCcw,
   Clock
 } from 'lucide-vue-next';
 
@@ -98,10 +97,6 @@ const marcarTodasLeidas = () => {
 
 const limpiarTodas = () => {
   centroNotificacionesService.limpiarTodas();
-};
-
-const restablecer = () => {
-  centroNotificacionesService.restablecerSemillas();
 };
 
 // Cerrar al hacer clic fuera del panel
@@ -313,16 +308,6 @@ onUnmounted(() => {
           <span>Limpiar historial</span>
         </button>
         <span v-else class="text-[10px] font-mono text-zinc-400">Sin notificaciones activas</span>
-
-        <button
-          type="button"
-          @click="restablecer"
-          class="hover:text-indigo-600 dark:hover:text-indigo-400 transition flex items-center gap-1 font-medium"
-          title="Restablecer notificaciones de prueba"
-        >
-          <RotateCcw class="w-3 h-3" />
-          <span>Restablecer</span>
-        </button>
       </div>
 
     </div>

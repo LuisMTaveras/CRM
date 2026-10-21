@@ -241,17 +241,22 @@ const guardar = async () => {
   }
 
   // --- Validación Zod final (capa de seguridad) ---
-  // Preparar datos: normalizar campos opcionales para que Zod no los rechace
+  // Preparar datos: normalizar campos opcionales y tipos para que Zod no los rechace
   const datosParaValidar = {
     ...formulario,
+    // Normalizar a string limpio o vacío
     email: formulario.email?.trim() || '',
     telefono: formulario.telefono?.trim() || '',
     sitio_web: formulario.sitio_web?.trim() || '',
     contacto_email: formulario.contacto_email?.trim() || '',
+    // v-model sin .number devuelve string - forzar a número
+    valor_estimado: Number(formulario.valor_estimado) || 0,
   };
+  console.log('[guardar] datosParaValidar:', datosParaValidar);
 
   const resultado = ClienteSchema.safeParse(datosParaValidar);
   if (!resultado.success) {
+    console.error('[guardar] Zod errors:', resultado.error.flatten().fieldErrors);
     const formatted = resultado.error.format();
     for (const [key, value] of Object.entries(formatted)) {
       if (key !== '_errors' && value && '_errors' in value && Array.isArray((value as { _errors: string[] })._errors)) {
