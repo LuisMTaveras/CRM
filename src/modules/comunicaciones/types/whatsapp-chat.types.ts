@@ -19,6 +19,8 @@ export interface MensajeWhatsApp {
   archivoTamano?: string;
   archivoMime?: string;
   mensajeCitado?: MensajeCitado;
+  esNotaInterna?: boolean;
+  autor?: string;
 }
 
 export interface ChatWhatsApp {
@@ -32,6 +34,7 @@ export interface ChatWhatsApp {
   avatar: string;
   clienteId?: string;
   clienteEmpresa?: string;
+  etiquetas?: string[];
 }
 
 export interface RespuestaNuevoMensaje {
@@ -39,4 +42,18 @@ export interface RespuestaNuevoMensaje {
   mensaje: MensajeWhatsApp;
   enviadoPorSocket?: boolean;
   error?: string;
+}
+
+export interface RespuestaRapida {
+  comando: string;
+  titulo: string;
+  texto: string;
+  categoria: 'comercial' | 'operativa' | 'cierre' | 'soporte';
+}
+
+export interface DefinicionEtiqueta {
+  id: string;
+  nombre: string;
+  colorClase: string;
+  bgClase: string;
 }

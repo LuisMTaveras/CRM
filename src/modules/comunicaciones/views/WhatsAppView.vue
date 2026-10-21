@@ -4,9 +4,18 @@ import { whatsAppChatService } from '../services/whatsapp-chat.service';
 import { whatsAppService } from '../services/whatsapp.service';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import type { Cliente } from '@/modules/clientes/types/cliente.types';
-import type { ChatWhatsApp, MensajeWhatsApp, MensajeCitado } from '../types/whatsapp-chat.types';
+import type {
+  ChatWhatsApp,
+  MensajeWhatsApp,
+  MensajeCitado,
+  RespuestaRapida,
+  DefinicionEtiqueta,
+} from '../types/whatsapp-chat.types';
 import ModalConexionWhatsApp from '../components/ModalConexionWhatsApp.vue';
 import ReproductorNotaVoz from '../components/ReproductorNotaVoz.vue';
+import GrabadorNotaVoz from '../components/GrabadorNotaVoz.vue';
+import ModalCrearTratoWhatsApp from '../components/ModalCrearTratoWhatsApp.vue';
+import ModalAgendarSeguimientoWhatsApp from '../components/ModalAgendarSeguimientoWhatsApp.vue';
 import { asistenteIaService, type IntencionComercial } from '../services/asistente-ia.service';
 import { toastService } from '@/core/notifications/toast.service';
 import {
@@ -33,20 +42,35 @@ import {
   ChevronUp,
   ChevronDown,
   Bot,
+  Mic,
+  Tag,
+  Lock,
+  Calendar,
+  Kanban,
 } from 'lucide-vue-next';
 import { formatRelativeTime } from '@/core/formatters/formatters';
 
 const busqueda = ref('');
 const filtroNoLeidos = ref(false);
+const etiquetaFiltroActiva = ref<string>('todas');
 const textoNuevoMensaje = ref('');
 const modalConexionAbierto = ref(false);
 const modalNuevoChatAbierto = ref(false);
+const modalTratoAbierto = ref(false);
+const modalSeguimientoAbierto = ref(false);
+const menuEtiquetasAbierto = ref(false);
 const clientes = ref<Cliente[]>([]);
 const clienteSeleccionadoId = ref('');
 const telefonoManual = ref('');
 const nombreManual = ref('');
 const contenedorMensajes = ref<HTMLDivElement | null>(null);
 const inputBusquedaChat = ref<HTMLInputElement | null>(null);
+
+// Grabación de voz en vivo
+const grabadorAudioAbierto = ref(false);
+
+// Modo Nota Interna privada vs Mensaje normal
+const modoNotaInterna = ref(false);
 
 // Búsqueda en conversación activa
 const busquedaChatActivo = ref('');
@@ -56,7 +80,7 @@ const indiceCoincidenciaActual = ref(0);
 // Citas y respuestas a mensajes
 const mensajeRespondido = ref<MensajeWhatsApp | null>(null);
 
-// Asistente IA de respuestas rápidas
+// Asistente IA de respuestas
 const menuIaAbierto = ref(false);
 
 // Adjuntos y Multimedia
@@ -72,19 +96,82 @@ const cargandoChats = computed(() => whatsAppChatService.cargandoChats.value);
 const enviando = computed(() => whatsAppChatService.enviando.value);
 const conectado = computed(() => whatsAppService.conectado.value);
 
-// Respuestas rápidas comerciales B2B
-const respuestasRapidas = [
-  '¡Hola! Un gusto saludarle. ¿En qué podemos apoyarle hoy?',
-  'Le confirmo que recibimos su solicitud y la estamos procesando.',
-  'Le acabo de remitir la cotización comercial formal con los precios acordados.',
-  'Muchas gracias por la confirmación, procedemos con la orden.',
+// Catálogo de etiquetas comerciales B2B
+const CATALOGO_ETIQUETAS: DefinicionEtiqueta[] = [
+  { id: 'vip', nombre: 'VIP', colorClase: 'text-amber-700 dark:text-amber-400', bgClase: 'bg-amber-500/10 border-amber-500/30' },
+  { id: 'cotizado', nombre: 'Cotizado', colorClase: 'text-sky-700 dark:text-sky-400', bgClase: 'bg-sky-500/10 border-sky-500/30' },
+  { id: 'negociacion', nombre: 'En Negociación', colorClase: 'text-indigo-700 dark:text-indigo-400', bgClase: 'bg-indigo-500/10 border-indigo-500/30' },
+  { id: 'pago_pendiente', nombre: 'Pago Pendiente', colorClase: 'text-rose-700 dark:text-rose-400', bgClase: 'bg-rose-500/10 border-rose-500/30' },
+  { id: 'cerrado', nombre: 'Cerrado Ganado', colorClase: 'text-emerald-700 dark:text-emerald-400', bgClase: 'bg-emerald-500/10 border-emerald-500/30' },
 ];
 
-// Filtrar conversaciones
+// Catálogo de respuestas rápidas con comando /
+const CATALOGO_RESPUESTAS_RAPIDAS: RespuestaRapida[] = [
+  {
+    comando: '/banco',
+    titulo: 'Datos Bancarios Oficiales',
+    texto: 'Nuestros datos bancarios oficiales para transferencias son: Banco BHD, Cuenta Corriente: 0123-4567-89, RNC: 1-30-12345-6 a nombre de DEVFORGE SRL.',
+    categoria: 'operativa',
+  },
+  {
+    comando: '/horario',
+    titulo: 'Horario de Atención Comercial',
+    texto: 'Nuestro horario comercial es de Lunes a Viernes de 8:30 AM a 6:00 PM. Estamos a su completa disposición.',
+    categoria: 'operativa',
+  },
+  {
+    comando: '/cotizacion',
+    titulo: 'Envío de Cotización Formal',
+    texto: 'Estimado/a {{nombre}}, le comparto los términos comerciales de la cotización acordada. Quedo atento a su visto bueno para formalizar.',
+    categoria: 'comercial',
+  },
+  {
+    comando: '/gracias',
+    titulo: 'Agradecimiento por su Confianza',
+    texto: '¡Muchas gracias por su preferencia {{nombre}}! Ha sido un placer atenderle. Seguimos a sus órdenes para cualquier requerimiento.',
+    categoria: 'cierre',
+  },
+  {
+    comando: '/reunion',
+    titulo: 'Coordinar Videollamada / Reunión',
+    texto: 'Hola {{nombre}}, ¿le convendría una breve videollamada de 15 minutos hoy o mañana para revisar los detalles técnicos?',
+    categoria: 'comercial',
+  },
+  {
+    comando: '/factura',
+    titulo: 'Solicitud de Datos Fiscales B01',
+    texto: 'Para emitir su comprobante fiscal con valor (NCF B01), favor remitirnos su RNC o Cédula, Razón Social y dirección comercial.',
+    categoria: 'operativa',
+  },
+];
+
+const mostrarMenuComandos = computed(() => {
+  return textoNuevoMensaje.value.startsWith('/');
+});
+
+const comandosFiltrados = computed(() => {
+  if (!textoNuevoMensaje.value.startsWith('/')) return [];
+  const q = textoNuevoMensaje.value.slice(1).toLowerCase().trim();
+  if (!q) return CATALOGO_RESPUESTAS_RAPIDAS;
+  return CATALOGO_RESPUESTAS_RAPIDAS.filter(
+    (c) => c.comando.slice(1).includes(q) || c.titulo.toLowerCase().includes(q)
+  );
+});
+
+const seleccionarComando = (item: RespuestaRapida) => {
+  const nombreCliente = chatActivo.value?.contacto || chatActivo.value?.nombre || 'Estimado/a';
+  const textoProcesado = item.texto.replace(/{{nombre}}/g, nombreCliente);
+  textoNuevoMensaje.value = textoProcesado;
+};
+
+// Filtrar conversaciones por texto, estado no leído y etiquetas
 const chatsFiltrados = computed(() => {
   let resultado = chats.value;
   if (filtroNoLeidos.value) {
     resultado = resultado.filter((c) => (c.noLeidos || 0) > 0);
+  }
+  if (etiquetaFiltroActiva.value !== 'todas') {
+    resultado = resultado.filter((c) => c.etiquetas?.includes(etiquetaFiltroActiva.value));
   }
   if (busqueda.value.trim()) {
     const q = busqueda.value.toLowerCase().trim();
@@ -118,8 +205,27 @@ const clienteDelChat = computed<Cliente | null>(() => {
 });
 
 const seleccionarConversacion = async (chat: ChatWhatsApp) => {
+  menuEtiquetasAbierto.value = false;
+  grabadorAudioAbierto.value = false;
+  modoNotaInterna.value = false;
   await whatsAppChatService.seleccionarChat(chat);
   hacerScrollAbajo();
+};
+
+const alternarEtiquetaChat = async (tagId: string) => {
+  if (!chatActivo.value) return;
+  const actuales = chatActivo.value.etiquetas || [];
+  let nuevas: string[];
+  if (actuales.includes(tagId)) {
+    nuevas = actuales.filter((t) => t !== tagId);
+  } else {
+    nuevas = [...actuales, tagId];
+  }
+  await whatsAppChatService.actualizarEtiquetas(chatActivo.value.jid, nuevas);
+};
+
+const obtenerEtiquetaDefinicion = (tagId: string): DefinicionEtiqueta | undefined => {
+  return CATALOGO_ETIQUETAS.find((t) => t.id === tagId);
 };
 
 const activarSelectorArchivos = () => {
@@ -158,6 +264,14 @@ const cancelarArchivoAdjunto = () => {
   }
   archivoAdjunto.value = null;
   archivoPreviewUrl.value = null;
+};
+
+const manejarAudioGrabado = async (archivo: File) => {
+  grabadorAudioAbierto.value = false;
+  const exito = await whatsAppChatService.enviarArchivo(archivo);
+  if (exito) {
+    hacerScrollAbajo();
+  }
 };
 
 const formatearTamanoArchivo = (bytes: number): string => {
@@ -350,6 +464,25 @@ const generarSugerenciaIa = (tipo: 'seguimiento' | 'confirmacion' | 'cierre' | '
 const enviarMensaje = async () => {
   if (enviando.value) return;
 
+  // Si está en modo Nota Interna
+  if (modoNotaInterna.value) {
+    if (!textoNuevoMensaje.value.trim() || !chatActivo.value) return;
+    const texto = textoNuevoMensaje.value.trim();
+    textoNuevoMensaje.value = '';
+
+    const exito = await whatsAppChatService.guardarNotaInterna(
+      chatActivo.value.jid,
+      texto,
+      'Equipo Comercial'
+    );
+    if (exito) {
+      hacerScrollAbajo();
+    } else {
+      textoNuevoMensaje.value = texto;
+    }
+    return;
+  }
+
   // Si hay un archivo adjunto pendiente de envío
   if (archivoAdjunto.value) {
     const file = archivoAdjunto.value;
@@ -383,12 +516,8 @@ const enviarMensaje = async () => {
   if (exito) {
     hacerScrollAbajo();
   } else {
-    textoNuevoMensaje.value = texto; // restaurar si falló
+    textoNuevoMensaje.value = texto;
   }
-};
-
-const usarRespuestaRapida = (frase: string) => {
-  textoNuevoMensaje.value = frase;
 };
 
 const hacerScrollAbajo = () => {
@@ -575,6 +704,36 @@ onUnmounted(() => {
               </span>
             </button>
           </div>
+
+          <!-- Chips de Filtro por Etiqueta Comercial -->
+          <div class="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] scrollbar-none">
+            <button
+              type="button"
+              @click="etiquetaFiltroActiva = 'todas'"
+              :class="[
+                'px-2 py-0.5 rounded-full shrink-0 font-medium transition',
+                etiquetaFiltroActiva === 'todas'
+                  ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              ]"
+            >
+              Todas
+            </button>
+            <button
+              v-for="tag in CATALOGO_ETIQUETAS"
+              :key="tag.id"
+              type="button"
+              @click="etiquetaFiltroActiva = tag.id"
+              :class="[
+                'px-2 py-0.5 rounded-full shrink-0 font-medium transition border',
+                etiquetaFiltroActiva === tag.id
+                  ? tag.bgClase + ' ' + tag.colorClase + ' font-bold'
+                  : 'border-transparent bg-zinc-100 dark:bg-zinc-800/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+              ]"
+            >
+              {{ tag.nombre }}
+            </button>
+          </div>
         </div>
 
         <!-- Lista de Conversaciones -->
@@ -626,6 +785,18 @@ onUnmounted(() => {
                 {{ c.ultimoMensaje }}
               </div>
 
+              <!-- Etiquetas del chat en miniatura -->
+              <div v-if="c.etiquetas && c.etiquetas.length > 0" class="flex flex-wrap gap-1 mb-1.5">
+                <span
+                  v-for="tid in c.etiquetas"
+                  :key="tid"
+                  class="px-1.5 py-0.2 rounded-full text-[9px] font-medium border"
+                  :class="obtenerEtiquetaDefinicion(tid)?.bgClase + ' ' + obtenerEtiquetaDefinicion(tid)?.colorClase"
+                >
+                  {{ obtenerEtiquetaDefinicion(tid)?.nombre || tid }}
+                </span>
+              </div>
+
               <div class="flex items-center justify-between text-[10px]">
                 <span class="text-zinc-400 font-mono">
                   {{ c.telefono }}
@@ -639,6 +810,7 @@ onUnmounted(() => {
               </div>
             </div>
           </button>
+
         </div>
       </aside>
 
@@ -674,7 +846,88 @@ onUnmounted(() => {
             </div>
 
             <!-- Botones de Acción Comercial y Búsqueda -->
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <!-- Selector / Dropdown de Etiquetas -->
+              <div class="relative">
+                <button
+                  type="button"
+                  @click="menuEtiquetasAbierto = !menuEtiquetasAbierto"
+                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 transition"
+                  title="Gestionar etiquetas del cliente"
+                >
+                  <Tag class="w-3.5 h-3.5 text-zinc-500" />
+                  <span class="hidden sm:inline">Etiquetas</span>
+                  <span
+                    v-if="chatActivo.etiquetas?.length"
+                    class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-[10px]"
+                  >
+                    {{ chatActivo.etiquetas.length }}
+                  </span>
+                </button>
+
+                <!-- Menú desplegable de etiquetas -->
+                <div
+                  v-if="menuEtiquetasAbierto"
+                  class="absolute right-0 mt-1.5 w-48 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl p-1.5 z-40 text-xs space-y-0.5 animate-in fade-in zoom-in-95"
+                >
+                  <div class="px-2 py-1 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                    Etiquetar Chat
+                  </div>
+                  <button
+                    v-for="tag in CATALOGO_ETIQUETAS"
+                    :key="tag.id"
+                    type="button"
+                    @click="alternarEtiquetaChat(tag.id)"
+                    class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-left"
+                  >
+                    <span class="flex items-center gap-1.5">
+                      <span
+                        class="w-2 h-2 rounded-full"
+                        :class="
+                          tag.colorClase.includes('amber')
+                            ? 'bg-amber-500'
+                            : tag.colorClase.includes('sky')
+                            ? 'bg-sky-500'
+                            : tag.colorClase.includes('indigo')
+                            ? 'bg-indigo-500'
+                            : tag.colorClase.includes('rose')
+                            ? 'bg-rose-500'
+                            : 'bg-emerald-500'
+                        "
+                      ></span>
+                      <span class="text-zinc-800 dark:text-zinc-200">{{ tag.nombre }}</span>
+                    </span>
+                    <Check
+                      v-if="chatActivo.etiquetas?.includes(tag.id)"
+                      class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Crear Oportunidad / Trato en Pipeline -->
+              <button
+                type="button"
+                @click="modalTratoAbierto = true"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition"
+                title="Convertir conversación en Oportunidad en el Pipeline Comercial"
+              >
+                <Kanban class="w-3.5 h-3.5" />
+                <span class="hidden md:inline">Crear Trato</span>
+              </button>
+
+              <!-- Agendar Seguimiento en Calendario -->
+              <button
+                type="button"
+                @click="modalSeguimientoAbierto = true"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400 hover:bg-sky-500/20 text-xs font-medium transition"
+                title="Agendar llamada, reunión o tarea de seguimiento en la agenda"
+              >
+                <Calendar class="w-3.5 h-3.5" />
+                <span class="hidden md:inline">Agendar</span>
+              </button>
+
+              <!-- Búsqueda en Chat -->
               <button
                 type="button"
                 @click="alternarBarraBusqueda"
@@ -685,31 +938,32 @@ onUnmounted(() => {
                 <Search class="w-3.5 h-3.5" />
               </button>
 
+              <!-- Asistente IA -->
               <button
                 type="button"
                 @click="menuIaAbierto = !menuIaAbierto"
-                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium transition"
+                class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium transition"
                 title="Asistente de respuestas sugeridas con IA"
               >
                 <Sparkles class="w-3.5 h-3.5" />
-                <span>Asistente IA</span>
+                <span class="hidden lg:inline">IA</span>
               </button>
 
               <router-link
                 v-if="clienteDelChat"
                 :to="{ path: '/clientes', query: { buscar: clienteDelChat.identificacion_fiscal || clienteDelChat.codigo } }"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
               >
                 <Building2 class="w-3.5 h-3.5 text-zinc-400" />
-                <span>Ver Cliente</span>
+                <span class="hidden xl:inline">Ver Cliente</span>
               </router-link>
 
               <router-link
                 to="/catalogo"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition font-medium"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-medium transition shadow-xs"
               >
                 <FileText class="w-3.5 h-3.5" />
-                <span>Generar Cotización PDF</span>
+                <span class="hidden sm:inline">Cotizar PDF</span>
               </router-link>
             </div>
           </div>
@@ -832,8 +1086,23 @@ onUnmounted(() => {
                 </span>
               </div>
 
-              <!-- Burbuja de Mensaje -->
+              <!-- NOTA INTERNA PRIVADA DEL EQUIPO (Visible solo en CRM) -->
+              <div v-if="m.esNotaInterna" class="w-full flex justify-center my-2 select-text">
+                <div class="max-w-[90%] sm:max-w-[75%] w-full bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/30 rounded-2xl p-3 text-xs text-zinc-900 dark:text-zinc-100 shadow-sm">
+                  <div class="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-amber-500/20 text-[10px] font-semibold tracking-wider text-amber-700 dark:text-amber-400">
+                    <div class="flex items-center gap-1.5">
+                      <Lock class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span>NOTA INTERNA PRIVADA • {{ m.emisor }}</span>
+                    </div>
+                    <span class="font-mono text-[9px] text-zinc-500">{{ formatearHoraMensaje(m.timestamp) }}</span>
+                  </div>
+                  <div class="whitespace-pre-wrap leading-relaxed font-sans" v-html="formatearTextoWhatsApp(m.texto)"></div>
+                </div>
+              </div>
+
+              <!-- Burbuja de Mensaje WhatsApp Normal -->
               <div
+                v-else
                 :id="'msg-' + m.id"
                 :class="[
                   'flex flex-col max-w-[85%] sm:max-w-[75%] md:max-w-[65%] group relative transition',
@@ -1010,20 +1279,73 @@ onUnmounted(() => {
             </template>
           </div>
 
-          <!-- Respuestas Rápidas Flotantes -->
-          <div class="px-4 py-1.5 bg-white/70 dark:bg-zinc-900/70 border-t border-zinc-200/70 dark:border-zinc-800/70 flex items-center gap-1.5 overflow-x-auto text-[11px]">
-            <span class="text-zinc-400 text-[10px] font-mono shrink-0 flex items-center gap-1">
-              <Sparkles class="w-3 h-3 text-amber-500" />
-              Rápidas:
-            </span>
+          <!-- Pestaña de Selector de Modo: Mensaje WhatsApp vs Nota Interna -->
+          <div class="px-4 py-1.5 bg-zinc-50 dark:bg-zinc-900/90 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-1 bg-zinc-200/70 dark:bg-zinc-800/70 p-0.5 rounded-lg">
+              <button
+                type="button"
+                @click="modoNotaInterna = false"
+                class="flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-medium transition"
+                :class="
+                  !modoNotaInterna
+                    ? 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                "
+              >
+                <MessageSquare class="w-3.5 h-3.5" />
+                <span>Mensaje WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                @click="modoNotaInterna = true"
+                class="flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-medium transition"
+                :class="
+                  modoNotaInterna
+                    ? 'bg-amber-500 text-white shadow-xs font-semibold'
+                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                "
+              >
+                <Lock class="w-3.5 h-3.5" />
+                <span>Nota Interna Privada</span>
+              </button>
+            </div>
+
+            <div v-if="modoNotaInterna" class="text-[11px] text-amber-700 dark:text-amber-400 font-medium hidden sm:flex items-center gap-1">
+              <Lock class="w-3 h-3" />
+              <span>Visible solo para el equipo comercial en el CRM</span>
+            </div>
+            <div v-else class="text-[11px] text-zinc-400 hidden sm:flex items-center gap-1">
+              <span>Escribe <code class="px-1 py-0.2 bg-zinc-200 dark:bg-zinc-800 rounded font-mono text-[10px]">/</code> para respuestas rápidas</span>
+            </div>
+          </div>
+
+          <!-- Popover Flotante de Atajos Rápidos con / -->
+          <div
+            v-if="mostrarMenuComandos && comandosFiltrados.length > 0"
+            class="px-3 py-2 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1 max-h-48 overflow-y-auto text-xs shadow-lg animate-in slide-in-from-bottom-2"
+          >
+            <div class="flex items-center justify-between text-[10px] text-zinc-400 font-semibold px-2 uppercase tracking-wider">
+              <span>Respuestas Rápidas (Atajos con /)</span>
+              <span>Clic o Enter para insertar</span>
+            </div>
             <button
-              v-for="(frase, idx) in respuestasRapidas"
-              :key="idx"
+              v-for="item in comandosFiltrados"
+              :key="item.comando"
               type="button"
-              @click="usarRespuestaRapida(frase)"
-              class="px-2.5 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 shrink-0 transition text-[10px]"
+              @click="seleccionarComando(item)"
+              class="flex items-start gap-2 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition group"
             >
-              {{ frase.slice(0, 32) }}...
+              <span class="font-mono text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                {{ item.comando }}
+              </span>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-600">
+                  {{ item.titulo }}
+                </div>
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                  {{ item.texto }}
+                </div>
+              </div>
             </button>
           </div>
 
@@ -1093,36 +1415,81 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <!-- Barra de Redacción de Mensaje -->
+          <!-- Barra de Redacción de Mensaje / Grabador de Voz en Vivo -->
           <div class="p-3 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
-            <!-- Botón para adjuntar documento, imagen o audio -->
-            <button
-              type="button"
-              @click="activarSelectorArchivos"
-              :disabled="enviando"
-              class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition shrink-0"
-              title="Adjuntar imagen, audio o documento"
-            >
-              <Paperclip class="w-4 h-4" />
-            </button>
+            <!-- Si el grabador de voz en vivo está activo -->
+            <template v-if="grabadorAudioAbierto">
+              <GrabadorNotaVoz
+                @enviar="manejarAudioGrabado"
+                @cancelar="grabadorAudioAbierto = false"
+              />
+            </template>
 
-            <input
-              v-model="textoNuevoMensaje"
-              @keydown.enter.prevent="enviarMensaje"
-              type="text"
-              :placeholder="mensajeRespondido ? `Respondiendo a ${mensajeRespondido.emisor}...` : (archivoAdjunto ? 'Añade un comentario al archivo... (Enter para enviar)' : 'Escribe un mensaje de WhatsApp... (*negrita*, _cursiva_)')"
-              class="flex-1 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
-            />
+            <!-- Modo normal de redacción -->
+            <template v-else>
+              <!-- Botón para adjuntar documento, imagen o audio -->
+              <button
+                type="button"
+                @click="activarSelectorArchivos"
+                :disabled="enviando"
+                class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition shrink-0"
+                title="Adjuntar imagen o documento"
+              >
+                <Paperclip class="w-4 h-4" />
+              </button>
 
-            <button
-              type="button"
-              @click="enviarMensaje"
-              :disabled="(!textoNuevoMensaje.trim() && !archivoAdjunto) || enviando"
-              class="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white shadow-sm transition shrink-0 flex items-center justify-center"
-            >
-              <Send class="w-4 h-4" />
-            </button>
+              <!-- Botón Grabar Nota de Voz con Micrófono -->
+              <button
+                type="button"
+                @click="grabadorAudioAbierto = true"
+                :disabled="enviando"
+                class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/10 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition shrink-0"
+                title="Grabar nota de voz con micrófono"
+              >
+                <Mic class="w-4 h-4" />
+              </button>
+
+              <!-- Input principal -->
+              <input
+                v-model="textoNuevoMensaje"
+                @keydown.enter.prevent="enviarMensaje"
+                type="text"
+                :placeholder="
+                  modoNotaInterna
+                    ? 'Escribe una nota interna para el equipo... (Enter para registrar)'
+                    : mensajeRespondido
+                    ? `Respondiendo a ${mensajeRespondido.emisor}...`
+                    : archivoAdjunto
+                    ? 'Añade un comentario al archivo... (Enter para enviar)'
+                    : 'Escribe un mensaje de WhatsApp o / para atajos... (*negrita*, _cursiva_)'
+                "
+                class="flex-1 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none transition"
+                :class="
+                  modoNotaInterna
+                    ? 'border-amber-400/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500'
+                    : 'border-zinc-200 dark:border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                "
+              />
+
+              <!-- Botón Enviar o Registrar Nota -->
+              <button
+                type="button"
+                @click="enviarMensaje"
+                :disabled="(!textoNuevoMensaje.trim() && !archivoAdjunto) || enviando"
+                class="p-2.5 rounded-xl disabled:opacity-40 text-white shadow-sm transition shrink-0 flex items-center justify-center"
+                :class="
+                  modoNotaInterna
+                    ? 'bg-amber-600 hover:bg-amber-500 disabled:hover:bg-amber-600'
+                    : 'bg-emerald-600 hover:bg-emerald-500 disabled:hover:bg-emerald-600'
+                "
+                :title="modoNotaInterna ? 'Guardar nota interna' : 'Enviar mensaje de WhatsApp'"
+              >
+                <Lock v-if="modoNotaInterna" class="w-4 h-4" />
+                <Send v-else class="w-4 h-4" />
+              </button>
+            </template>
           </div>
+
         </template>
 
         <!-- Estado vacío si no hay chat seleccionado -->
@@ -1178,19 +1545,35 @@ onUnmounted(() => {
 
           <!-- Acciones directas con el cliente -->
           <div class="space-y-2 pt-2">
-            <router-link
-              :to="{ path: '/pipeline' }"
-              class="w-full flex items-center justify-between p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition font-medium text-zinc-700 dark:text-zinc-300"
+            <button
+              type="button"
+              @click="modalTratoAbierto = true"
+              class="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 transition font-medium text-xs"
             >
-              <span>Crear Oportunidad Kanban</span>
-              <ChevronRight class="w-4 h-4 text-zinc-400" />
-            </router-link>
+              <div class="flex items-center gap-2">
+                <Kanban class="w-4 h-4" />
+                <span>Crear Oportunidad Kanban</span>
+              </div>
+              <ChevronRight class="w-4 h-4 opacity-75" />
+            </button>
+
+            <button
+              type="button"
+              @click="modalSeguimientoAbierto = true"
+              class="w-full flex items-center justify-between p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 transition font-medium text-xs"
+            >
+              <div class="flex items-center gap-2">
+                <Calendar class="w-4 h-4" />
+                <span>Agendar Reunión o Tarea</span>
+              </div>
+              <ChevronRight class="w-4 h-4 opacity-75" />
+            </button>
 
             <router-link
-              :to="{ path: '/agenda' }"
-              class="w-full flex items-center justify-between p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition font-medium text-zinc-700 dark:text-zinc-300"
+              :to="{ path: '/pipeline' }"
+              class="w-full flex items-center justify-between p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition font-medium text-zinc-700 dark:text-zinc-300 text-xs"
             >
-              <span>Agendar Reunión o Tarea</span>
+              <span>Ver Tablero Kanban</span>
               <ChevronRight class="w-4 h-4 text-zinc-400" />
             </router-link>
           </div>
@@ -1339,5 +1722,17 @@ onUnmounted(() => {
         </div>
       </div>
     </Teleport>
+
+    <!-- MODAL CREAR TRATO EN PIPELINE COMERCIAL -->
+    <ModalCrearTratoWhatsApp
+      v-model="modalTratoAbierto"
+      :chat="chatActivo"
+    />
+
+    <!-- MODAL AGENDAR SEGUIMIENTO EN CALENDARIO -->
+    <ModalAgendarSeguimientoWhatsApp
+      v-model="modalSeguimientoAbierto"
+      :chat="chatActivo"
+    />
   </div>
 </template>

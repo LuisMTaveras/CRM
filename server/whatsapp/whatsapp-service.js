@@ -730,6 +730,57 @@ class WhatsAppService {
     return { ok: true };
   }
 
+  actualizarEtiquetas(jid, etiquetas = []) {
+    let chat = this.chats.find((c) => c.jid === jid);
+    if (!chat) {
+      chat = this.iniciarNuevoChat(jid);
+    }
+    chat.etiquetas = Array.isArray(etiquetas) ? etiquetas : [];
+    this.guardarChatsEnDisco();
+    this.emitirEvento('chat_actualizado', chat);
+    return { ok: true, chat };
+  }
+
+  guardarNotaInterna(jid, texto, autor = 'Equipo Comercial') {
+    if (!jid || !texto || !texto.trim()) {
+      throw new Error('JID y texto son requeridos para la nota interna.');
+    }
+
+    const ts = new Date().toISOString();
+    const idGenerado = `nota-${Date.now()}`;
+
+    if (!this.mensajes[jid]) {
+      this.mensajes[jid] = [];
+    }
+
+    const notaObj = {
+      id: idGenerado,
+      deMi: true,
+      emisor: autor || 'Equipo Comercial',
+      autor: autor || 'Equipo Comercial',
+      texto: texto.trim(),
+      timestamp: ts,
+      estado: 'entregado',
+      tipo: 'texto',
+      esNotaInterna: true,
+    };
+
+    this.mensajes[jid].push(notaObj);
+
+    let chat = this.chats.find((c) => c.jid === jid);
+    if (chat) {
+      this.chats = [chat, ...this.chats.filter((c) => c.jid !== jid)];
+    }
+
+    this.guardarChatsEnDisco();
+    this.emitirEvento('mensaje', { jid, mensaje: notaObj, chat });
+
+    return {
+      ok: true,
+      mensaje: notaObj,
+    };
+  }
+
   iniciarNuevoChat(telefono, nombre = '', contacto = '') {
     if (!telefono) throw new Error('Número de teléfono requerido');
     const jid = this.formatearNumeroAJID(telefono);

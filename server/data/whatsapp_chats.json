@@ -1,6 +1,30 @@
 {
   "chats": [
     {
+      "jid": "18298843035@s.whatsapp.net",
+      "telefono": "+18298843035",
+      "nombre": "PEPE",
+      "contacto": "",
+      "ultimoMensaje": "📷 Comprobante de transferencia bancaria",
+      "ultimoTimestamp": "2026-10-21T19:06:26.651Z",
+      "noLeidos": 0,
+      "avatar": "PE",
+      "etiquetas": [
+        "vip",
+        "negociacion"
+      ]
+    },
+    {
+      "jid": "25147788538099@lid",
+      "telefono": "25147788538099@lid",
+      "nombre": "Alliance",
+      "contacto": "Alliance",
+      "ultimoMensaje": "esta bien",
+      "ultimoTimestamp": "2026-10-21T19:55:24.000Z",
+      "noLeidos": 0,
+      "avatar": "AL"
+    },
+    {
       "jid": "149632533455026@lid",
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
@@ -9,16 +33,6 @@
       "ultimoTimestamp": "2026-10-21T19:38:43.000Z",
       "noLeidos": 0,
       "avatar": "LU"
-    },
-    {
-      "jid": "18298843035@s.whatsapp.net",
-      "telefono": "+18298843035",
-      "nombre": "PEPE",
-      "contacto": "",
-      "ultimoMensaje": "📷 Comprobante de transferencia bancaria",
-      "ultimoTimestamp": "2026-10-21T19:06:26.651Z",
-      "noLeidos": 0,
-      "avatar": "PE"
     },
     {
       "jid": "18299643035@s.whatsapp.net",
@@ -67,6 +81,17 @@
         "archivoUrl": "/api/whatsapp/media/wa_1792609586651_recibo_pago.png",
         "archivoTamano": "0 KB",
         "archivoMime": "image/png"
+      },
+      {
+        "id": "nota-1792612673518",
+        "deMi": true,
+        "emisor": "Camila Morales",
+        "autor": "Camila Morales",
+        "texto": "Nota de prueba interna: cliente requiere crédito a 30 días",
+        "timestamp": "2026-10-21T19:57:53.518Z",
+        "estado": "entregado",
+        "tipo": "texto",
+        "esNotaInterna": true
       }
     ],
     "18299643035@s.whatsapp.net": [
@@ -239,6 +264,62 @@
         "archivoUrl": "/api/whatsapp/media/wa_audio_1792611523345_ACF1D69634D8275ADB9F410224B4D022.ogg",
         "archivoTamano": "7 KB",
         "archivoMime": "audio/ogg; codecs=opus"
+      }
+    ],
+    "25147788538099@lid": [
+      {
+        "id": "3EB00F3701AC51321459EC",
+        "deMi": false,
+        "emisor": "Alliance",
+        "texto": "Luis es tu hijo, mandame el formulario para reportar casos",
+        "timestamp": "2026-10-21T19:52:20.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB090628746A39C605FE9",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Que?",
+        "timestamp": "2026-10-21T19:52:50.844Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB05001FA11F93E9DAADF",
+        "deMi": false,
+        "emisor": "Alliance",
+        "texto": "Dijeron en desarrollo que ibas a pasar una plantilla la cual llenariamos para reportar casos",
+        "timestamp": "2026-10-21T19:53:32.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB077EB2A23A2F2205925",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "el sistema de tickets es para eso",
+        "timestamp": "2026-10-21T19:53:52.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB08980F226357CE6E980",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "que lo tienen que detallar bien.",
+        "timestamp": "2026-10-21T19:54:55.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0258F51C29AA91AB7D8",
+        "deMi": false,
+        "emisor": "Alliance",
+        "texto": "esta bien",
+        "timestamp": "2026-10-21T19:55:24.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
       }
     ]
   }

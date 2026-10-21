@@ -285,6 +285,57 @@ router.post('/chats/:jid/marcar-leido', (req, res) => {
   }
 });
 
+// 13b. Actualizar etiquetas de un chat
+router.post('/chats/:jid/etiquetas', (req, res) => {
+  try {
+    const { jid } = req.params;
+    const { etiquetas } = req.body || {};
+    const resultado = whatsAppService.actualizarEtiquetas(decodeURIComponent(jid), etiquetas);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/chats/etiquetas', (req, res) => {
+  try {
+    const { jid, etiquetas } = req.body || {};
+    if (!jid) return res.status(400).json({ ok: false, error: 'JID es requerido.' });
+    const resultado = whatsAppService.actualizarEtiquetas(String(jid), etiquetas);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 13c. Registrar nota interna privada del equipo de ventas
+router.post('/chats/:jid/notas-internas', (req, res) => {
+  try {
+    const { jid } = req.params;
+    const { texto, autor } = req.body || {};
+    if (!texto || !texto.trim()) {
+      return res.status(400).json({ ok: false, error: 'El contenido de la nota interna es requerido.' });
+    }
+    const resultado = whatsAppService.guardarNotaInterna(decodeURIComponent(jid), texto, autor);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/chats/notas-internas', (req, res) => {
+  try {
+    const { jid, texto, autor } = req.body || {};
+    if (!jid || !texto || !texto.trim()) {
+      return res.status(400).json({ ok: false, error: 'JID y texto de nota interna son requeridos.' });
+    }
+    const resultado = whatsAppService.guardarNotaInterna(String(jid), texto, autor);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // 14. Iniciar nueva conversación con número o cliente
 router.post('/chats/nuevo', (req, res) => {
   try {

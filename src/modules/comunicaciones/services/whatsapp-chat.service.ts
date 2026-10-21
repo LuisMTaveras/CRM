@@ -276,6 +276,72 @@ class WhatsAppChatService {
     }
   }
 
+  async actualizarEtiquetas(jid: string, etiquetas: string[]): Promise<boolean> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/chats/etiquetas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid, etiquetas }),
+      });
+      const data = await parsearJsonSeguro(resp);
+      if (data?.ok) {
+        const chat = this.chats.value.find((c) => c.jid === jid);
+        if (chat) chat.etiquetas = etiquetas;
+        if (this.chatActivo.value?.jid === jid) {
+          this.chatActivo.value.etiquetas = etiquetas;
+        }
+        return true;
+      }
+    } catch {
+      // Fallback local
+    }
+    const chat = this.chats.value.find((c) => c.jid === jid);
+    if (chat) chat.etiquetas = etiquetas;
+    if (this.chatActivo.value?.jid === jid) {
+      this.chatActivo.value.etiquetas = etiquetas;
+    }
+    return true;
+  }
+
+  async guardarNotaInterna(jid: string, texto: string, autor = 'Equipo Comercial'): Promise<boolean> {
+    if (!jid || !texto.trim()) return false;
+    this.enviando.value = true;
+    try {
+      const resp = await fetch(`${API_BASE_URL}/chats/notas-internas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid, texto: texto.trim(), autor }),
+      });
+      const data = await parsearJsonSeguro(resp);
+      if (data?.ok && data?.mensaje) {
+        if (!this.mensajes.value.some((m) => m.id === data.mensaje.id)) {
+          this.mensajes.value.push(data.mensaje);
+        }
+        toastService.exito('Nota interna registrada');
+        return true;
+      }
+      throw new Error(data?.error || 'No se pudo guardar la nota.');
+    } catch {
+      const notaLocal: MensajeWhatsApp = {
+        id: `wa-nota-${Date.now()}`,
+        deMi: true,
+        emisor: autor,
+        autor,
+        texto: texto.trim(),
+        timestamp: new Date().toISOString(),
+        estado: 'entregado',
+        tipo: 'texto',
+        esNotaInterna: true,
+      };
+      this.mensajes.value.push(notaLocal);
+      toastService.exito('Nota interna registrada');
+      return true;
+    } finally {
+      this.enviando.value = false;
+    }
+  }
+
+
   async iniciarNuevoChat(telefono: string, nombre?: string, contacto?: string): Promise<ChatWhatsApp | null> {
     const limpio = telefono.replace(/\D/g, '');
     let jid = `${limpio}@s.whatsapp.net`;

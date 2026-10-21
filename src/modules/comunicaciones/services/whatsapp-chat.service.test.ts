@@ -305,4 +305,73 @@ describe('WhatsAppChatService - Gestión de Conversaciones y Mensajes', () => {
     expect(whatsAppChatService.mensajes.value[0].tipo).toBe('audio');
     expect(whatsAppChatService.mensajes.value[0].esNotaVoz).toBe(true);
   });
+
+  it('actualiza las etiquetas comerciales de un chat activo y en la lista', async () => {
+    const chat = {
+      jid: '18095550101@s.whatsapp.net',
+      telefono: '+1 (809) 555-0101',
+      nombre: 'Banco BHD León',
+      ultimoMensaje: 'Hola',
+      ultimoTimestamp: '2026-10-21T14:00:00.000Z',
+      noLeidos: 0,
+      avatar: 'BH',
+      etiquetas: [],
+    };
+    whatsAppChatService.chats.value = [chat];
+    whatsAppChatService.chatActivo.value = chat;
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ok = await whatsAppChatService.actualizarEtiquetas(chat.jid, ['vip', 'negociacion']);
+    expect(ok).toBe(true);
+    expect(whatsAppChatService.chatActivo.value?.etiquetas).toEqual(['vip', 'negociacion']);
+    expect(whatsAppChatService.chats.value[0].etiquetas).toEqual(['vip', 'negociacion']);
+  });
+
+  it('registra una nota interna privada del equipo sin enviarla al cliente', async () => {
+    const chat = {
+      jid: '18095550101@s.whatsapp.net',
+      telefono: '+1 (809) 555-0101',
+      nombre: 'Banco BHD León',
+      ultimoMensaje: 'Hola',
+      ultimoTimestamp: '2026-10-21T14:00:00.000Z',
+      noLeidos: 0,
+      avatar: 'BH',
+    };
+    whatsAppChatService.chatActivo.value = chat;
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        mensaje: {
+          id: 'nota-123',
+          deMi: true,
+          emisor: 'Camila Morales',
+          autor: 'Camila Morales',
+          texto: 'Cliente solicita descuento del 10% adicional.',
+          timestamp: '2026-10-21T14:20:00.000Z',
+          estado: 'entregado',
+          tipo: 'texto',
+          esNotaInterna: true,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const ok = await whatsAppChatService.guardarNotaInterna(
+      chat.jid,
+      'Cliente solicita descuento del 10% adicional.',
+      'Camila Morales'
+    );
+    expect(ok).toBe(true);
+    expect(whatsAppChatService.mensajes.value.length).toBe(1);
+    expect(whatsAppChatService.mensajes.value[0].esNotaInterna).toBe(true);
+    expect(whatsAppChatService.mensajes.value[0].autor).toBe('Camila Morales');
+  });
 });
+
