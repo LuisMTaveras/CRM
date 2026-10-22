@@ -25,7 +25,6 @@ import {
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
-import { LOGO_ALLIANCE_DEFAULT } from '../constants/logo-default';
 import { FlickerlessSurface } from '@flickerless/vue';
 import { dialogService } from '@/core/dialog/dialog.service';
 import { toastService } from '@/core/notifications/toast.service';
@@ -228,8 +227,8 @@ const alCambiarLogo = (event: Event) => {
 };
 
 const restablecerLogoPorDefecto = () => {
-  formulario.logoUrl = LOGO_ALLIANCE_DEFAULT;
-  toastService.info('Logotipo oficial de Alliance restablecido.');
+  formulario.logoUrl = empresaService.obtenerDatos().logoUrl || '';
+  toastService.info('Logotipo institucional restablecido desde la configuración guardada.');
 };
 
 const quitarLogo = () => {
@@ -547,7 +546,7 @@ onMounted(() => {
                 v-model="formulario.identificacionFiscal"
                 type="text"
                 required
-                placeholder="ej: 1-32-45890-1"
+                placeholder="ej: 130-00000-0"
                 class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
               />
               <span class="text-[10px] text-zinc-500 mt-1 block">Registro Nacional de Contribuyentes oficial</span>
@@ -584,7 +583,7 @@ onMounted(() => {
                 v-model="formulario.telefono"
                 type="text"
                 required
-                placeholder="+1 (809) 555-0100"
+                placeholder="+1 (809) 000-0000"
                 class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
@@ -644,7 +643,7 @@ onMounted(() => {
                 v-model="formulario.direccion"
                 type="text"
                 required
-                placeholder="Av. Winston Churchill, Torre Empresarial, Suite 802"
+                placeholder="Calle y número, sector o edificio"
                 class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 transition"
               />
             </div>

@@ -24,13 +24,13 @@ const emit = defineEmits<{
 }>();
 
 const metodoVinculacion = ref<'qr' | 'codigo'>('qr');
-const telefonoPairing = ref('+1 (829) 708-4706');
+const telefonoPairing = ref('');
 const codigoGenerado = ref('');
 const solicitandoCodigo = ref(false);
 const copiado = ref(false);
 
 const numeroPrueba = ref('');
-const mensajePrueba = ref('¡Hola! Este es un mensaje de prueba desde DEVFORGE CRM.');
+const mensajePrueba = ref('¡Hola! Este es un mensaje de prueba desde nuestro equipo comercial.');
 const enviandoPrueba = ref(false);
 
 const conectar = async (forzar = false) => {
@@ -300,7 +300,7 @@ onUnmounted(() => {
                 <input
                   v-model="telefonoPairing"
                   type="text"
-                  placeholder="+1 (829) 708-4706"
+                  placeholder="+1 (809) 000-0000"
                   class="flex-1 px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 font-mono text-xs focus:outline-none focus:border-emerald-500"
                 />
                 <button

@@ -286,7 +286,7 @@ const opcionesSeguridadImap: Array<SelectOption<TipoSeguridadSmtp>> = [
               <input
                 v-model="configForm.nombreRemitente"
                 type="text"
-                placeholder="DEVFORGE — Departamento Comercial"
+                placeholder="Nombre de la empresa — Departamento Comercial"
                 class="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700/80 rounded text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
               />
             </div>

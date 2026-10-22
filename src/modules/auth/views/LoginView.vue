@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth.store';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import {
   Layers,
   Lock,
@@ -20,6 +21,8 @@ import {
 
 const router = useRouter();
 const authStore = useAuthStore();
+const nombreEmpresa = computed(() => empresaService.datos.value.nombreComercial || empresaService.datos.value.razonSocial || 'CRM');
+const paisEmpresa = computed(() => empresaService.datos.value.pais || '—');
 
 // Modo de autenticación: 'password' | 'whatsapp'
 const metodoAutenticacion = ref<'password' | 'whatsapp'>('password');
@@ -136,10 +139,10 @@ const reiniciarPasoWhatsApp = () => {
           <Layers class="w-6 h-6" />
         </div>
         <h1 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          DEVFORGE CRM
+          {{ nombreEmpresa }} CRM
         </h1>
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          Plataforma Comercial B2B • República Dominicana
+          Plataforma Comercial B2B • {{ paisEmpresa }}
         </p>
       </div>
 

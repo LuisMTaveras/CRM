@@ -5,6 +5,7 @@ import { timelineService } from '@/modules/clientes/services/timeline.service';
 import { toastService } from '@/core/notifications/toast.service';
 import { asistenteIaService, type IntencionComercial } from '../services/asistente-ia.service';
 import type { Cliente } from '@/modules/clientes/types/cliente.types';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { 
   X, 
   Send, 
@@ -29,9 +30,10 @@ const emit = defineEmits<{
 const telefono = ref(props.cliente?.telefono || '');
 const adjuntarPdf = ref(Boolean(props.cotizacionPdfBase64));
 
+const empresaEmisora = empresaService.obtenerDatos().nombreComercial || empresaService.obtenerDatos().razonSocial || 'nuestra empresa';
 const mensaje = ref(
-  props.cliente 
-    ? `Estimado equipo de ${props.cliente.nombre_comercial || props.cliente.razon_social},\n\nUn gusto saludarles. Les escribimos de DEVFORGE para dar seguimiento a sus requerimientos y compartirles nuestra propuesta comercial adjunta.\n\nQuedamos a su completa disposición.`
+  props.cliente
+    ? `Estimado equipo de ${props.cliente.nombre_comercial || props.cliente.razon_social},\n\nUn gusto saludarles. Les escribimos desde ${empresaEmisora} para dar seguimiento a sus requerimientos y compartirles nuestra propuesta comercial adjunta.\n\nQuedamos a su completa disposición.`
     : ''
 );
 

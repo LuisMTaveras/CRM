@@ -1,32 +1,28 @@
 import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion } from '../types/smtp.types';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
 
 const CLAVE_STORAGE_SMTP = 'crm_config_smtp_servidor';
 
 const CONFIGURACION_DEFAULT: ConfiguracionSMTP = {
   proveedor: 'personalizado',
-  servidorSmtp: 'smtp.empresa.com.do',
+  servidorSmtp: '',
   puertoSmtp: 587,
   seguridadSmtp: 'tls',
   requiereAutenticacion: true,
-  usuarioSmtp: 'ventas@empresa.com.do',
-  contrasenaSmtp: '••••••••••••',
+  usuarioSmtp: '',
+  contrasenaSmtp: '',
   habilitarImap: true,
-  servidorImap: 'imap.empresa.com.do',
+  servidorImap: '',
   puertoImap: 993,
   seguridadImap: 'ssl',
-  usuarioImap: 'ventas@empresa.com.do',
-  contrasenaImap: '••••••••••••',
-  nombreRemitente: 'Alliance Ingenieria de Software — Departamento Comercial',
-  correoRemitente: 'luismiguel@alliance.do',
-  correoRespuesta: 'luismiguel@alliance.do',
-  firmaTexto: `Atentamente,
-Departamento Comercial & Facturación B2B
-Ingenieria de Software Alliance S.R.L. • RNC: 130-99131-6
-Plaza City Center Mod C-402, Moca, Rep. Dom.
-Tel: +1 (809) 578-4747 | alliance.do`,
-  activo: true,
-  ultimaVerificacion: new Date().toISOString(),
-  latenciaMs: 42,
+  usuarioImap: '',
+  contrasenaImap: '',
+  nombreRemitente: '',
+  correoRemitente: '',
+  correoRespuesta: '',
+  firmaTexto: '',
+  activo: false,
+  ultimaVerificacion: null,
 };
 
 export const PRESETS_PROVEEDORES: Record<ProveedorPreset, Partial<ConfiguracionSMTP>> = {
@@ -76,12 +72,6 @@ class SmtpService {
       const guardada = localStorage.getItem(CLAVE_STORAGE_SMTP);
       if (guardada) {
         const parsed = JSON.parse(guardada);
-        if (parsed.firmaTexto && (parsed.firmaTexto.includes('DEVFORGE') || parsed.firmaTexto.includes('1-32-45890-1') || parsed.firmaTexto.includes('Churchill') || parsed.firmaTexto.includes('555-0100'))) {
-          delete parsed.firmaTexto;
-        }
-        if (parsed.nombreRemitente?.includes('DEVFORGE')) {
-          delete parsed.nombreRemitente;
-        }
         return { ...CONFIGURACION_DEFAULT, ...parsed };
       }
     } catch {
@@ -91,11 +81,34 @@ class SmtpService {
   }
 
   obtenerConfiguracion(): ConfiguracionSMTP {
-    return { ...this.configMemoria };
+    return this.resolverIdentidadCorporativa(this.configMemoria);
+  }
+
+  /** Construye los campos institucionales a partir de la única fuente de verdad. */
+  private resolverIdentidadCorporativa(configuracion: ConfiguracionSMTP): ConfiguracionSMTP {
+    const empresa = empresaService.obtenerDatos();
+    const nombreEmpresa = empresa.nombreComercial || empresa.razonSocial;
+    const direccion = [empresa.direccion, empresa.ciudad, empresa.pais].filter(Boolean).join(', ');
+    const lineaContacto = [empresa.telefono ? `Tel: ${empresa.telefono}` : '', empresa.sitioWeb].filter(Boolean).join(' | ');
+    const firma = [
+      'Atentamente,',
+      'Departamento Comercial & Facturación B2B',
+      [empresa.razonSocial || nombreEmpresa, empresa.identificacionFiscal ? `RNC: ${empresa.identificacionFiscal}` : ''].filter(Boolean).join(' • '),
+      direccion,
+      lineaContacto,
+    ].filter(Boolean).join('\n');
+
+    return {
+      ...configuracion,
+      nombreRemitente: nombreEmpresa ? `${nombreEmpresa} — Departamento Comercial` : configuracion.nombreRemitente,
+      correoRemitente: configuracion.correoRemitente || configuracion.usuarioSmtp || empresa.correo,
+      correoRespuesta: configuracion.correoRespuesta || configuracion.correoRemitente || configuracion.usuarioSmtp || empresa.correo,
+      firmaTexto: firma || configuracion.firmaTexto,
+    };
   }
 
   guardarConfiguracion(nuevaConfig: ConfiguracionSMTP): void {
-    this.configMemoria = { ...nuevaConfig };
+    this.configMemoria = this.resolverIdentidadCorporativa(nuevaConfig);
     try {
       localStorage.setItem(CLAVE_STORAGE_SMTP, JSON.stringify(this.configMemoria));
     } catch {

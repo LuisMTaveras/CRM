@@ -124,7 +124,7 @@ const CATALOGO_RESPUESTAS_RAPIDAS: RespuestaRapida[] = [
   {
     comando: '/banco',
     titulo: 'Datos Bancarios Oficiales',
-    texto: 'Nuestros datos bancarios oficiales para transferencias son: Banco BHD, Cuenta Corriente: 0123-4567-89, RNC: 1-30-12345-6 a nombre de DEVFORGE SRL.',
+    texto: `Para recibir los datos bancarios oficiales de ${empresaService.obtenerDatos().razonSocial || empresaService.obtenerDatos().nombreComercial || 'nuestra empresa'}, comuníquese con nuestro equipo de facturación. RNC: ${empresaService.obtenerDatos().identificacionFiscal || '—'}.`,
     categoria: 'operativa',
   },
   {

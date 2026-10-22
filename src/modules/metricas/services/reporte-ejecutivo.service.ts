@@ -305,7 +305,7 @@ export class ReporteEjecutivoService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text('Alliance Software S.R.L. • Sello Digital Validado', margin + 4, y + 23);
+    doc.text(`${datosEmpresa.razonSocial || datosEmpresa.nombreComercial || '—'} • Sello Digital Validado`, margin + 4, y + 23);
 
     // Firma Gerencia General
     const f2X = margin + fBoxW + 6;

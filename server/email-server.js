@@ -72,19 +72,31 @@ cargarEmpresaServidor();
 function sanitizarConfiguracionConEmpresa(config) {
   if (!config) return config;
   const emp = datosEmpresaActiva || {};
-  const nombreEmp = emp.razonSocial || emp.nombreComercial || 'Alliance Ingenieria de Software';
+  const nombreEmp = emp.razonSocial || emp.nombreComercial || '';
   const rnc = emp.identificacionFiscal ? `RNC: ${emp.identificacionFiscal}` : '';
-  const dir = emp.direccion ? `${emp.direccion}${emp.ciudad ? ', ' + emp.ciudad : ''}, Rep. Dom.` : '';
+  const dir = [emp.direccion, emp.ciudad, emp.pais].filter(Boolean).join(', ');
   const tel = emp.telefono ? `Tel: ${emp.telefono}` : '';
-  const web = emp.sitioWeb || 'alliance.do';
+  const web = emp.sitioWeb || '';
 
-  if (!config.firmaTexto || config.firmaTexto.includes('DEVFORGE') || config.firmaTexto.includes('1-32-45890-1') || config.firmaTexto.includes('Churchill') || config.firmaTexto.includes('555-0100')) {
+  // La firma institucional siempre se deriva del perfil de empresa persistido.
+  if (nombreEmp) {
     config.firmaTexto = `Atentamente,\nDepartamento Comercial & Facturación B2B\n${nombreEmp}${rnc ? ' • ' + rnc : ''}\n${dir}\n${tel}${web ? ' | ' + web : ''}`.trim();
   }
-  if (!config.nombreRemitente || config.nombreRemitente.includes('DEVFORGE')) {
-    config.nombreRemitente = `${emp.nombreComercial || emp.razonSocial || 'Alliance'} — Departamento Comercial`;
+  if (emp.nombreComercial || emp.razonSocial) {
+    config.nombreRemitente = `${emp.nombreComercial || emp.razonSocial} — Departamento Comercial`;
   }
+  config.correoRemitente = config.correoRemitente || config.usuarioSmtp || emp.correo || '';
+  config.correoRespuesta = config.correoRespuesta || config.correoRemitente || emp.correo || '';
   return config;
+}
+
+function resolverIdentidadRemitente(config) {
+  const empresa = datosEmpresaActiva || {};
+  return {
+    correo: config?.correoRemitente || config?.usuarioSmtp || empresa.correo || '',
+    nombre: config?.nombreRemitente || empresa.nombreComercial || empresa.razonSocial || '',
+    respuesta: config?.correoRespuesta || config?.correoRemitente || config?.usuarioSmtp || empresa.correo || '',
+  };
 }
 
 // ─── PERSISTENCIA DE CONFIGURACIÓN ──────────────────────────────────────────
@@ -1559,8 +1571,9 @@ app.post('/api/email/responder', async (req, res) => {
   htmlFinal += `</div>`;
 
   const nuevoId = `msg-reply-${Date.now()}`;
-  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || datosEmpresaActiva?.correo || 'luismiguel@alliance.do';
-  const remitenteNombre = configSmtpUsar?.nombreRemitente || datosEmpresaActiva?.nombreComercial || datosEmpresaActiva?.razonSocial || 'Alliance Ingenieria de Software — Departamento Comercial';
+  const identidadRemitente = resolverIdentidadRemitente(configSmtpUsar);
+  const remitenteCorreo = identidadRemitente.correo;
+  const remitenteNombre = identidadRemitente.nombre || remitenteCorreo;
 
   if (configSmtpUsar && !esConfiguracionDemo(configSmtpUsar)) {
     try {
@@ -1651,8 +1664,9 @@ app.post('/api/email/redactar', async (req, res) => {
   htmlFinal += `</div>`;
 
   const nuevoId = `msg-new-${Date.now()}`;
-  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || datosEmpresaActiva?.correo || 'luismiguel@alliance.do';
-  const remitenteNombre = configSmtpUsar?.nombreRemitente || datosEmpresaActiva?.nombreComercial || datosEmpresaActiva?.razonSocial || 'Alliance Ingenieria de Software — Departamento Comercial';
+  const identidadRemitente = resolverIdentidadRemitente(configSmtpUsar);
+  const remitenteCorreo = identidadRemitente.correo;
+  const remitenteNombre = identidadRemitente.nombre || remitenteCorreo;
 
   if (configSmtpUsar && !esConfiguracionDemo(configSmtpUsar)) {
     try {
@@ -1726,13 +1740,14 @@ app.post('/api/email/enviar', async (req, res) => {
       attachments.push({ filename: adjuntoNombre, content: base64Data, encoding: 'base64', contentType: 'application/pdf' });
     }
 
-    const nombreFrom = config.nombreRemitente || datosEmpresaActiva?.nombreComercial || datosEmpresaActiva?.razonSocial || 'Alliance Ingenieria de Software';
-    const correoFrom = config.correoRemitente || config.usuarioSmtp || datosEmpresaActiva?.correo || 'luismiguel@alliance.do';
+    const identidadRemitente = resolverIdentidadRemitente(config);
+    const nombreFrom = identidadRemitente.nombre || identidadRemitente.correo;
+    const correoFrom = identidadRemitente.correo;
 
     const info = await transporter.sendMail({
       from: `"${nombreFrom}" <${correoFrom}>`,
       to: destinatario,
-      replyTo: config.correoRespuesta || correoFrom,
+      replyTo: identidadRemitente.respuesta || correoFrom,
       subject: asunto,
       text: cuerpo,
       html: convertirTextoAHtml(cuerpo, adjuntoNombre),
@@ -1785,10 +1800,11 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
         const base64Data = adjuntoBase64.includes(',') ? adjuntoBase64.split(',')[1] : adjuntoBase64;
         attachments.push({ filename: adjuntoNombre, content: base64Data, encoding: 'base64', contentType: 'application/pdf' });
       }
+      const identidadRemitente = resolverIdentidadRemitente(config);
       const info = await transporter.sendMail({
-        from: `"${config.nombreRemitente || 'CRM'}" <${config.correoRemitente || config.usuarioSmtp}>`,
+        from: `"${identidadRemitente.nombre || identidadRemitente.correo}" <${identidadRemitente.correo}>`,
         to: destinatario,
-        replyTo: config.correoRespuesta || undefined,
+        replyTo: identidadRemitente.respuesta || undefined,
         subject: asunto,
         text: cuerpo,
         html: convertirTextoAHtml(cuerpo, adjuntoNombre),

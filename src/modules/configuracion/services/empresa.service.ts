@@ -1,28 +1,19 @@
 import { ref, readonly } from 'vue';
 import type { DatosEmpresa } from '../types/empresa.types';
-import { LOGO_ALLIANCE_DEFAULT } from '../constants/logo-default';
 
 const CLAVE_STORAGE_EMPRESA = 'crm_perfil_empresa_emisora';
 const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/empresa`;
 
+/**
+ * La identidad corporativa se obtiene del perfil persistido por el servidor.
+ * Este objeto vacío únicamente evita renderizar información ficticia mientras
+ * llega la respuesta inicial.
+ */
 export const DATOS_EMPRESA_POR_DEFECTO: DatosEmpresa = {
-  razonSocial: 'Ingenieria de Software Alliance S.R.L.',
-  nombreComercial: 'Alliance Ingenieria de Software',
-  identificacionFiscal: '130-99131-6',
-  sloganActividad: 'Tu Aliado Tecnológico.',
-  correo: 'luismiguel@alliance.do',
-  telefono: '+1 (809) 578-4747',
-  whatsapp: '+1 (829) 708-4706',
-  sitioWeb: 'alliance.do',
-  direccion: 'Plaza City Center Mod C-402',
-  ciudad: 'Moca',
-  pais: 'República Dominicana',
-  monedaPrincipal: 'DOP',
-  simboloMoneda: 'RD$',
-  prefijoDocumentos: 'AL-PROP',
-  piePaginaOficial: 'Documento oficial generado electrónicamente por la plataforma CRM institucional. Validez legal conforme a las leyes vigentes.',
-  logoUrl: LOGO_ALLIANCE_DEFAULT,
-  ultimaActualizacion: new Date().toISOString(),
+  razonSocial: '', nombreComercial: '', identificacionFiscal: '', sloganActividad: '',
+  correo: '', telefono: '', whatsapp: '', sitioWeb: '', direccion: '', ciudad: '',
+  pais: '', monedaPrincipal: 'DOP', simboloMoneda: 'RD$', prefijoDocumentos: '',
+  piePaginaOficial: '', logoUrl: '', ultimaActualizacion: undefined,
 };
 
 class EmpresaService {
@@ -44,17 +35,6 @@ class EmpresaService {
       const guardado = localStorage.getItem(CLAVE_STORAGE_EMPRESA);
       if (guardado) {
         const parseado = JSON.parse(guardado);
-        // Depuración de valores de prueba obsoletos
-        if (parseado.direccion?.includes('Churchill') || parseado.direccion?.includes('Acrópolis')) {
-          delete parseado.direccion;
-          delete parseado.ciudad;
-        }
-        if (parseado.identificacionFiscal === '1-32-45890-1') {
-          delete parseado.identificacionFiscal;
-        }
-        if (parseado.telefono === '+1 (809) 555-0100') {
-          delete parseado.telefono;
-        }
         return {
           ...DATOS_EMPRESA_POR_DEFECTO,
           ...parseado,

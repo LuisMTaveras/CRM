@@ -7,13 +7,13 @@ const CLAVE_STORAGE_PIE = 'crm_config_pie_correo';
 
 export const FIRMA_POR_DEFECTO: ConfiguracionFirma = {
   habilitada: true,
-  nombreRemitente: 'Luis M. Taveras',
-  cargo: 'Team Leader TI Support',
-  departamento: 'Ingeniería de Software & Soporte TI',
-  empresa: 'Ingenieria de Software Alliance S.R.L.',
-  telefono: '+1 (809) 578-4747',
-  celular: '+1 (829) 708-4706',
-  sitioWeb: 'alliance.do',
+  nombreRemitente: '',
+  cargo: '',
+  departamento: '',
+  empresa: '',
+  telefono: '',
+  celular: '',
+  sitioWeb: '',
   colorAcento: '#4f46e5', // indigo-600
   textoPersonalizado: 'Comprometidos con la excelencia técnica y operativa.',
   incluirLogo: false,
@@ -24,9 +24,9 @@ export const PIE_POR_DEFECTO: ConfiguracionPiePagina = {
   textoLegal: `AVISO DE CONFIDENCIALIDAD: Este mensaje de correo electrónico y cualquier archivo adjunto contienen información confidencial y privilegiada para el uso exclusivo del destinatario designado. Si usted no es el destinatario intencional, se le notifica que cualquier divulgación, copia, distribución o toma de acción basada en el contenido de este correo está estrictamente prohibida de conformidad con la Ley No. 172-13 sobre Protección Integral de los Datos Personales de la República Dominicana. Si ha recibido este mensaje por error, por favor notifíquelo de inmediato al remitente y elimínelo permanentemente de su sistema.`,
   incluirAvisoConfidencialidad: true,
   incluirDireccionEmpresa: true,
-  direccionFisica: 'Plaza City Center Mod C-402, Moca',
+  direccionFisica: '',
   incluirRnc: true,
-  rncEmpresa: 'RNC: 130-99131-6',
+  rncEmpresa: '',
   colorTexto: '#71717a', // zinc-500
 };
 
@@ -60,9 +60,6 @@ class FirmaPieService {
       const guardada = localStorage.getItem(clave) || localStorage.getItem(CLAVE_STORAGE_FIRMA_BASE);
       if (guardada) {
         preferenciasGuardadas = JSON.parse(guardada);
-        if (preferenciasGuardadas.telefono === '+1 (809) 555-0100') {
-          delete preferenciasGuardadas.telefono;
-        }
       }
     } catch {
       // fallback
@@ -111,12 +108,6 @@ class FirmaPieService {
       const guardado = localStorage.getItem(CLAVE_STORAGE_PIE);
       if (guardado) {
         pieGuardado = JSON.parse(guardado);
-        if (pieGuardado.direccionFisica?.includes('Churchill') || pieGuardado.direccionFisica?.includes('Acrópolis')) {
-          delete pieGuardado.direccionFisica;
-        }
-        if (pieGuardado.rncEmpresa?.includes('1-32-45890-1')) {
-          delete pieGuardado.rncEmpresa;
-        }
       }
     } catch {
       // fallback

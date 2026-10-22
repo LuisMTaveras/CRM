@@ -1,3 +1,5 @@
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
+
 export type IntencionComercial =
   | 'seguimiento_cotizacion'
   | 'confirmacion_reunion'
@@ -15,6 +17,11 @@ export interface ParametrosGeneracionIA {
 }
 
 class AsistenteIaService {
+  private obtenerNombreEmpresa(): string {
+    const empresa = empresaService.obtenerDatos();
+    return empresa.nombreComercial || empresa.razonSocial || 'nuestra empresa';
+  }
+
   generarMensajeWhatsApp(params: ParametrosGeneracionIA): string {
     const saludo = params.contactoNombre
       ? `Estimado(a) ${params.contactoNombre}`
@@ -24,7 +31,7 @@ class AsistenteIaService {
       case 'seguimiento_cotizacion':
         return (
           `¡Hola, ${saludo}! Esperamos que se encuentren muy bien.\n\n` +
-          `Le escribimos desde DEVFORGE para dar seguimiento a la propuesta comercial formal *${params.numeroCotizacion || 'reciente'}*` +
+          `Le escribimos desde ${this.obtenerNombreEmpresa()} para dar seguimiento a la propuesta comercial formal *${params.numeroCotizacion || 'reciente'}*` +
           (params.montoTotal ? ` por valor de *${params.montoTotal}*` : '') +
           ` enviada para ${params.clienteNombre}.\n\n` +
           (params.enlacePropuesta
@@ -90,7 +97,7 @@ class AsistenteIaService {
 
       case 'bienvenida_cierre':
         return {
-          asunto: `¡Bienvenidos a DEVFORGE! - Inicio de Operaciones ${params.clienteNombre}`,
+          asunto: `¡Bienvenidos a ${this.obtenerNombreEmpresa()}! - Inicio de Operaciones ${params.clienteNombre}`,
           cuerpo:
             `<p>${saludo}</p>` +
             `<p>Agradecemos la confianza depositada en nuestro equipo para formalizar esta alianza estratégica y dar inicio al proyecto.</p>` +

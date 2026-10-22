@@ -1,13 +1,36 @@
 {
   "chats": [
     {
+      "jid": "120323575943333@lid",
+      "telefono": "120323575943333@lid",
+      "nombre": "Juan Garcia",
+      "contacto": "Juan Garcia",
+      "ultimoMensaje": "Gracias",
+      "ultimoTimestamp": "2026-10-22T14:03:30.000Z",
+      "noLeidos": 5,
+      "avatar": "JU",
+      "fotoUrl": "/api/whatsapp/media/avatar_120323575943333_lid.jpg"
+    },
+    {
+      "jid": "241707908128866@lid",
+      "telefono": "241707908128866@lid",
+      "nombre": "Yani Taveras✨️",
+      "contacto": "Yani Taveras✨️",
+      "ultimoMensaje": "Po si, seguro es eso",
+      "ultimoTimestamp": "2026-10-22T14:03:15.000Z",
+      "noLeidos": 4,
+      "avatar": "YA",
+      "fotoUrl": "/api/whatsapp/media/avatar_241707908128866_lid.jpg",
+      "etiquetas": []
+    },
+    {
       "jid": "149632533455026@lid",
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "📎 app-release.apk",
-      "ultimoTimestamp": "2026-10-22T13:41:19.000Z",
-      "noLeidos": 0,
+      "ultimoMensaje": "📷 Imagen",
+      "ultimoTimestamp": "2026-10-22T14:00:42.000Z",
+      "noLeidos": 2,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
     },
@@ -21,18 +44,6 @@
       "noLeidos": 0,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_104707041271908_lid.jpg"
-    },
-    {
-      "jid": "241707908128866@lid",
-      "telefono": "241707908128866@lid",
-      "nombre": "Yani Taveras✨️",
-      "contacto": "Yani Taveras✨️",
-      "ultimoMensaje": "Leíste",
-      "ultimoTimestamp": "2026-10-22T13:12:49.000Z",
-      "noLeidos": 0,
-      "avatar": "YA",
-      "fotoUrl": "/api/whatsapp/media/avatar_241707908128866_lid.jpg",
-      "etiquetas": []
     },
     {
       "jid": "18298843035@s.whatsapp.net",
@@ -468,6 +479,45 @@
         "archivoUrl": "/api/whatsapp/media/wa_1792676482245_app-release.apk",
         "archivoTamano": "16.2 MB",
         "archivoMime": "application/vnd.android.package-archive"
+      },
+      {
+        "id": "3EB0052CC0B2D63CBB9FAE",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "",
+        "timestamp": "2026-10-22T13:59:33.000Z",
+        "estado": "enviado",
+        "tipo": "documento",
+        "archivoNombre": "app-release.apk",
+        "archivoUrl": "/api/whatsapp/media/wa_1792677574626_app-release.apk",
+        "archivoTamano": "16.2 MB",
+        "archivoMime": "application/vnd.android.package-archive"
+      },
+      {
+        "id": "ACB1F1C28AC1D5ACBF6FD8BC1870AEEF",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "",
+        "timestamp": "2026-10-22T14:00:42.000Z",
+        "estado": "recibido",
+        "tipo": "imagen",
+        "archivoNombre": "Imagen_1792677642224.jpg",
+        "archivoUrl": "/api/whatsapp/media/wa_1792677642422_ACB1F1C28AC1D5ACBF6FD8BC1870AEEF.jpg",
+        "archivoTamano": "37 KB",
+        "archivoMime": "image/jpeg"
+      },
+      {
+        "id": "ACE46F45EED13F0711237F0EDBE471BF",
+        "deMi": false,
+        "emisor": "Luis Taveras",
+        "texto": "",
+        "timestamp": "2026-10-22T14:00:42.000Z",
+        "estado": "recibido",
+        "tipo": "imagen",
+        "archivoNombre": "Imagen_1792677642317.jpg",
+        "archivoUrl": "/api/whatsapp/media/wa_1792677642596_ACE46F45EED13F0711237F0EDBE471BF.jpg",
+        "archivoTamano": "27 KB",
+        "archivoMime": "image/jpeg"
       }
     ],
     "25147788538099@lid": [
@@ -791,6 +841,87 @@
         "timestamp": "2026-10-22T13:12:49.000Z",
         "estado": "recibido",
         "tipo": "texto"
+      },
+      {
+        "id": "ACEB7DB01A8F269DE79F785AE0786186",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "En otro orden Yanibel .\nVea todo el ciclo del proceso de colocar mensajes en el sistema y dispositivo para seguimiento de clientes en atrasos.   \nCoordinar capacitación",
+        "timestamp": "2026-10-22T13:55:01.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC52C7B1874BCF8E638CE3061BC01CC8",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Que es eso??",
+        "timestamp": "2026-10-22T13:55:09.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACFE54895001DE42D7AFD99D065C037B",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "",
+        "timestamp": "2026-10-22T13:55:33.000Z",
+        "estado": "recibido",
+        "tipo": "audio",
+        "esNotaVoz": true,
+        "duracionSegundos": 20,
+        "archivoNombre": "Nota_de_Voz_1792677333541.ogg",
+        "archivoUrl": "/api/whatsapp/media/wa_audio_1792677333852_ACFE54895001DE42D7AFD99D065C037B.ogg",
+        "archivoTamano": "41 KB",
+        "archivoMime": "audio/ogg; codecs=opus"
+      },
+      {
+        "id": "A54D7ADF4DAECE6B52D3E86551F42D6B",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "",
+        "timestamp": "2026-10-22T13:57:27.000Z",
+        "estado": "enviado",
+        "tipo": "audio",
+        "esNotaVoz": true,
+        "duracionSegundos": 33,
+        "archivoNombre": "Nota_de_Voz_1792677448037.ogg",
+        "archivoUrl": "/api/whatsapp/media/wa_audio_1792677448246_A54D7ADF4DAECE6B52D3E86551F42D6B.ogg",
+        "archivoTamano": "74 KB",
+        "archivoMime": "audio/ogg; codecs=opus"
+      },
+      {
+        "id": "AC3306E01933A1221937932D250CC45F",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "",
+        "timestamp": "2026-10-22T13:59:12.000Z",
+        "estado": "recibido",
+        "tipo": "audio",
+        "esNotaVoz": true,
+        "duracionSegundos": 19,
+        "archivoNombre": "Nota_de_Voz_1792677553205.ogg",
+        "archivoUrl": "/api/whatsapp/media/wa_audio_1792677553595_AC3306E01933A1221937932D250CC45F.ogg",
+        "archivoTamano": "42 KB",
+        "archivoMime": "audio/ogg; codecs=opus"
+      },
+      {
+        "id": "A530D7D05F621D8D43A75245CAE9BFC2",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Ahh",
+        "timestamp": "2026-10-22T14:03:09.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "A5BACA2DF1FC3334A2FDF72C43FAE09C",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Po si, seguro es eso",
+        "timestamp": "2026-10-22T14:03:15.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
       }
     ],
     "104707041271908@lid": [
@@ -827,6 +958,75 @@
         "emisor": "ALLIANCE",
         "texto": "Se lo acabo de enviar.",
         "timestamp": "2026-10-22T13:18:57.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      }
+    ],
+    "120323575943333@lid": [
+      {
+        "id": "3EB07D2CDB7B00C57F974F",
+        "deMi": false,
+        "emisor": "Juan Garcia",
+        "texto": "Buenos dias Luis",
+        "timestamp": "2026-10-22T13:55:59.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0643C47BF575D43D978",
+        "deMi": false,
+        "emisor": "Juan Garcia",
+        "texto": "Adjunto lo que faltaba de Valmostech SRL",
+        "timestamp": "2026-10-22T13:56:09.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0D8188C3DAF92AC85A2",
+        "deMi": false,
+        "emisor": "Juan Garcia",
+        "texto": "",
+        "timestamp": "2026-10-22T13:56:12.000Z",
+        "estado": "recibido",
+        "tipo": "imagen",
+        "archivoNombre": "Imagen_1792677373099.jpg",
+        "archivoUrl": "/api/whatsapp/media/wa_1792677373446_3EB0D8188C3DAF92AC85A2.jpg",
+        "archivoTamano": "59 KB",
+        "archivoMime": "image/jpeg"
+      },
+      {
+        "id": "3EB04C167CF17AC40252A2",
+        "deMi": false,
+        "emisor": "Juan Garcia",
+        "texto": "Solo falta Lulina",
+        "timestamp": "2026-10-22T13:56:17.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0FD82B56768048F05FF",
+        "deMi": false,
+        "emisor": "Juan Garcia",
+        "texto": "Estoy esperando una contrasena de la esposa Luis Angel",
+        "timestamp": "2026-10-22T13:56:30.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "A5EEF6B38BC3212954A28B62BBEC811B",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Sr Juan Buenos días",
+        "timestamp": "2026-10-22T14:03:24.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "A5510477A93C3092ABFD7796F3857230",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Gracias",
+        "timestamp": "2026-10-22T14:03:30.000Z",
         "estado": "enviado",
         "tipo": "texto"
       }

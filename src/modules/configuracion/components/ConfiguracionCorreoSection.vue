@@ -799,7 +799,7 @@ const restablecerValores = async () => {
               <input
                 v-model="formPie.rncEmpresa"
                 type="text"
-                placeholder="RNC: 1-32-45890-1"
+                placeholder="RNC: 130-00000-0"
                 class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 font-mono transition"
               />
             </div>
@@ -811,7 +811,7 @@ const restablecerValores = async () => {
               <input
                 v-model="formPie.direccionFisica"
                 type="text"
-                placeholder="Av. Winston Churchill #1099, Santo Domingo"
+                placeholder="Calle y número, ciudad"
                 class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 transition"
               />
             </div>

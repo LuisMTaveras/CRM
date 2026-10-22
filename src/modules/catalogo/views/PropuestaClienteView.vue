@@ -103,7 +103,7 @@ const imprimirPropuesta = () => {
           </div>
           <div>
             <h1 class="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
-              {{ perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial || 'Alliance' }}
+              {{ perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial || '—' }}
             </h1>
             <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
               Portal Oficial de Aprobación de Propuestas

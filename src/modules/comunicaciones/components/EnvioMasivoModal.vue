@@ -59,46 +59,15 @@ const envioFinalizado = ref(false);
 const procesandoDocxModal = ref(false);
 const inputArchivoModal = ref<HTMLInputElement | null>(null);
 
-// Cliente muestra de respaldo para la previsualización PDF cuando la cartera esté limpia
-const clienteMuestraPreview: Cliente = {
-  id: 'cli-ejemplo',
-  codigo: 'CLI-001',
-  razon_social: 'Empresa Destinataria S.A.',
-  nombre_comercial: 'Cliente Corporativo',
-  identificacion_fiscal: '1-01-00000-0',
-  sector: 'Comercial',
-  estado: 'prospecto',
-  prioridad: 'alta',
-  email: 'contacto@ejemplo.com.do',
-  telefono: '+1 (809) 555-0100',
-  ciudad: 'Santo Domingo',
-  pais: 'República Dominicana',
-  valor_estimado: 5000000,
-  responsable: 'Departamento Comercial',
-  creado_en: new Date().toISOString(),
-  contactos: [
-    {
-      id: 'cnt-ejemplo',
-      cliente_id: 'cli-ejemplo',
-      nombre: 'Lic. Juan Pérez',
-      cargo: 'Director General',
-      email: 'jperez@ejemplo.com.do',
-      telefono: '+1 (809) 555-0100',
-      es_principal: true,
-      creado_en: new Date().toISOString(),
-    }
-  ],
-};
-
-// Remitente seguro con fallback corporativo garantizado
+// Remitente resuelto desde la sesión y la configuración institucional.
 const usuarioRemitente = computed<Omit<Usuario, 'contrasena'>>(() => {
   if (authStore.usuario) return authStore.usuario;
   const smtp = smtpService.obtenerConfiguracion();
   const emp = empresaService.obtenerDatos();
   return {
     id: 'usr-default',
-    nombre: smtp.nombreRemitente || emp.razonSocial || 'Departamento Comercial',
-    email: smtp.correoRemitente || 'ventas@empresa.com.do',
+    nombre: smtp.nombreRemitente || emp.razonSocial || emp.nombreComercial || '—',
+    email: smtp.correoRemitente || emp.correo || '',
     rol: 'admin',
     rolNombre: 'Directora Comercial & Admin',
     cargo: 'Head of Sales & CRM Admin',
@@ -130,16 +99,20 @@ const todosSeleccionados = computed(() => {
 
 const clienteParaPrevia = computed(() => {
   if (clientesParaEnvioEfectivo.value.length === 0) {
-    return props.clientes[0] || clienteMuestraPreview;
+    return props.clientes[0] || null;
   }
-  return clientesParaEnvioEfectivo.value[clientePreviewIndex.value] || clientesParaEnvioEfectivo.value[0] || clienteMuestraPreview;
+  return clientesParaEnvioEfectivo.value[clientePreviewIndex.value] || clientesParaEnvioEfectivo.value[0] || null;
 });
 
 // Función de generación PDF declarada antes de los watchers para evitar problemas de hoisting
 function generarVistaPreviaPdf() {
   try {
     if (!plantillaActual.value) return;
-    const clienteTarget = clienteParaPrevia.value || clienteMuestraPreview;
+    const clienteTarget = clienteParaPrevia.value;
+    if (!clienteTarget) {
+      pdfDataUri.value = '';
+      return;
+    }
     const variables = emailService.construirVariables(clienteTarget, usuarioRemitente.value);
     pdfDataUri.value = pdfGeneratorService.obtenerDataUri(plantillaActual.value, variables);
   } catch (err) {
@@ -240,7 +213,11 @@ const manejarCargaArchivoModal = async (e: Event) => {
 
 const descargarPdfMuestra = () => {
   if (!plantillaActual.value) return;
-  const clienteTarget = clienteParaPrevia.value || clienteMuestraPreview;
+  const clienteTarget = clienteParaPrevia.value;
+  if (!clienteTarget) {
+    toastService.advertencia('Registra o selecciona un cliente para generar la vista previa.');
+    return;
+  }
   const variables = emailService.construirVariables(clienteTarget, usuarioRemitente.value);
   pdfGeneratorService.descargarPdf(
     plantillaActual.value,
