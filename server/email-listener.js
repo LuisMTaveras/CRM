@@ -211,7 +211,7 @@ class ServicioEscuchaEmail {
             const portFrontend = process.env.VITE_PORT || process.env.FRONTEND_PORT || 3000;
             notificarEscritorioWindows(
               `Nuevo Correo: ${remitente}`,
-              `Asunto: ${asunto}\nBandeja de entrada • DEVFORGE CRM`,
+              `Asunto: ${asunto}\nBandeja de entrada • CRM`,
               `http://localhost:${portFrontend}/comunicaciones`,
               'email'
             );

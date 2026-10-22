@@ -53,33 +53,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Montar Rutas de WhatsApp Bridge
 app.use('/api/whatsapp', whatsappRoutes);
 
-// ─── PERSISTENCIA DE CONFIGURACIÓN ──────────────────────────────────────────
-let configuracionActiva = null;
-
-function cargarConfiguracionServidor() {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const data = fs.readFileSync(CONFIG_FILE, 'utf8');
-      configuracionActiva = JSON.parse(data);
-      console.log(`[CONFIG] Configuración cargada desde email-config.json para: ${configuracionActiva.usuarioSmtp || configuracionActiva.usuarioImap}`);
-    }
-  } catch (err) {
-    console.warn('[CONFIG] No se pudo leer email-config.json:', err.message);
-  }
-}
-cargarConfiguracionServidor();
-
-function guardarConfiguracionServidor(config) {
-  try {
-    configuracionActiva = { ...(configuracionActiva || {}), ...config };
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(configuracionActiva, null, 2), 'utf8');
-    return true;
-  } catch (err) {
-    console.error('[CONFIG] Error al guardar email-config.json:', err.message);
-    return false;
-  }
-}
-
 // ─── PERSISTENCIA DE EMPRESA (BASE DE DATOS SERVIDOR) ──────────────────────
 let datosEmpresaActiva = null;
 
@@ -96,10 +69,62 @@ function cargarEmpresaServidor() {
 }
 cargarEmpresaServidor();
 
+function sanitizarConfiguracionConEmpresa(config) {
+  if (!config) return config;
+  const emp = datosEmpresaActiva || {};
+  const nombreEmp = emp.razonSocial || emp.nombreComercial || 'Alliance Ingenieria de Software';
+  const rnc = emp.identificacionFiscal ? `RNC: ${emp.identificacionFiscal}` : '';
+  const dir = emp.direccion ? `${emp.direccion}${emp.ciudad ? ', ' + emp.ciudad : ''}, Rep. Dom.` : '';
+  const tel = emp.telefono ? `Tel: ${emp.telefono}` : '';
+  const web = emp.sitioWeb || 'alliance.do';
+
+  if (!config.firmaTexto || config.firmaTexto.includes('DEVFORGE') || config.firmaTexto.includes('1-32-45890-1') || config.firmaTexto.includes('Churchill') || config.firmaTexto.includes('555-0100')) {
+    config.firmaTexto = `Atentamente,\nDepartamento Comercial & Facturación B2B\n${nombreEmp}${rnc ? ' • ' + rnc : ''}\n${dir}\n${tel}${web ? ' | ' + web : ''}`.trim();
+  }
+  if (!config.nombreRemitente || config.nombreRemitente.includes('DEVFORGE')) {
+    config.nombreRemitente = `${emp.nombreComercial || emp.razonSocial || 'Alliance'} — Departamento Comercial`;
+  }
+  return config;
+}
+
+// ─── PERSISTENCIA DE CONFIGURACIÓN ──────────────────────────────────────────
+let configuracionActiva = null;
+
+function cargarConfiguracionServidor() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const data = fs.readFileSync(CONFIG_FILE, 'utf8');
+      configuracionActiva = sanitizarConfiguracionConEmpresa(JSON.parse(data));
+      console.log(`[CONFIG] Configuración cargada desde email-config.json para: ${configuracionActiva.usuarioSmtp || configuracionActiva.usuarioImap}`);
+    }
+  } catch (err) {
+    console.warn('[CONFIG] No se pudo leer email-config.json:', err.message);
+  }
+}
+cargarConfiguracionServidor();
+
+function guardarConfiguracionServidor(config) {
+  try {
+    configuracionActiva = sanitizarConfiguracionConEmpresa({ ...(configuracionActiva || {}), ...config });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(configuracionActiva, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[CONFIG] Error al guardar email-config.json:', err.message);
+    return false;
+  }
+}
+
 function guardarEmpresaServidor(datos) {
   try {
     datosEmpresaActiva = { ...(datosEmpresaActiva || {}), ...datos, ultimaActualizacion: new Date().toISOString() };
     fs.writeFileSync(EMPRESA_FILE, JSON.stringify(datosEmpresaActiva, null, 2), 'utf8');
+    // Si cambia la empresa, re-sanitizar firma de correo
+    if (configuracionActiva) {
+      sanitizarConfiguracionConEmpresa(configuracionActiva);
+      try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(configuracionActiva, null, 2), 'utf8');
+      } catch {}
+    }
     return true;
   } catch (err) {
     console.error('[EMPRESA DB] Error al guardar empresa-config.json:', err.message);
@@ -1534,8 +1559,8 @@ app.post('/api/email/responder', async (req, res) => {
   htmlFinal += `</div>`;
 
   const nuevoId = `msg-reply-${Date.now()}`;
-  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || 'ventas@empresa.com.do';
-  const remitenteNombre = configSmtpUsar?.nombreRemitente || 'Departamento Comercial CRM';
+  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || datosEmpresaActiva?.correo || 'luismiguel@alliance.do';
+  const remitenteNombre = configSmtpUsar?.nombreRemitente || datosEmpresaActiva?.nombreComercial || datosEmpresaActiva?.razonSocial || 'Alliance Ingenieria de Software — Departamento Comercial';
 
   if (configSmtpUsar && !esConfiguracionDemo(configSmtpUsar)) {
     try {
@@ -1626,8 +1651,8 @@ app.post('/api/email/redactar', async (req, res) => {
   htmlFinal += `</div>`;
 
   const nuevoId = `msg-new-${Date.now()}`;
-  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || 'ventas@empresa.com.do';
-  const remitenteNombre = configSmtpUsar?.nombreRemitente || 'Departamento Comercial CRM';
+  const remitenteCorreo = configSmtpUsar?.correoRemitente || configSmtpUsar?.usuarioSmtp || datosEmpresaActiva?.correo || 'luismiguel@alliance.do';
+  const remitenteNombre = configSmtpUsar?.nombreRemitente || datosEmpresaActiva?.nombreComercial || datosEmpresaActiva?.razonSocial || 'Alliance Ingenieria de Software — Departamento Comercial';
 
   if (configSmtpUsar && !esConfiguracionDemo(configSmtpUsar)) {
     try {
@@ -1701,10 +1726,13 @@ app.post('/api/email/enviar', async (req, res) => {
       attachments.push({ filename: adjuntoNombre, content: base64Data, encoding: 'base64', contentType: 'application/pdf' });
     }
 
+    const nombreFrom = config.nombreRemitente || datosEmpresaActiva?.nombreComercial || datosEmpresaActiva?.razonSocial || 'Alliance Ingenieria de Software';
+    const correoFrom = config.correoRemitente || config.usuarioSmtp || datosEmpresaActiva?.correo || 'luismiguel@alliance.do';
+
     const info = await transporter.sendMail({
-      from: `"${config.nombreRemitente || 'CRM'}" <${config.correoRemitente || config.usuarioSmtp}>`,
+      from: `"${nombreFrom}" <${correoFrom}>`,
       to: destinatario,
-      replyTo: config.correoRespuesta || undefined,
+      replyTo: config.correoRespuesta || correoFrom,
       subject: asunto,
       text: cuerpo,
       html: convertirTextoAHtml(cuerpo, adjuntoNombre),

@@ -62,12 +62,20 @@ export class ReporteEjecutivoService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
     doc.setTextColor(...PALETTE.slate950);
-    doc.text(datosEmpresa.razonSocial || 'Alliance Software S.R.L.', metaX, y + 4.5);
+    doc.text(datosEmpresa.razonSocial || datosEmpresa.nombreComercial || '—', metaX, y + 4.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(...PALETTE.slate500);
-    doc.text(`RNC: ${datosEmpresa.identificacionFiscal || '1-32-45890-1'} • Dirección: ${datosEmpresa.direccion || 'Torre Acrópolis, Santo Domingo'}`, metaX, y + 8.5);
+    const rncDoc = datosEmpresa.identificacionFiscal ? `RNC: ${datosEmpresa.identificacionFiscal}` : '';
+    let dirDoc = datosEmpresa.direccion || '';
+    if (datosEmpresa.ciudad && !dirDoc.toLowerCase().includes(datosEmpresa.ciudad.toLowerCase())) {
+      dirDoc = dirDoc ? `${dirDoc}, ${datosEmpresa.ciudad}` : datosEmpresa.ciudad;
+    }
+    const infoDoc = [rncDoc, dirDoc ? `Dirección: ${dirDoc}` : ''].filter(Boolean).join(' • ');
+    if (infoDoc) {
+      doc.text(infoDoc, metaX, y + 8.5);
+    }
     doc.text(`División: Inteligencia Comercial B2B • Período Analizado: ${periodoTexto}`, metaX, y + 12.5);
 
     // Caja de referencia a la derecha
@@ -334,7 +342,7 @@ export class ReporteEjecutivoService {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(5.5);
       doc.setTextColor(...PALETTE.slate500);
-      doc.text(`Informe Oficial B2B • ${datosEmpresa.razonSocial || 'Alliance Software S.R.L.'} • Generado con Devforge Architecture`, margin, 289);
+      doc.text(`Informe Oficial B2B • ${datosEmpresa.razonSocial || datosEmpresa.nombreComercial || 'CRM'} • Plataforma de Gestión Comercial`, margin, 289);
       doc.text(`Página ${p} de ${totalPages} • Hash: ${codigoDoc}`, pageWidth - margin, 289, { align: 'right' });
     }
 

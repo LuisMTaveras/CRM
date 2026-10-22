@@ -142,7 +142,7 @@ const esRutaActiva = (ruta: string) => {
         <img
           v-else
           src="/crm-logo.svg"
-          alt="DEVFORGE CRM"
+          alt="CRM"
           class="w-full h-full object-cover p-0.5"
         />
       </div>
@@ -152,7 +152,7 @@ const esRutaActiva = (ruta: string) => {
         </div>
         <div class="text-[10px] text-zinc-500 flex items-center gap-1.5 font-mono truncate">
           <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shrink-0 shadow-sm shadow-indigo-500/50"></span>
-          <span>RNC {{ perfilEmpresa.identificacionFiscal || '1-32-45890-1' }}</span>
+          <span>RNC {{ perfilEmpresa.identificacionFiscal || '—' }}</span>
         </div>
       </div>
     </div>

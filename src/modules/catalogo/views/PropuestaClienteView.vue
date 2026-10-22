@@ -103,7 +103,7 @@ const imprimirPropuesta = () => {
           </div>
           <div>
             <h1 class="text-sm font-bold text-zinc-900 dark:text-white leading-tight">
-              {{ perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial || 'DEVFORGE ENTERPRISE' }}
+              {{ perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial || 'Alliance' }}
             </h1>
             <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
               Portal Oficial de Aprobación de Propuestas
@@ -203,10 +203,10 @@ const imprimirPropuesta = () => {
             <!-- Datos del Emisor -->
             <div class="sm:text-right text-xs text-zinc-600 dark:text-zinc-400 space-y-0.5">
               <p class="font-bold text-zinc-900 dark:text-white text-sm">{{ perfilEmpresa.nombreComercial || perfilEmpresa.razonSocial }}</p>
-              <p>RNC: {{ perfilEmpresa.identificacionFiscal || '1-31-89745-2' }}</p>
-              <p>{{ perfilEmpresa.telefono || '+1 (809) 555-0100' }}</p>
-              <p>{{ perfilEmpresa.correo || 'contacto@devforge.com.do' }}</p>
-              <p>{{ perfilEmpresa.direccion || 'Santo Domingo, República Dominicana' }}</p>
+              <p v-if="perfilEmpresa.identificacionFiscal">RNC: {{ perfilEmpresa.identificacionFiscal }}</p>
+              <p v-if="perfilEmpresa.telefono">{{ perfilEmpresa.telefono }}</p>
+              <p v-if="perfilEmpresa.correo">{{ perfilEmpresa.correo }}</p>
+              <p v-if="perfilEmpresa.direccion">{{ perfilEmpresa.direccion }}{{ perfilEmpresa.ciudad ? ', ' + perfilEmpresa.ciudad : '' }}</p>
             </div>
           </div>
 

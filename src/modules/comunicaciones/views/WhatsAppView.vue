@@ -18,6 +18,7 @@ import GrabadorNotaVoz from '../components/GrabadorNotaVoz.vue';
 import ModalCrearTratoWhatsApp from '../components/ModalCrearTratoWhatsApp.vue';
 import ModalAgendarSeguimientoWhatsApp from '../components/ModalAgendarSeguimientoWhatsApp.vue';
 import { asistenteIaService, type IntencionComercial } from '../services/asistente-ia.service';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { toastService } from '@/core/notifications/toast.service';
 import {
   MessageSquare,

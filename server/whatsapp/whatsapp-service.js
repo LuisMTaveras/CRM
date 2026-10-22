@@ -21,6 +21,17 @@ const __dirname = path.dirname(__filename);
 const AUTH_DIR = path.join(__dirname, '..', 'data', 'whatsapp_auth');
 const MEDIA_DIR = path.join(__dirname, '..', 'data', 'whatsapp_media');
 const CHATS_FILE = path.join(__dirname, '..', 'data', 'whatsapp_chats.json');
+const EMPRESA_FILE = path.join(__dirname, '..', 'empresa-config.json');
+
+function obtenerNombreEmpresa() {
+  try {
+    if (fs.existsSync(EMPRESA_FILE)) {
+      const datos = JSON.parse(fs.readFileSync(EMPRESA_FILE, 'utf8'));
+      return datos.nombreComercial || datos.razonSocial || 'CRM';
+    }
+  } catch {}
+  return 'CRM';
+}
 
 if (!fs.existsSync(AUTH_DIR)) {
   try {
@@ -209,7 +220,7 @@ class WhatsAppService {
         auth: state,
         logger: this.logger,
         printQRInTerminal: false,
-        browser: ['CRM DEVFORGE Enterprise', 'Chrome', '124.0.0.0'],
+        browser: ['CRM Enterprise', 'Chrome', '124.0.0.0'],
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 60000,
         keepAliveIntervalMs: 25000,
@@ -1053,9 +1064,10 @@ class WhatsAppService {
     let mensajeEnviado = false;
     if (this.estado === 'conectado' && this.sock) {
       try {
+        const nombreEmp = obtenerNombreEmpresa();
         await this.enviarMensajeTexto(
           limpio,
-          `🔒 *DEVFORGE CRM*\n\nTu código de verificación de inicio de sesión es:\n\n*${codigo}*\n\nEste código es válido por 5 minutos. No lo compartas con nadie.`
+          `🔒 *${nombreEmp}*\n\nTu código de verificación de inicio de sesión es:\n\n*${codigo}*\n\nEste código es válido por 5 minutos. No lo compartas con nadie.`
         );
         mensajeEnviado = true;
       } catch (err) {

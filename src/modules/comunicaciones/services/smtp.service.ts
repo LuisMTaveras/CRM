@@ -16,14 +16,14 @@ const CONFIGURACION_DEFAULT: ConfiguracionSMTP = {
   seguridadImap: 'ssl',
   usuarioImap: 'ventas@empresa.com.do',
   contrasenaImap: '••••••••••••',
-  nombreRemitente: 'DEVFORGE Dominicana — Departamento Comercial',
-  correoRemitente: 'ventas@empresa.com.do',
-  correoRespuesta: 'soporte@empresa.com.do',
+  nombreRemitente: 'Alliance Ingenieria de Software — Departamento Comercial',
+  correoRemitente: 'luismiguel@alliance.do',
+  correoRespuesta: 'luismiguel@alliance.do',
   firmaTexto: `Atentamente,
 Departamento Comercial & Facturación B2B
-DEVFORGE Dominicana SRL • RNC: 1-32-45890-1
-Av. Winston Churchill, Torre Empresarial, Santo Domingo, Rep. Dom.
-Tel: +1 (809) 555-0100 | www.devforge.com.do`,
+Ingenieria de Software Alliance S.R.L. • RNC: 130-99131-6
+Plaza City Center Mod C-402, Moca, Rep. Dom.
+Tel: +1 (809) 578-4747 | alliance.do`,
   activo: true,
   ultimaVerificacion: new Date().toISOString(),
   latenciaMs: 42,
@@ -75,7 +75,14 @@ class SmtpService {
     try {
       const guardada = localStorage.getItem(CLAVE_STORAGE_SMTP);
       if (guardada) {
-        return { ...CONFIGURACION_DEFAULT, ...JSON.parse(guardada) };
+        const parsed = JSON.parse(guardada);
+        if (parsed.firmaTexto && (parsed.firmaTexto.includes('DEVFORGE') || parsed.firmaTexto.includes('1-32-45890-1') || parsed.firmaTexto.includes('Churchill') || parsed.firmaTexto.includes('555-0100'))) {
+          delete parsed.firmaTexto;
+        }
+        if (parsed.nombreRemitente?.includes('DEVFORGE')) {
+          delete parsed.nombreRemitente;
+        }
+        return { ...CONFIGURACION_DEFAULT, ...parsed };
       }
     } catch {
       // Ignorar error de JSON parse en entornos sin storage

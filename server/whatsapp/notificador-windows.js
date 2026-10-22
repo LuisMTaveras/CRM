@@ -13,12 +13,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SCRIPT_PATH = path.join(__dirname, 'toast-notifier.ps1');
 
+const EMPRESA_FILE = path.join(__dirname, '..', 'empresa-config.json');
+
+function obtenerNombreEmpresa() {
+  try {
+    if (fs.existsSync(EMPRESA_FILE)) {
+      const datos = JSON.parse(fs.readFileSync(EMPRESA_FILE, 'utf8'));
+      return datos.nombreComercial || datos.razonSocial || 'CRM';
+    }
+  } catch {}
+  return 'CRM';
+}
+
 const PUERTO_FRONTEND = process.env.VITE_PORT || process.env.FRONTEND_PORT || 3000;
 const BASE_URL_APP = `http://localhost:${PUERTO_FRONTEND}`;
 
 const SCRIPT_CONTENT = `
 param(
-    [string]$Titulo = "DEVFORGE CRM",
+    [string]$Titulo = "CRM",
     [string]$Mensaje = "Mensaje nuevo de WhatsApp",
     [string]$Url = "http://localhost:3000/whatsapp",
     [string]$Tipo = "general"
@@ -142,7 +154,7 @@ export function notificarEscritorioWindows(
         'Bypass',
         '-File',
         SCRIPT_PATH,
-        String(titulo || 'DEVFORGE CRM'),
+        String(titulo || obtenerNombreEmpresa()),
         String(mensaje || 'Nuevo aviso comercial'),
         String(urlCorregida),
         String(tipo || 'general'),

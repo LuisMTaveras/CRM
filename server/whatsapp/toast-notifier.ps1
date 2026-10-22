@@ -1,5 +1,5 @@
 param(
-    [string]$Titulo = "DEVFORGE CRM",
+    [string]$Titulo = "CRM",
     [string]$Mensaje = "Mensaje nuevo de WhatsApp",
     [string]$Url = "http://localhost:3000/whatsapp",
     [string]$Tipo = "general"

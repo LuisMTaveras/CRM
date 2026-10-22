@@ -7,15 +7,15 @@ const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/
 
 export const DATOS_EMPRESA_POR_DEFECTO: DatosEmpresa = {
   razonSocial: 'Ingenieria de Software Alliance S.R.L.',
-  nombreComercial: 'Alliance S.R.L.',
-  identificacionFiscal: '1-32-45890-1',
-  sloganActividad: 'Soluciones de Software y Consultoría de TI',
+  nombreComercial: 'Alliance Ingenieria de Software',
+  identificacionFiscal: '130-99131-6',
+  sloganActividad: 'Tu Aliado Tecnológico.',
   correo: 'luismiguel@alliance.do',
-  telefono: '+1 (809) 555-0100',
+  telefono: '+1 (809) 578-4747',
   whatsapp: '+1 (829) 708-4706',
   sitioWeb: 'alliance.do',
-  direccion: 'Av. Winston Churchill No. 1099, Torre Acrópolis Piso 14, Piantini, Santo Domingo, D.N.',
-  ciudad: 'Santo Domingo',
+  direccion: 'Plaza City Center Mod C-402',
+  ciudad: 'Moca',
   pais: 'República Dominicana',
   monedaPrincipal: 'DOP',
   simboloMoneda: 'RD$',
@@ -44,6 +44,17 @@ class EmpresaService {
       const guardado = localStorage.getItem(CLAVE_STORAGE_EMPRESA);
       if (guardado) {
         const parseado = JSON.parse(guardado);
+        // Depuración de valores de prueba obsoletos
+        if (parseado.direccion?.includes('Churchill') || parseado.direccion?.includes('Acrópolis')) {
+          delete parseado.direccion;
+          delete parseado.ciudad;
+        }
+        if (parseado.identificacionFiscal === '1-32-45890-1') {
+          delete parseado.identificacionFiscal;
+        }
+        if (parseado.telefono === '+1 (809) 555-0100') {
+          delete parseado.telefono;
+        }
         return {
           ...DATOS_EMPRESA_POR_DEFECTO,
           ...parseado,
@@ -71,7 +82,6 @@ class EmpresaService {
         if (data.ok && data.empresa) {
           const fusionado: DatosEmpresa = {
             ...DATOS_EMPRESA_POR_DEFECTO,
-            ...this.estadoInterno.value,
             ...data.empresa,
           };
           this.estadoInterno.value = fusionado;
