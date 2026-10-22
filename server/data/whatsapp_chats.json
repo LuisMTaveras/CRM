@@ -5,11 +5,34 @@
       "telefono": "149632533455026@lid",
       "nombre": "Luis Taveras",
       "contacto": "Luis Taveras",
-      "ultimoMensaje": "s",
-      "ultimoTimestamp": "2026-10-21T21:53:24.000Z",
+      "ultimoMensaje": "📎 app-release.apk",
+      "ultimoTimestamp": "2026-10-22T13:41:19.000Z",
       "noLeidos": 0,
       "avatar": "LU",
       "fotoUrl": "/api/whatsapp/media/avatar_149632533455026_lid.jpg"
+    },
+    {
+      "jid": "104707041271908@lid",
+      "telefono": "104707041271908@lid",
+      "nombre": "Luis",
+      "contacto": "Luis",
+      "ultimoMensaje": "Se lo acabo de enviar.",
+      "ultimoTimestamp": "2026-10-22T13:18:57.000Z",
+      "noLeidos": 0,
+      "avatar": "LU",
+      "fotoUrl": "/api/whatsapp/media/avatar_104707041271908_lid.jpg"
+    },
+    {
+      "jid": "241707908128866@lid",
+      "telefono": "241707908128866@lid",
+      "nombre": "Yani Taveras✨️",
+      "contacto": "Yani Taveras✨️",
+      "ultimoMensaje": "Leíste",
+      "ultimoTimestamp": "2026-10-22T13:12:49.000Z",
+      "noLeidos": 0,
+      "avatar": "YA",
+      "fotoUrl": "/api/whatsapp/media/avatar_241707908128866_lid.jpg",
+      "etiquetas": []
     },
     {
       "jid": "18298843035@s.whatsapp.net",
@@ -432,6 +455,19 @@
           "emisor": "Luis Taveras",
           "texto": "Hola"
         }
+      },
+      {
+        "id": "3EB01F5F108F54999320A4",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "",
+        "timestamp": "2026-10-22T13:41:19.000Z",
+        "estado": "enviado",
+        "tipo": "documento",
+        "archivoNombre": "app-release.apk",
+        "archivoUrl": "/api/whatsapp/media/wa_1792676482245_app-release.apk",
+        "archivoTamano": "16.2 MB",
+        "archivoMime": "application/vnd.android.package-archive"
       }
     ],
     "25147788538099@lid": [
@@ -487,6 +523,311 @@
         "texto": "esta bien",
         "timestamp": "2026-10-21T19:55:24.000Z",
         "estado": "recibido",
+        "tipo": "texto"
+      }
+    ],
+    "241707908128866@lid": [
+      {
+        "id": "AC0DF3300D6B2E4E45DC412B73F21F6D",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "",
+        "timestamp": "2026-10-22T12:41:57.000Z",
+        "estado": "recibido",
+        "tipo": "imagen",
+        "archivoNombre": "Imagen_1792672917704.jpg",
+        "archivoUrl": "/api/whatsapp/media/wa_1792672918049_AC0DF3300D6B2E4E45DC412B73F21F6D.jpg",
+        "archivoTamano": "488 KB",
+        "archivoMime": "image/jpeg"
+      },
+      {
+        "id": "AC635024944AC55DBB06DDE88C99540B",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Buen diaaa",
+        "timestamp": "2026-10-22T12:42:03.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0B6EFA15A19C73FA6B9",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Buenos dias Yanibel",
+        "timestamp": "2026-10-22T12:45:48.850Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0242FC87986BC24C552",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "En que momento pasa eso?",
+        "timestamp": "2026-10-22T12:45:55.970Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACE864ED280CEEE3F38CF11FBC5C70A5",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Cuando salen y entran de la aplicación",
+        "timestamp": "2026-10-22T13:01:09.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC45C0E2A76996472BFC9805364A7919",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Y la aplicación super lenta",
+        "timestamp": "2026-10-22T13:01:17.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB01FC96F131B5DC4B560",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "oh",
+        "timestamp": "2026-10-22T13:03:11.954Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0878B1B90B8748F4788",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "y eso porque?",
+        "timestamp": "2026-10-22T13:03:19.088Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC51DEDC5DCECDBDD87B4E91065C483A",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "No se",
+        "timestamp": "2026-10-22T13:03:28.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0F69E028A371F91F638",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "que version tienen?",
+        "timestamp": "2026-10-22T13:03:33.793Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACA3EFC26362684EB8449E63270ADE04",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Hice la prueba con ese oficial a ver si era verdad",
+        "timestamp": "2026-10-22T13:04:00.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC995C831DA72C38B50EAA341E3C1FF1",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Y si",
+        "timestamp": "2026-10-22T13:04:03.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACF7315C5070CD641D7486E07F7D0EBB",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Ese tiene celular nuevo de buena capacidad",
+        "timestamp": "2026-10-22T13:04:17.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0C6F0649C4F9E722E97",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Desde cuando esta pasando?",
+        "timestamp": "2026-10-22T13:04:21.704Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC2BBB744E03B8D62784F4AC0426F0D2",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Y tiene solo 53 clientes en la cartera",
+        "timestamp": "2026-10-22T13:04:32.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACF07FF0831B05685D81E72942B475D3",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Eso duraaaaaa",
+        "timestamp": "2026-10-22T13:04:39.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0BC77ADCE52FCA33064",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": ".",
+        "timestamp": "2026-10-22T13:04:46.120Z",
+        "estado": "enviado",
+        "tipo": "texto",
+        "mensajeCitado": {
+          "id": "3EB0C6F0649C4F9E722E97",
+          "emisor": "ALLIANCE",
+          "texto": "Desde cuando esta pasando?"
+        }
+      },
+      {
+        "id": "ACF1104422E11EF5631C610299AEE660",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Version",
+        "timestamp": "2026-10-22T13:05:38.000Z",
+        "estado": "recibido",
+        "tipo": "imagen",
+        "archivoNombre": "Imagen_1792674339049.jpg",
+        "archivoUrl": "/api/whatsapp/media/wa_1792674339338_ACF1104422E11EF5631C610299AEE660.jpg",
+        "archivoTamano": "80 KB",
+        "archivoMime": "image/jpeg"
+      },
+      {
+        "id": "AC7F97134625EE0A4048E1B8726D6333",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Desde que se actualizo a esa versión",
+        "timestamp": "2026-10-22T13:05:47.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0A156847552AF8704A3",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Que raro, eso se reviso.",
+        "timestamp": "2026-10-22T13:05:59.439Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0E3B52BFC6B08A39931",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Vamos a reiniciar el servidor",
+        "timestamp": "2026-10-22T13:06:05.416Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0BD0BA505E3BDE1C1AB",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "y vamos a intentar nuevamente.",
+        "timestamp": "2026-10-22T13:06:15.959Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0A57234CC4ABBCE90C4",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Coordina eso y dejame saber",
+        "timestamp": "2026-10-22T13:06:21.006Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC92410BD22966A704FE31DE4A1FFB11",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Perame",
+        "timestamp": "2026-10-22T13:06:51.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3EB0D694D6BDE1D266E383",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "te pero",
+        "timestamp": "2026-10-22T13:06:57.632Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "ACDD5A1FC161EC9B2691C03227869FC5",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Dale reunicia",
+        "timestamp": "2026-10-22T13:12:03.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC85F282B95ACEE0B9204D69D76ADF8B",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Reinicia",
+        "timestamp": "2026-10-22T13:12:09.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "AC7F56D37F34265EA27588812C3C4FC4",
+        "deMi": false,
+        "emisor": "Yani Taveras✨️",
+        "texto": "Leíste",
+        "timestamp": "2026-10-22T13:12:49.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      }
+    ],
+    "104707041271908@lid": [
+      {
+        "id": "3A3C0597DB64A39B8C7B",
+        "deMi": false,
+        "emisor": "Luis",
+        "texto": "Buen día",
+        "timestamp": "2026-10-22T13:07:38.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "3A8A82C8672F2560FB0E",
+        "deMi": false,
+        "emisor": "Luis",
+        "texto": "luisrafaellantiguarojas@gmail.com",
+        "timestamp": "2026-10-22T13:08:16.000Z",
+        "estado": "recibido",
+        "tipo": "texto"
+      },
+      {
+        "id": "A5273D632A80844E3215D5BBECFE095A",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Buenos días",
+        "timestamp": "2026-10-22T13:18:50.000Z",
+        "estado": "enviado",
+        "tipo": "texto"
+      },
+      {
+        "id": "A5EAE1C452E4B3FFA01FB5D580E767F5",
+        "deMi": true,
+        "emisor": "ALLIANCE",
+        "texto": "Se lo acabo de enviar.",
+        "timestamp": "2026-10-22T13:18:57.000Z",
+        "estado": "enviado",
         "tipo": "texto"
       }
     ]
