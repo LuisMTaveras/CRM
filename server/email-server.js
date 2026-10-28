@@ -26,6 +26,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -113,6 +114,7 @@ app.use('/api', crearMiddlewareAuth({
   requerir: AUTENTICACION.requerir,
   apiKey: AUTENTICACION.apiKey,
   secreto: AUTENTICACION.secreto,
+  usuarios: USUARIOS,
   rutasPublicas: ['/health', '/auth/login', '/whatsapp/auth/solicitar-otp', '/whatsapp/auth/verificar-otp'],
 }));
 app.use('/api', crearMiddlewareAuditoria(AUDITORIA));
@@ -1755,7 +1757,7 @@ app.post('/api/email/responder', async (req, res) => {
     const remitenteTexto = mensajeOriginal.de?.nombre || mensajeOriginal.de?.correo || 'el remitente';
     htmlFinal += `<br><div style="margin-top: 24px; padding-left: 12px; border-left: 3px solid #cbd5e1; color: #64748b; font-size: 12px;">
       <p style="margin: 0 0 8px 0; color: #475569; font-weight: bold;">El ${escaparHtml(fechaTexto)}, ${escaparHtml(remitenteTexto)} escribiÃƒÂ³:</p>
-      <div>${mensajeOriginal.cuerpoHtml || mensajeOriginal.cuerpoTexto || mensajeOriginal.extracto || ''}</div>
+      <div>${escaparHtml(mensajeOriginal.cuerpoTexto || mensajeOriginal.extracto || '').replace(/\n/g, '<br>')}</div>
     </div>`;
   }
 
@@ -1794,7 +1796,7 @@ app.post('/api/email/responder', async (req, res) => {
 
   const mensajeEnviado = {
     id: nuevoId,
-    uid: Math.floor(Math.random() * 9000) + 1000,
+    uid: crypto.randomInt(1000, 10000),
     mensajeOriginalId: mensajeOriginalId || undefined,
     carpeta: 'enviados',
     de: { nombre: remitenteNombre, correo: remitenteCorreo },
@@ -1882,7 +1884,7 @@ app.post('/api/email/redactar', async (req, res) => {
 
   const mensajeEnviado = {
     id: nuevoId,
-    uid: Math.floor(Math.random() * 9000) + 1000,
+    uid: crypto.randomInt(1000, 10000),
     carpeta: 'enviados',
     de: { nombre: remitenteNombre, correo: remitenteCorreo },
     para: [{ nombre: destinatario, correo: destinatario }],
@@ -1971,7 +1973,7 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
     const resultados = correos.map((c) => ({
       destinatario: c.destinatario,
       exito: true,
-      messageId: `<sim-${Date.now()}-${Math.random().toString(36).substring(2, 6)}@crm-local>`,
+      messageId: `<sim-${Date.now()}-${crypto.randomBytes(4).toString('hex')}@crm-local>`,
       modo: 'demo',
     }));
     return res.json({
@@ -2137,6 +2139,11 @@ app.use((_req, res) => {
 app.use(manejarErrores);
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ START Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+export { app };
+
+const esEjecucionDirecta = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === path.resolve(__filename);
+
+if (esEjecucionDirecta) {
 const server = app.listen(PORT, HOST, () => {
   console.log(`\nÃ°Å¸Å¡â‚¬ CRM Unified Server (Email & WhatsApp) activo en http://${HOST}:${PORT}`);
   console.log(`   GET   /api/email/estado          Ã¢â€ â€™ Health check Email`);
@@ -2193,4 +2200,4 @@ const cerrarGracefully = () => {
 
 process.on('SIGINT', cerrarGracefully);
 process.on('SIGTERM', cerrarGracefully);
-
+}

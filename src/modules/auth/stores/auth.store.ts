@@ -9,6 +9,7 @@ import type { CredencialesLogin, Usuario } from '../types/auth.types';
 export const useAuthStore = defineStore('auth', () => {
   const usuario = ref<Omit<Usuario, 'contrasena'> | null>(null);
   const token = ref<string | null>(null);
+  const sesionVerificada = ref(false);
 
   const estaAutenticado = computed(() => !!token.value && !!usuario.value);
   const rol = computed(() => usuario.value?.rol || 'auditor');
@@ -36,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (datos?.usuario && datos?.token) {
           usuario.value = datos.usuario;
           token.value = datos.token;
+          sesionVerificada.value = false;
           establecerTokenApi(datos.token);
           
           // Reevaluar reglas con la configuración de roles actual
@@ -54,14 +56,51 @@ export const useAuthStore = defineStore('auth', () => {
     // Por defecto: no autenticado
     usuario.value = null;
     token.value = null;
+    sesionVerificada.value = true;
     globalAbility.setUser(null);
     globalAbility.updateRules([]);
+  };
+
+  const verificarSesion = async (): Promise<boolean> => {
+    if (sesionVerificada.value) return !!usuario.value;
+    if (!token.value) {
+      sesionVerificada.value = true;
+      return false;
+    }
+
+    const actual = await authService.verificarSesionActual();
+    if (actual === undefined) {
+      sesionVerificada.value = true;
+      return !!usuario.value;
+    }
+
+    sesionVerificada.value = true;
+    if (!actual) {
+      cerrarSesion();
+      return false;
+    }
+
+    usuario.value = actual;
+    globalAbility.setUser(actual);
+    const permisos = rolesPermisosService.calcularPermisosEfectivos(actual);
+    const reglas = rolesPermisosService.convertirPermisosAReglasCASL(permisos);
+    globalAbility.updateRules(reglas);
+
+    const sesion = {
+      usuario: actual,
+      token: token.value,
+      reglas,
+      permisosEfectivos: permisos,
+    };
+    localStorage.setItem('crm_sesion_auth', JSON.stringify(sesion));
+    return true;
   };
 
   const iniciarSesion = async (credenciales: CredencialesLogin) => {
     const sesion = await authService.login(credenciales);
     usuario.value = sesion.usuario;
     token.value = sesion.token;
+    sesionVerificada.value = true;
     establecerTokenApi(sesion.token);
     
     // Cargar permisos en el motor CASL
@@ -76,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
   const cerrarSesion = () => {
     usuario.value = null;
     token.value = null;
+    sesionVerificada.value = true;
     establecerTokenApi(null);
     globalAbility.setUser(null);
     globalAbility.updateRules([]);
@@ -108,6 +148,7 @@ export const useAuthStore = defineStore('auth', () => {
     const sesion = await authService.loginConOtp(telefono, codigo);
     usuario.value = sesion.usuario;
     token.value = sesion.token;
+    sesionVerificada.value = true;
     establecerTokenApi(sesion.token);
 
     globalAbility.setUser(sesion.usuario);
@@ -126,7 +167,9 @@ export const useAuthStore = defineStore('auth', () => {
     permisosEfectivos,
     tienePermiso,
     tieneAlgunPermiso,
+    sesionVerificada,
     inicializarSesion,
+    verificarSesion,
     iniciarSesion,
     solicitarOtpWhatsApp,
     iniciarSesionConOtp,

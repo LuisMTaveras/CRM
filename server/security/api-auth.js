@@ -108,6 +108,7 @@ export function crearMiddlewareAuth({
   requerir,
   apiKey,
   secreto,
+  usuarios = null,
   rutasPublicas = RUTAS_PUBLICAS_PREDETERMINADAS,
 } = {}) {
   const publicas = new Set(rutasPublicas.map(normalizarRuta));
@@ -126,7 +127,24 @@ export function crearMiddlewareAuth({
 
     const payload = verificarToken(credencial.token, { secreto });
     if (payload) {
-      req.auth = { tipo: 'sesion', ...payload };
+      if (usuarios) {
+        const usuario = usuarios.buscarPorId(payload.sub);
+        if (!usuario || !usuario.activo) {
+          return res.status(401).json({
+            ok: false,
+            error: 'La sesion ya no es valida o el usuario fue desactivado.',
+          });
+        }
+        req.auth = {
+          tipo: 'sesion',
+          ...payload,
+          email: usuario.email,
+          rol: usuario.rol,
+          nombre: usuario.nombre,
+        };
+      } else {
+        req.auth = { tipo: 'sesion', ...payload };
+      }
       return next();
     }
 

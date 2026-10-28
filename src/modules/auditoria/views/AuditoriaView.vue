@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { Download, History, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-vue-next';
+import { Download, History, RefreshCw, ShieldCheck, ShieldAlert, Trash2 } from 'lucide-vue-next';
 import { FlickerlessSurface } from '@flickerless/vue';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import DateRangeFilter from '@/shared/components/DateRangeFilter.vue';
@@ -8,9 +8,14 @@ import ListPager from '@/shared/components/ListPager.vue';
 import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
 import { defaultRange, resolveRange, type DateRange } from '@/core/dates/date-range';
 import { toastService } from '@/core/notifications/toast.service';
+import { dialogService } from '@/core/dialog/dialog.service';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import { auditoriaService } from '../services/auditoria.service';
 import type { EventoAuditoria, FiltrosAuditoria } from '../types/auditoria.types';
 
+const authStore = useAuthStore();
+const puedeLimpiar = computed(() => authStore.rol === 'admin');
+const limpiando = ref(false);
 const eventos = ref<EventoAuditoria[]>([]);
 const acciones = ref<string[]>([]);
 const cargando = ref(true);
@@ -39,6 +44,7 @@ const ETIQUETAS_ACCION: Record<string, string> = {
   'POST /api/email/sincronizar': 'Sincronizar correo',
   'POST /api/empresa': 'Actualizar empresa',
   'POST /api/email/empresa': 'Actualizar empresa',
+  'auditoria.limpiar': 'Limpiar auditoria',
 };
 
 const ETIQUETAS_ENTIDAD: Record<string, string> = {
@@ -152,6 +158,30 @@ const exportar = async () => {
   }
 };
 
+const limpiarRegistro = async () => {
+  if (!puedeLimpiar.value) return;
+
+  const confirmado = await dialogService.confirmar({
+    titulo: 'Limpiar registro de auditoria',
+    mensaje: 'Se eliminaran todos los eventos de auditoria almacenados. Esta accion no se puede deshacer.',
+    textoConfirmar: 'Si, limpiar registro',
+    tipo: 'peligro',
+  });
+  if (!confirmado) return;
+
+  limpiando.value = true;
+  try {
+    const resultado = await auditoriaService.limpiar();
+    toastService.exito(`Registro limpiado. Eventos eliminados: ${resultado.eliminados}.`);
+    pagina.value = 1;
+    await cargarConAviso();
+  } catch (error) {
+    toastService.error(error instanceof Error ? error.message : 'No se pudo limpiar la auditoria.');
+  } finally {
+    limpiando.value = false;
+  }
+};
+
 onMounted(() => {
   cargarConAviso();
 });
@@ -194,6 +224,17 @@ onUnmounted(() => {
       >
         <Download class="w-3.5 h-3.5" />
         <span class="hidden sm:inline">{{ exportando ? 'Exportando…' : 'Exportar CSV' }}</span>
+      </button>
+      <button
+        v-if="puedeLimpiar"
+        type="button"
+        :disabled="limpiando"
+        title="Limpiar registro de auditoria"
+        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 text-rose-700 dark:text-rose-400 text-xs font-medium transition disabled:opacity-50"
+        @click="limpiarRegistro"
+      >
+        <Trash2 class="w-3.5 h-3.5" />
+        <span class="hidden sm:inline">{{ limpiando ? 'Limpiando...' : 'Limpiar' }}</span>
       </button>
       <button
         type="button"

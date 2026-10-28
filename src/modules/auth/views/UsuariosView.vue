@@ -32,6 +32,7 @@ import { dialogService } from '@/core/dialog/dialog.service';
 const authStore = useAuthStore();
 const puedeCrearUsuario = computed(() => authStore.tienePermiso('usuarios:crear'));
 const puedeEditarUsuario = computed(() => authStore.tienePermiso('usuarios:editar') || authStore.tienePermiso('usuarios:permisos'));
+const puedeEliminarUsuario = computed(() => authStore.rol === 'admin');
 const puedeGestionarPermisos = computed(() => authStore.tienePermiso('usuarios:permisos'));
 const puedeAdministrarRoles = computed(() => authStore.tienePermiso('roles:administrar'));
 const usuarios = ref<Usuario[]>([]);
@@ -313,7 +314,7 @@ const guardarUsuario = async () => {
 };
 
 const eliminarUsuario = async (user: Usuario) => {
-  if (!puedeEditarUsuario.value) return;
+  if (!puedeEliminarUsuario.value) return;
   if (authStore.usuario?.id === user.id) {
     toastService.error('No puedes eliminar tu propio usuario.');
     return;
@@ -691,7 +692,7 @@ onMounted(async () => {
                       </button>
 
                       <button
-                        v-if="puedeEditarUsuario && user.id !== authStore.usuario?.id"
+                        v-if="puedeEliminarUsuario && user.id !== authStore.usuario?.id"
                         type="button"
                         title="Eliminar colaborador"
                         aria-label="Eliminar colaborador"

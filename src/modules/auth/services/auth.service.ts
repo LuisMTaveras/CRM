@@ -134,6 +134,21 @@ class AuthService {
     return this.construirSesion(usuario, `crm_jwt_${usuario.id}_${Date.now()}`);
   }
 
+  async verificarSesionActual(): Promise<Usuario | null | undefined> {
+    if (!USAR_BACKEND) return undefined;
+
+    try {
+      const respuesta = await fetch(`${API_BASE_URL}/auth/me`);
+      if (respuesta.status === 401) return null;
+      if (!respuesta.ok) return undefined;
+      const data = await respuesta.json().catch(() => null);
+      if (!data?.ok || !data?.usuario) return null;
+      return this.usuarioDesdeBackend(data.usuario);
+    } catch {
+      return undefined;
+    }
+  }
+
   async solicitarOtpWhatsApp(telefono: string): Promise<{ ok: boolean; mensaje: string; codigo?: string }> {
     const telLimpio = telefono.replace(/\D/g, '');
     if (!telLimpio || telLimpio.length < 8) {
@@ -280,6 +295,15 @@ class AuthService {
   }
 
   async obtenerUsuarioPorId(id: string): Promise<Usuario | null> {
+    if (USAR_BACKEND) {
+      try {
+        const data = await this.solicitarApi<{ usuario: Partial<Usuario> }>(`/usuarios/${encodeURIComponent(id)}`);
+        return data.usuario ? this.usuarioDesdeBackend(data.usuario) : null;
+      } catch {
+        return null;
+      }
+    }
+
     const pagina = await this.obtenerUsuariosPaginados({ page: 1, pageSize: 200 });
     return pagina.usuarios.find((usuario) => usuario.id === id) || null;
   }
@@ -375,8 +399,13 @@ class AuthService {
     }
 
     const lista = this.cargarUsuariosPersistidos();
-    if (id === 'usr-1') {
-      throw new Error('No es posible eliminar al Administrador principal del sistema.');
+    const objetivo = lista.find((usuario) => usuario.id === id);
+    if (!objetivo) {
+      throw new Error('Usuario no encontrado.');
+    }
+    const adminsActivos = lista.filter((usuario) => usuario.rol === 'admin' && usuario.activo);
+    if (objetivo.rol === 'admin' && objetivo.activo && adminsActivos.length <= 1) {
+      throw new Error('No es posible eliminar al ultimo administrador activo.');
     }
     const filtrados = lista.filter((u) => u.id !== id);
     this.guardarUsuariosPersistidos(filtrados);

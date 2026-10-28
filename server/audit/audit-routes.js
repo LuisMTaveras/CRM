@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ipDe } from '../security/rate-limit.js';
 
 const ROLES_AUDITORIA = ['admin', 'gerente', 'auditor'];
+const ROLES_LIMPIEZA = ['admin'];
 
 function exigirRol(req, res, roles) {
   const configuracion = req.app.locals.autenticacion;
@@ -130,6 +131,27 @@ export function crearRutasAuditoria() {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="auditoria-crm.csv"');
     return res.send(`\ufeff${[encabezado.map(celdaCsv).join(','), ...lineas].join('\r\n')}`);
+  });
+
+  router.delete('/', (req, res) => {
+    if (!exigirRol(req, res, ROLES_LIMPIEZA)) return;
+
+    const registro = req.app.locals.auditoria;
+    if (!registro) {
+      return res.status(503).json({ ok: false, error: 'El registro de auditoria no esta disponible.' });
+    }
+
+    const antesDe = typeof req.query.antesDe === 'string' ? req.query.antesDe : '';
+    const resultado = registro.limpiar({ antesDe });
+    req.auditoria = {
+      accion: 'auditoria.limpiar',
+      entidad: 'auditoria',
+      detalle: antesDe
+        ? `Se eliminaron ${resultado.eliminados} eventos anteriores a ${antesDe}.`
+        : `Se eliminaron ${resultado.eliminados} eventos de auditoria.`,
+    };
+
+    return res.json({ ok: true, ...resultado });
   });
 
   return router;

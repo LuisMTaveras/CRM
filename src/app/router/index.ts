@@ -102,8 +102,12 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
+
+  if (authStore.estaAutenticado && !authStore.sesionVerificada) {
+    await authStore.verificarSesion();
+  }
 
   if (!authStore.estaAutenticado && !to.meta.publica) {
     return { name: 'login', query: { redirect: to.fullPath } };

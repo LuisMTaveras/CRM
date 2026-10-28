@@ -34,6 +34,24 @@ class AuditoriaService {
     };
   }
 
+  async limpiar(antesDe = ''): Promise<{ eliminados: number; restantes: number }> {
+    const params = new URLSearchParams();
+    if (antesDe) params.set('antesDe', antesDe);
+    const respuesta = await fetch(`${API_BASE_URL}/auditoria?${params.toString()}`, {
+      method: 'DELETE',
+    });
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok || data?.ok === false) {
+      throw new Error(data?.error || 'No se pudo limpiar el registro de auditoria.');
+    }
+
+    return {
+      eliminados: Number(data?.eliminados) || 0,
+      restantes: Number(data?.restantes) || 0,
+    };
+  }
+
   async descargarCsv(filtros: FiltrosAuditoria = {}): Promise<void> {
     const params = construirParametros(filtros);
     const respuesta = await fetch(`${API_BASE_URL}/auditoria/exportar.csv?${params.toString()}`);

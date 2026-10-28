@@ -142,9 +142,19 @@ export function crearRegistroAuditoria({ archivo = ARCHIVO_PREDETERMINADO, maxim
     exportar(filtros = {}) {
       return filtrar(filtros);
     },
-    limpiar() {
-      eventos = [];
+    limpiar({ antesDe = '' } = {}) {
+      const corte = fechaValida(antesDe);
+      const totalAnterior = eventos.length;
+      if (corte) {
+        eventos = eventos.filter((evento) => {
+          const momento = fechaValida(evento.timestamp);
+          return !momento || momento >= corte;
+        });
+      } else {
+        eventos = [];
+      }
       guardar();
+      return { eliminados: totalAnterior - eventos.length, restantes: eventos.length };
     },
   };
 }

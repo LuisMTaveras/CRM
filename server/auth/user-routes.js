@@ -49,6 +49,22 @@ export function crearRutasUsuarios() {
     });
   });
 
+  router.get('/:id', (req, res) => {
+    if (!exigirRol(req, res, ROLES_LECTURA)) return;
+
+    const usuarios = req.app.locals.usuarios;
+    if (!usuarios) {
+      return res.status(503).json({ ok: false, error: 'El directorio de usuarios no estǭ disponible.' });
+    }
+
+    const usuario = usuarios.buscarPorId(req.params.id);
+    if (!usuario) {
+      return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' });
+    }
+
+    return res.json({ ok: true, usuario: usuarios.publico(usuario) });
+  });
+
   router.post('/', (req, res) => {
     if (!exigirRol(req, res, ROLES_ESCRITURA)) return;
 
