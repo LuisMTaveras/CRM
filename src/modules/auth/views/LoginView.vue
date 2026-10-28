@@ -42,7 +42,7 @@ const mensajeExito = ref<string | null>(null);
 const recordarme = ref(true);
 const cargando = ref(false);
 const error = ref<string | null>(null);
-const etiquetaAutenticacion = import.meta.env.VITE_USE_MOCK !== 'false'
+const etiquetaAutenticacion = !import.meta.env.PROD && import.meta.env.VITE_USE_MOCK !== 'false'
   ? 'Autenticación local'
   : 'Autenticación segura';
 

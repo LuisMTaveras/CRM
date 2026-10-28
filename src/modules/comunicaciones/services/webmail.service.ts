@@ -19,7 +19,7 @@ import { firmaPieService } from './firma-pie.service';
 import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
 import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
 import { toastService } from '@/core/notifications/toast.service';
-import { API_BASE_URL as API_CRM_URL } from '@/core/api/api-config';
+import { API_BASE_URL as API_CRM_URL, construirUrlEventosApi } from '@/core/api/api-config';
 
 const API_BASE_URL = `${API_CRM_URL}/email`;
 
@@ -675,7 +675,7 @@ class WebmailService {
     if (this.sseConnection) return;
 
     try {
-      this.sseConnection = new EventSource(`${API_BASE_URL}/eventos`);
+      this.sseConnection = new EventSource(construirUrlEventosApi(`${API_BASE_URL}/eventos`));
 
       this.sseConnection.addEventListener('correo_nuevo', (event) => {
         try {

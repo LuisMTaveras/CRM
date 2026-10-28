@@ -88,6 +88,12 @@ const router = createRouter({
       meta: { permiso: 'usuarios:ver' },
     },
     {
+      path: '/auditoria',
+      name: 'auditoria',
+      component: () => import('@/modules/auditoria/views/AuditoriaView.vue'),
+      meta: { permiso: 'usuarios:ver' },
+    },
+    {
       path: '/configuracion',
       name: 'configuracion',
       component: () => import('@/modules/configuracion/views/ConfiguracionView.vue'),

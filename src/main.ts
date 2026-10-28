@@ -5,11 +5,13 @@ import App from '@/app/App.vue';
 import { registerPermissions } from '@/shared/directives/v-can';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import { setFormatCountry, type CountryCode } from '@/core/formatters/formatters';
+import { instalarFetchAutenticado } from '@/core/api/api-config';
 import { vFlickerlessSaving } from '@flickerless/vue';
 import '@/core/styles/main.css';
 import '@flickerless/core/styles.css';
 
 setFormatCountry((import.meta.env.VITE_FORMAT_COUNTRY as CountryCode) || 'DO');
+instalarFetchAutenticado();
 
 const app = createApp(App);
 const pinia = createPinia();

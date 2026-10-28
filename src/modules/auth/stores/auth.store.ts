@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { globalAbility } from '@/core/permissions/ability';
 import { authService } from '../services/auth.service';
 import { rolesPermisosService } from '../services/roles-permisos.service';
+import { establecerTokenApi } from '@/core/api/api-config';
 import type { CredencialesLogin, Usuario } from '../types/auth.types';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -35,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (datos?.usuario && datos?.token) {
           usuario.value = datos.usuario;
           token.value = datos.token;
+          establecerTokenApi(datos.token);
           
           // Reevaluar reglas con la configuración de roles actual
           const permisos = rolesPermisosService.calcularPermisosEfectivos(datos.usuario as Usuario);
@@ -60,6 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
     const sesion = await authService.login(credenciales);
     usuario.value = sesion.usuario;
     token.value = sesion.token;
+    establecerTokenApi(sesion.token);
     
     // Cargar permisos en el motor CASL
     globalAbility.setUser(sesion.usuario);
@@ -73,6 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
   const cerrarSesion = () => {
     usuario.value = null;
     token.value = null;
+    establecerTokenApi(null);
     globalAbility.setUser(null);
     globalAbility.updateRules([]);
     localStorage.removeItem('crm_sesion_auth');
@@ -104,6 +108,7 @@ export const useAuthStore = defineStore('auth', () => {
     const sesion = await authService.loginConOtp(telefono, codigo);
     usuario.value = sesion.usuario;
     token.value = sesion.token;
+    establecerTokenApi(sesion.token);
 
     globalAbility.setUser(sesion.usuario);
     globalAbility.updateRules(sesion.reglas);

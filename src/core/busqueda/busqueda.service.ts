@@ -78,6 +78,17 @@ export class BusquedaService {
         permiso: 'usuarios:ver',
       },
       {
+        id: 'mod-auditoria',
+        categoria: 'modulos',
+        titulo: 'Auditoría & Trazabilidad',
+        subtitulo: 'Historial de accesos, cambios administrativos y eventos de seguridad',
+        badge: 'Seguridad',
+        badgeColor: 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border-indigo-500/20',
+        icono: 'History',
+        ruta: '/auditoria',
+        permiso: 'usuarios:ver',
+      },
+      {
         id: 'mod-config-empresa',
         categoria: 'modulos',
         titulo: 'Perfil de Empresa & Identidad',

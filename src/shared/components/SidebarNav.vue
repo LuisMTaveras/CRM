@@ -13,6 +13,7 @@ import {
   CalendarClock,
   Calculator,
   MessageSquare,
+  History,
   X
 } from 'lucide-vue-next';
 import { useUiStore } from '@/core/ui/ui.store';
@@ -102,6 +103,7 @@ const enlaces = computed(() => ([
   },
   { nombre: 'Despacho Masivo', ruta: '/despacho', icono: Send, permisos: ['comunicaciones:enviar'] },
   { nombre: 'Usuarios & Roles', ruta: '/usuarios', icono: Users, permisos: ['usuarios:ver'] },
+  { nombre: 'Auditoría & Eventos', ruta: '/auditoria', icono: History, permisos: ['usuarios:ver'] },
   { nombre: 'Empresa & Ajustes', ruta: '/configuracion', icono: Settings, permisos: ['configuracion:ver'] },
 ] satisfies EnlaceMenu[]).filter((enlace) => authStore.tieneAlgunPermiso(enlace.permisos)));
 

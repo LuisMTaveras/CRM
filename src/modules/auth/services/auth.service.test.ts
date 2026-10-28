@@ -4,6 +4,20 @@ import { authService } from './auth.service';
 describe('AuthService - Autenticación y WhatsApp OTP', () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem('crm_directorio_usuarios', JSON.stringify([{
+      id: 'usr-1',
+      nombre: 'Luis M. Taveras',
+      email: 'luismiguel@alliance.do',
+      contrasena: 'admin123',
+      rol: 'admin',
+      rolNombre: 'Team Leader & Administrador',
+      cargo: 'Team Leader TI Support',
+      departamento: 'Ingeniería de Software & Soporte TI',
+      telefonoFlota: '+1 (829) 708-4706',
+      avatar: 'LT',
+      activo: true,
+      ultimoAcceso: new Date().toISOString(),
+    }]));
     vi.restoreAllMocks();
   });
 

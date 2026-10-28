@@ -15,6 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { notificarEscritorioWindows } from './notificador-windows.js';
+import { crearOtpStore } from '../security/otp-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,7 +63,7 @@ class WhatsAppService {
     this.maxIntentos = 5;
     this.logger = pino({ level: 'silent' });
     this.historialEnvios = [];
-    this.otpsLogin = new Map();
+    this.otpsLogin = crearOtpStore();
     this.suscriptoresSSE = new Set();
 
     // Inicializar almacén persistente de chats y mensajes sin datos hardcodeados
@@ -1058,9 +1059,7 @@ class WhatsAppService {
       limpio = '1' + limpio;
     }
 
-    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-    const expira = Date.now() + 5 * 60 * 1000; // 5 minutos
-    this.otpsLogin.set(limpio, { codigo, expira });
+    const solicitud = this.otpsLogin.solicitar(limpio);
 
     let mensajeEnviado = false;
     if (this.estado === 'conectado' && this.sock) {
@@ -1068,7 +1067,7 @@ class WhatsAppService {
         const nombreEmp = obtenerNombreEmpresa();
         await this.enviarMensajeTexto(
           limpio,
-          `🔒 *${nombreEmp}*\n\nTu código de verificación de inicio de sesión es:\n\n*${codigo}*\n\nEste código es válido por 5 minutos. No lo compartas con nadie.`
+          `🔒 *${nombreEmp}*\n\nTu código de verificación de inicio de sesión es:\n\n*${solicitud.codigo}*\n\nEste código es válido por 5 minutos. No lo compartas con nadie.`
         );
         mensajeEnviado = true;
       } catch (err) {
@@ -1076,16 +1075,24 @@ class WhatsAppService {
       }
     }
 
-    if (!ES_PRODUCCION) {
-      console.log(`[WhatsApp Auth] Código OTP para ${limpio}: ${codigo} (Enviado por WA: ${mensajeEnviado})`);
+    if (!mensajeEnviado && ES_PRODUCCION) {
+      this.otpsLogin.reiniciar(limpio);
+      throw new Error('El servicio de WhatsApp no está conectado. No se pudo enviar el código de acceso.');
     }
+
+    if (!ES_PRODUCCION) {
+      console.log(`[WhatsApp Auth] Código OTP para ${limpio}: ${solicitud.codigo} (Enviado por WA: ${mensajeEnviado})`);
+    }
+
     return {
       ok: true,
       mensaje: mensajeEnviado
         ? 'Código de acceso enviado a tu WhatsApp.'
-        : 'Código de acceso generado (WhatsApp desconectado, ingresa el código en pantalla).',
-      ...(ES_PRODUCCION ? {} : { codigo }),
+        : 'Código de acceso generado para entorno local.',
+      ...(ES_PRODUCCION ? {} : { codigo: solicitud.codigo }),
       enviadoPorWhatsApp: mensajeEnviado,
+      expiraEn: solicitud.expiraEn,
+      reenvioEn: solicitud.reenvioEn,
     };
   }
 
@@ -1095,25 +1102,7 @@ class WhatsAppService {
       limpio = '1' + limpio;
     }
 
-    const reg = this.otpsLogin.get(limpio);
-    if (!reg) {
-      if (!ES_PRODUCCION && codigoIngresado === '123456') {
-        return { valido: true };
-      }
-      throw new Error('No hay un código pendiente para este número. Solicita un nuevo código.');
-    }
-
-    if (Date.now() > reg.expira) {
-      this.otpsLogin.delete(limpio);
-      throw new Error('El código de verificación ha expirado. Solicita uno nuevo.');
-    }
-
-    if (reg.codigo !== String(codigoIngresado).trim() && (ES_PRODUCCION || codigoIngresado !== '123456')) {
-      throw new Error('El código ingresado es incorrecto.');
-    }
-
-    this.otpsLogin.delete(limpio);
-    return { valido: true };
+    return this.otpsLogin.verificar(limpio, codigoIngresado);
   }
 
   async cerrarSesion() {

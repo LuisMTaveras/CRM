@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth.store';
 import { authService } from '../services/auth.service';
 import { rolesPermisosService } from '../services/roles-permisos.service';
@@ -25,6 +25,7 @@ import {
   Sliders
 } from 'lucide-vue-next';
 import { FlickerlessSurface } from '@flickerless/vue';
+import ListPager from '@/shared/components/ListPager.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 
@@ -36,6 +37,12 @@ const puedeAdministrarRoles = computed(() => authStore.tienePermiso('roles:admin
 const usuarios = ref<Usuario[]>([]);
 const roles = ref<RolDefinicion[]>([]);
 const cargando = ref(true);
+const paginaUsuarios = ref(1);
+const tamanoPaginaUsuarios = 25;
+const totalUsuarios = ref<number | null>(null);
+const hasMoreUsuarios = ref<boolean | undefined>(undefined);
+const busquedaUsuarios = ref('');
+let timerBusquedaUsuarios: ReturnType<typeof setTimeout> | null = null;
 
 const pestanaActiva = ref<'usuarios' | 'roles'>('usuarios');
 
@@ -109,12 +116,51 @@ const opcionesRolesSelect = computed<Array<SelectOption<string>>>(() => {
   }));
 });
 
+const cargarUsuarios = async () => {
+  const pagina = await authService.obtenerUsuariosPaginados({
+    page: paginaUsuarios.value,
+    pageSize: tamanoPaginaUsuarios,
+    q: busquedaUsuarios.value,
+  });
+  usuarios.value = pagina.usuarios;
+  totalUsuarios.value = pagina.total;
+  hasMoreUsuarios.value = pagina.hasMore;
+};
+
 const recargarDatos = async () => {
   cargando.value = true;
   roles.value = rolesPermisosService.obtenerRoles();
-  usuarios.value = await authService.obtenerUsuarios();
-  cargando.value = false;
+  try {
+    await cargarUsuarios();
+  } catch (err) {
+    toastService.error(err instanceof Error ? err.message : 'No se pudo cargar el directorio de usuarios.');
+  } finally {
+    cargando.value = false;
+  }
 };
+
+const cargarUsuariosConAviso = async () => {
+  try {
+    await cargarUsuarios();
+  } catch (err) {
+    toastService.error(err instanceof Error ? err.message : 'No se pudo cargar el directorio de usuarios.');
+  }
+};
+
+watch(busquedaUsuarios, () => {
+  if (timerBusquedaUsuarios) clearTimeout(timerBusquedaUsuarios);
+  timerBusquedaUsuarios = setTimeout(() => {
+    if (paginaUsuarios.value !== 1) {
+      paginaUsuarios.value = 1;
+    } else {
+      cargarUsuariosConAviso();
+    }
+  }, 300);
+});
+
+watch(paginaUsuarios, () => {
+  cargarUsuariosConAviso();
+});
 
 // --- GESTIÓN DE USUARIOS ---
 const abrirCrearUsuario = () => {
@@ -249,15 +295,48 @@ const guardarUsuario = async () => {
     }
 
     feedbackGuardado.value = true;
+    toastService.exito(
+      modoEdicionUsuario.value === 'crear'
+        ? 'Colaborador registrado correctamente.'
+        : 'Cambios del colaborador guardados.'
+    );
     await recargarDatos();
     setTimeout(() => {
       feedbackGuardado.value = false;
       modalUsuarioAbierto.value = false;
     }, 600);
   } catch (err) {
-    console.error('Error al guardar usuario:', err);
+    toastService.error(err instanceof Error ? err.message : 'No se pudo guardar el colaborador.');
   } finally {
     guardandoUsuario.value = false;
+  }
+};
+
+const eliminarUsuario = async (user: Usuario) => {
+  if (!puedeEditarUsuario.value) return;
+  if (authStore.usuario?.id === user.id) {
+    toastService.error('No puedes eliminar tu propio usuario.');
+    return;
+  }
+
+  const confirmado = await dialogService.confirmar({
+    titulo: `¿Eliminar a ${user.nombre}?`,
+    mensaje: 'El colaborador perderá acceso al CRM. Esta acción no se puede deshacer.',
+    textoConfirmar: 'Sí, eliminar colaborador',
+    tipo: 'peligro',
+  });
+  if (!confirmado) return;
+
+  try {
+    await authService.eliminarUsuario(user.id);
+    if (usuarios.value.length === 1 && paginaUsuarios.value > 1) {
+      paginaUsuarios.value -= 1;
+    } else {
+      await cargarUsuarios();
+    }
+    toastService.exito(`Colaborador ${user.nombre} eliminado.`);
+  } catch (err) {
+    toastService.error(err instanceof Error ? err.message : 'No se pudo eliminar el colaborador.');
   }
 };
 
@@ -508,9 +587,19 @@ onMounted(async () => {
 
         <!-- VISTA 1: TABLA DE USUARIOS Y SUS PERMISOS DIRECTOS -->
         <div v-if="pestanaActiva === 'usuarios'" class="saas-card rounded-xl overflow-hidden text-xs border border-zinc-200 dark:border-white/[0.08]">
-          <div class="p-3.5 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0c0c0e]/80 flex items-center justify-between">
+          <div class="p-3.5 border-b border-zinc-200 dark:border-white/[0.07] bg-zinc-50 dark:bg-[#0c0c0e]/80 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <span class="font-semibold text-zinc-800 dark:text-zinc-200">Directorio de Colaboradores y Permisos Individuales</span>
-            <span class="font-mono text-zinc-500 dark:text-zinc-400 text-[11px]">{{ usuarios.length }} usuarios registrados</span>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="busquedaUsuarios"
+                type="search"
+                placeholder="Buscar nombre, correo o cargo…"
+                class="h-8 w-full sm:w-64 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 px-2.5 text-[11px] text-zinc-900 dark:text-zinc-200 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none"
+              />
+              <span class="font-mono text-zinc-500 dark:text-zinc-400 text-[11px] shrink-0">
+                {{ totalUsuarios === null ? '—' : totalUsuarios }} registrados
+              </span>
+            </div>
           </div>
 
           <div class="overflow-x-auto">
@@ -590,20 +679,46 @@ onMounted(async () => {
 
                   <!-- Acción: Editar Ficha & Permisos -->
                   <td class="py-2.5 px-3.5 text-right">
-                    <button
-                      v-if="puedeEditarUsuario"
-                      type="button"
-                      @click="abrirEditarUsuario(user)"
-                      class="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-xs font-medium transition"
-                    >
-                      <Sliders class="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                      <span>Editar & Permisos</span>
-                    </button>
+                    <div class="inline-flex items-center gap-1.5">
+                      <button
+                        v-if="puedeEditarUsuario"
+                        type="button"
+                        @click="abrirEditarUsuario(user)"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-xs font-medium transition"
+                      >
+                        <Sliders class="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                        <span>Editar & Permisos</span>
+                      </button>
+
+                      <button
+                        v-if="puedeEditarUsuario && user.id !== authStore.usuario?.id"
+                        type="button"
+                        title="Eliminar colaborador"
+                        aria-label="Eliminar colaborador"
+                        @click="eliminarUsuario(user)"
+                        class="inline-flex items-center justify-center p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-500/10 dark:text-rose-400 dark:hover:text-rose-300 transition"
+                      >
+                        <Trash2 class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <div v-if="usuarios.length === 0" class="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">
+            No se encontraron colaboradores con los filtros actuales.
+          </div>
+
+          <ListPager
+            v-model:page="paginaUsuarios"
+            :page-size="tamanoPaginaUsuarios"
+            :total="totalUsuarios"
+            :has-more="hasMoreUsuarios"
+            singular="colaborador"
+            plural="colaboradores"
+          />
         </div>
 
         <!-- VISTA 2: ROLES DEL SISTEMA & MATRIZ DINÁMICA -->

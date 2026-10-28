@@ -15,6 +15,7 @@ export const RUTAS_PROTEGIDAS: RutaProtegida[] = [
   { nombre: 'comunicaciones', ruta: '/comunicaciones', permiso: 'comunicaciones:ver' },
   { nombre: 'despacho', ruta: '/despacho', permiso: 'comunicaciones:enviar' },
   { nombre: 'usuarios', ruta: '/usuarios', permiso: 'usuarios:ver' },
+  { nombre: 'auditoria', ruta: '/auditoria', permiso: 'usuarios:ver' },
   { nombre: 'configuracion', ruta: '/configuracion', permiso: 'configuracion:ver' },
 ];
 

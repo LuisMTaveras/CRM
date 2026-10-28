@@ -32,3 +32,17 @@ export interface SesionAuth {
   reglas: Rule[];
   permisosEfectivos?: string[];
 }
+
+export interface PaginaUsuarios {
+  usuarios: Usuario[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export interface OpcionesListadoUsuarios {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+}

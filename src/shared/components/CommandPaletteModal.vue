@@ -23,7 +23,8 @@ import {
   BarChart3,
   CornerDownLeft,
   Sparkles,
-  CalendarClock
+  CalendarClock,
+  History
 } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -57,6 +58,7 @@ const mapaIconos: Record<string, Component> = {
   Image: ImageIcon,
   BarChart3,
   CalendarClock,
+  History,
 };
 
 const resolverIcono = (nombre: string) => {

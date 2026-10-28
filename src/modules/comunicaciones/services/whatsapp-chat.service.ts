@@ -3,7 +3,7 @@ import type { ChatWhatsApp, MensajeWhatsApp, MensajeCitado } from '../types/what
 import { toastService } from '@/core/notifications/toast.service';
 import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
 import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
-import { API_BASE_URL as API_CRM_URL } from '@/core/api/api-config';
+import { API_BASE_URL as API_CRM_URL, construirUrlEventosApi } from '@/core/api/api-config';
 import { formatFileSize } from '@/core/formatters/formatters';
 
 const API_BASE_URL = `${API_CRM_URL}/whatsapp`;
@@ -428,7 +428,7 @@ class WhatsAppChatService {
     if (this.sseConnection) return;
 
     try {
-      this.sseConnection = new EventSource(`${API_BASE_URL}/eventos`);
+      this.sseConnection = new EventSource(construirUrlEventosApi(`${API_BASE_URL}/eventos`));
 
       this.sseConnection.addEventListener('mensaje', (event) => {
         try {

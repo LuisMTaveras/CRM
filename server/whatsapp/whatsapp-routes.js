@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { whatsAppService } from './whatsapp-service.js';
+import { firmarToken } from '../security/api-auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,17 @@ if (!fs.existsSync(MEDIA_DIR)) {
 }
 
 const router = express.Router();
+
+function responderErrorOtp(res, err) {
+  const estado = err?.codigo === 'OTP_COOLDOWN' ? 429 : 400;
+  return res.status(estado).json({
+    ok: false,
+    error: err?.message || 'No se pudo procesar el código de verificación.',
+    codigo: err?.codigo,
+    reintentarEnSegundos: err?.reintentarEnSegundos,
+    intentosRestantes: err?.intentosRestantes,
+  });
+}
 
 // Ruta para servir archivos multimedia (imágenes, documentos, audios)
 router.get('/media/:filename', (req, res) => {
@@ -138,11 +150,22 @@ router.post('/auth/solicitar-otp', async (req, res) => {
     return res.status(400).json({ ok: false, error: 'Número de teléfono requerido.' });
   }
 
+  const usuarios = req.app.locals.usuarios;
+  const usuario = usuarios?.buscarPorTelefono(telefono);
+
+  if (usuarios && (!usuario || !usuario.activo)) {
+    return res.json({
+      ok: true,
+      mensaje: 'Si el número está registrado, recibirás un código de acceso.',
+      enviadoPorWhatsApp: false,
+    });
+  }
+
   try {
     const resultado = await whatsAppService.solicitarOtpLogin(telefono);
     res.json({ ok: true, ...resultado });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    responderErrorOtp(res, err);
   }
 });
 
@@ -154,11 +177,42 @@ router.post('/auth/verificar-otp', (req, res) => {
   }
 
   try {
-    const resultado = whatsAppService.verificarOtpLogin(telefono, codigo);
-    res.json({ ok: true, ...resultado });
+    whatsAppService.verificarOtpLogin(telefono, codigo);
   } catch (err) {
-    res.status(400).json({ ok: false, error: err.message });
+    return responderErrorOtp(res, err);
   }
+
+  const usuarios = req.app.locals.usuarios;
+  const autenticacion = req.app.locals.autenticacion;
+  const usuario = usuarios?.buscarPorTelefono(telefono);
+
+  if (!usuario || !usuario.activo) {
+    return res.status(401).json({
+      ok: false,
+      error: 'Esta cuenta de usuario no está activa en el sistema.',
+    });
+  }
+
+  if (!autenticacion?.secretoConfigurado) {
+    return res.status(503).json({
+      ok: false,
+      error: 'CRM_SESSION_SECRET no está configurado.',
+    });
+  }
+
+  const token = firmarToken(
+    { sub: usuario.id, email: usuario.email, rol: usuario.rol, nombre: usuario.nombre },
+    { secreto: autenticacion.secreto, ttlMs: autenticacion.ttlMs }
+  );
+  usuarios.actualizarUltimoAcceso(usuario.id);
+
+  return res.json({
+    ok: true,
+    valido: true,
+    token,
+    expiraEn: new Date(Date.now() + autenticacion.ttlMs).toISOString(),
+    usuario: usuarios.publico(usuario),
+  });
 });
 
 // 9. Historial de envíos de la sesión
