@@ -2,25 +2,11 @@ import type { Rule } from '@/core/permissions/ability';
 import type { CredencialesLogin, RolUsuario, SesionAuth, Usuario } from '../types/auth.types';
 import { rolesPermisosService } from './roles-permisos.service';
 import { whatsAppService } from '@/modules/comunicaciones/services/whatsapp.service';
+import { crearUsuariosDemo } from './auth.demo-data';
 
 const CLAVE_STORAGE_USUARIOS = 'crm_directorio_usuarios';
 
-export const USUARIOS_CRM: Usuario[] = [
-  {
-    id: 'usr-1',
-    nombre: 'Luis M. Taveras',
-    email: 'luismiguel@alliance.do',
-    contrasena: 'admin123',
-    rol: 'admin',
-    rolNombre: 'Team Leader & Administrador',
-    cargo: 'Team Leader TI Support',
-    departamento: 'Ingeniería de Software & Soporte TI',
-    telefonoFlota: '+1 (829) 708-4706',
-    avatar: 'LT',
-    activo: true,
-    ultimoAcceso: new Date().toISOString(),
-  },
-];
+export const USUARIOS_CRM: Usuario[] = crearUsuariosDemo();
 
 
 export function generarReglasPorRol(rol: RolUsuario): Rule[] {
@@ -112,7 +98,8 @@ class AuthService {
     const usuarios = this.cargarUsuariosPersistidos();
     const usuario = usuarios.find((u) => {
       const uTel = (u.telefonoFlota || '').replace(/\D/g, '');
-      return uTel.endsWith(telLimpio) || telLimpio.endsWith(uTel) || u.activo;
+      if (!uTel || !u.activo) return false;
+      return uTel.endsWith(telLimpio) || telLimpio.endsWith(uTel);
     });
 
     if (!usuario) {
@@ -131,14 +118,11 @@ class AuthService {
 
     const telLimpio = telefono.replace(/\D/g, '');
     const usuarios = this.cargarUsuariosPersistidos();
-    let usuario = usuarios.find((u) => {
+    const usuario = usuarios.find((u) => {
       const uTel = (u.telefonoFlota || '').replace(/\D/g, '');
+      if (!uTel) return false;
       return uTel.endsWith(telLimpio) || telLimpio.endsWith(uTel);
     });
-
-    if (!usuario) {
-      usuario = usuarios.find((u) => u.activo) || usuarios[0];
-    }
 
     if (!usuario || !usuario.activo) {
       throw new Error('Esta cuenta de usuario no está activa en el sistema.');

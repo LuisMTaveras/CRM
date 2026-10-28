@@ -21,14 +21,14 @@ export function normalizeApiError(error: unknown, fallbackMessage = 'Ocurrió un
   }
 
   // Handle Axios / Fetch response-like objects
-  const err = error as Record<string, any>;
-  const response = err.response || err;
+  const err = error as { response?: unknown; message?: unknown };
+  const response = (err.response ?? err) as Record<string, unknown>;
 
-  if (response?.status && typeof response.status === 'number') {
+  if (typeof response.status === 'number') {
     status = response.status;
   }
 
-  const data = response?.data || response;
+  const data: unknown = response.data ?? response;
 
   // 1. Status specific default messages
   if (status === 401) {
@@ -45,20 +45,22 @@ export function normalizeApiError(error: unknown, fallbackMessage = 'Ocurrió un
   if (typeof data === 'string' && data.trim()) {
     message = data;
   } else if (data && typeof data === 'object') {
+    const payload = data as Record<string, unknown>;
+
     // Laravel / NestJS standard: { message: "..." }
-    if (typeof data.message === 'string' && data.message.trim()) {
-      message = data.message;
-    } else if (typeof data.error === 'string' && data.error.trim()) {
-      message = data.error;
-    } else if (typeof data.detail === 'string' && data.detail.trim()) {
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      message = payload.message;
+    } else if (typeof payload.error === 'string' && payload.error.trim()) {
+      message = payload.error;
+    } else if (typeof payload.detail === 'string' && payload.detail.trim()) {
       // FastAPI / Django standard: { detail: "..." }
-      message = data.detail;
+      message = payload.detail;
     }
 
     // 3. Extract Field Validation Errors
     // Laravel: { errors: { email: ["El correo ya existe"] } }
-    if (data.errors && typeof data.errors === 'object') {
-      for (const [field, errorList] of Object.entries(data.errors)) {
+    if (payload.errors && typeof payload.errors === 'object') {
+      for (const [field, errorList] of Object.entries(payload.errors as Record<string, unknown>)) {
         if (Array.isArray(errorList) && errorList.length > 0) {
           fieldErrors[field] = String(errorList[0]);
         } else if (typeof errorList === 'string') {
@@ -68,18 +70,20 @@ export function normalizeApiError(error: unknown, fallbackMessage = 'Ocurrió un
     }
 
     // FastAPI: { detail: [{ loc: ["body", "email"], msg: "..." }] }
-    if (Array.isArray(data.detail)) {
-      for (const item of data.detail) {
-        if (item.loc && Array.isArray(item.loc) && item.msg) {
-          const fieldName = String(item.loc[item.loc.length - 1]);
-          fieldErrors[fieldName] = String(item.msg);
+    if (Array.isArray(payload.detail)) {
+      for (const item of payload.detail) {
+        if (!item || typeof item !== 'object') continue;
+        const detalle = item as Record<string, unknown>;
+        if (Array.isArray(detalle.loc) && detalle.msg) {
+          const fieldName = String(detalle.loc[detalle.loc.length - 1]);
+          fieldErrors[fieldName] = String(detalle.msg);
         }
       }
     }
   }
 
   // Fallback to error.message (e.g. Network Error / timeout)
-  if (err.message && (!message || message === fallbackMessage)) {
+  if (typeof err.message === 'string' && (!message || message === fallbackMessage)) {
     if (err.message.includes('Network Error')) {
       message = 'Error de conexión. Verifica tu acceso a internet o el estado del servidor.';
     } else {

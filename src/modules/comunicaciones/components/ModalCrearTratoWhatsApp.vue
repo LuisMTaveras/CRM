@@ -6,6 +6,7 @@ import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import { pipelineService } from '@/modules/pipeline/services/pipeline.service';
 import { toastService } from '@/core/notifications/toast.service';
+import { getCurrencySymbol } from '@/core/formatters/formatters';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -189,7 +190,7 @@ async function guardarTrato() {
           <div>
             <label class="block text-xs font-medium text-foreground mb-1.5 flex items-center gap-1.5">
               <DollarSign class="w-3.5 h-3.5 text-muted-foreground" />
-              <span>Monto Proyectado (DOP)</span>
+              <span>Monto Proyectado ({{ getCurrencySymbol() }})</span>
             </label>
             <input
               v-model.number="monto"
@@ -249,7 +250,7 @@ async function guardarTrato() {
         <!-- Prioridad -->
         <div>
           <label class="block text-xs font-medium text-foreground mb-1.5">Nivel de Prioridad</label>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               type="button"
               class="py-2 text-xs rounded-xl font-medium border text-center transition-colors"

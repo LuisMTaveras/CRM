@@ -20,7 +20,13 @@ import {
   Sparkles
 } from 'lucide-vue-next';
 import { toastService } from '@/core/notifications/toast.service';
+import { sanitizeHtml } from '@/core/security/html';
+import SafeHtml from '@/shared/components/SafeHtml.vue';
 import { dialogService } from '@/core/dialog/dialog.service';
+
+const props = defineProps<{
+  puedeEditar: boolean;
+}>();
 
 const subPestanaActiva = ref<'servidores' | 'firma' | 'pie'>('servidores');
 
@@ -110,10 +116,10 @@ const previewPieEsOscuro = computed(() => {
 
 // HTML en vivo con adaptación fiel a modo claro y oscuro
 const previewFirmaHtml = computed(() =>
-  firmaPieService.generarHtmlFirma(formFirma, previewFirmaEsOscuro.value)
+  sanitizeHtml(firmaPieService.generarHtmlFirma(formFirma, previewFirmaEsOscuro.value))
 );
 const previewPieHtml = computed(() =>
-  firmaPieService.generarHtmlPie(formPie, previewPieEsOscuro.value)
+  sanitizeHtml(firmaPieService.generarHtmlPie(formPie, previewPieEsOscuro.value))
 );
 
 const aplicarPresetProveedor = (preset: ProveedorPreset) => {
@@ -184,6 +190,7 @@ const probarConexionImap = async () => {
 };
 
 const guardarConfiguracionCompleta = async () => {
+  if (!props.puedeEditar) return;
   guardando.value = true;
   try {
     firmaPieService.guardarFirma({ ...formFirma });
@@ -201,6 +208,7 @@ const guardarConfiguracionCompleta = async () => {
 };
 
 const restablecerValores = async () => {
+  if (!props.puedeEditar) return;
   const confirmado = await dialogService.confirmar({
     titulo: 'Restablecer Configuración de Correo',
     subtitulo: 'Valores predeterminados del sistema',
@@ -243,7 +251,7 @@ const restablecerValores = async () => {
         </div>
 
         <!-- Botones de Acción Global -->
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <div v-if="puedeEditar" class="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             type="button"
             @click="restablecerValores"
@@ -264,6 +272,14 @@ const restablecerValores = async () => {
             <span>{{ guardando ? 'Guardando...' : 'Guardar Configuración' }}</span>
           </button>
         </div>
+      </div>
+
+      <div
+        v-if="!puedeEditar"
+        class="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-300"
+      >
+        <ShieldCheck class="mt-0.5 h-4 w-4 shrink-0" />
+        <span>Solo lectura: tu rol permite consultar la configuración, pero no modificarla.</span>
       </div>
 
       <!-- Segmented Control de Sub-Pestañas -->
@@ -742,7 +758,7 @@ const restablecerValores = async () => {
                 ? 'bg-zinc-950 text-zinc-100 border border-zinc-800/90 shadow-inner'
                 : 'bg-white text-zinc-900 border border-zinc-200 shadow-sm'"
             >
-              <div v-html="previewFirmaHtml"></div>
+              <SafeHtml :html="previewFirmaHtml" />
             </div>
           </div>
 
@@ -856,7 +872,7 @@ const restablecerValores = async () => {
                 ? 'bg-zinc-950 text-zinc-100 border border-zinc-800/90 shadow-inner'
                 : 'bg-white text-zinc-900 border border-zinc-200 shadow-sm'"
             >
-              <div v-html="previewPieHtml"></div>
+              <SafeHtml :html="previewPieHtml" />
             </div>
           </div>
 

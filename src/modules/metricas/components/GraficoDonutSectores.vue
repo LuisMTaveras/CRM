@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { SectorMetrica } from '../types/metricas.types';
-import { formatCurrency } from '@/core/formatters/formatters';
+import { formatCompactCurrency, formatCurrency } from '@/core/formatters/formatters';
 import { PieChart } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -19,11 +19,8 @@ const circumference = 2 * Math.PI * radius;
 
 // Función de formato compacto para números de miles de millones en el centro del donut
 const formatearCompacto = (monto: number): string => {
-  if (monto >= 1_000_000_000) {
-    return `RD$ ${(monto / 1_000_000_000).toFixed(2)}B`;
-  }
   if (monto >= 1_000_000) {
-    return `RD$ ${(monto / 1_000_000).toFixed(1)}M`;
+    return formatCompactCurrency(monto, { maximumFractionDigits: 2 });
   }
   return formatCurrency(monto);
 };

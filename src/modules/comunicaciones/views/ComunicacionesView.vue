@@ -29,8 +29,10 @@ import {
 } from 'lucide-vue-next';
 import { formatDate } from '@/core/formatters/formatters';
 import { FlickerlessSurface } from '@flickerless/vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const route = useRoute();
+const authStore = useAuthStore();
 
 // Modo activo determinado directamente por la ruta del menú
 const esModoDespacho = computed(() => {
@@ -70,6 +72,7 @@ const cargarDatos = async () => {
 const plantillaSeleccionadaModal = ref<PlantillaDocumento | undefined>(undefined);
 
 const abrirEnvioConPlantilla = async (plantilla?: PlantillaDocumento) => {
+  if (!authStore.tienePermiso('comunicaciones:enviar')) return;
   if (todosLosClientes.value.length === 0) {
     try {
       const resp = await clienteService.obtenerClientes({ pagina: 1, tamanoPagina: 100, busqueda: '' });
@@ -91,6 +94,7 @@ const onPlantillaCreada = (nuevaPlantilla: PlantillaDocumento, enviarInmediato: 
 };
 
 const eliminarPlantillaPersonalizada = (id: string) => {
+  if (!authStore.tienePermiso('comunicaciones:plantillas')) return;
   emailService.eliminarPlantilla(id);
   plantillas.value = emailService.obtenerPlantillas();
 };
@@ -149,8 +153,9 @@ onMounted(() => {
         <span class="hidden sm:inline">WhatsApp CRM</span>
       </router-link>
 
-      <router-link
-        to="/configuracion?tab=correo"
+        <router-link
+          v-if="authStore.tienePermiso('configuracion:ver')"
+          to="/configuracion?tab=correo"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
         title="Abrir Configuración General de Correo, Servidores y Firma"
       >
@@ -159,7 +164,7 @@ onMounted(() => {
       </router-link>
 
       <button
-        v-if="esModoDespacho"
+        v-if="esModoDespacho && authStore.tienePermiso('comunicaciones:documentos')"
         type="button"
         @click="modalCargarDocumentoAbierto = true"
         class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700/80 rounded-xl text-xs font-semibold shadow-sm transition"
@@ -169,13 +174,13 @@ onMounted(() => {
       </button>
 
       <button
-        v-if="esModoDespacho"
+        v-if="esModoDespacho && authStore.tienePermiso('comunicaciones:enviar')"
         type="button"
         @click="abrirEnvioConPlantilla()"
         class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition shadow-sm shadow-emerald-950/20 active:scale-95"
       >
         <Send class="w-3.5 h-3.5" />
-        <span>Lanzar Campaña</span>
+        <span class="hidden sm:inline">Lanzar Campaña</span>
       </button>
     </div>
   </Teleport>
@@ -290,6 +295,7 @@ onMounted(() => {
 
         <!-- Banner Drag & Drop de Documentos Word / PDF -->
         <div
+          v-if="authStore.tienePermiso('comunicaciones:documentos')"
           @click="modalCargarDocumentoAbierto = true"
           class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-xl p-4 transition cursor-pointer flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm"
         >
@@ -328,6 +334,7 @@ onMounted(() => {
             </div>
             <div class="flex items-center gap-2">
               <button
+                v-if="authStore.tienePermiso('comunicaciones:documentos')"
                 type="button"
                 @click="modalCargarDocumentoAbierto = true"
                 class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
@@ -369,6 +376,7 @@ onMounted(() => {
 
                 <div class="flex items-center gap-1.5">
                   <button
+                    v-if="authStore.tienePermiso('comunicaciones:plantillas')"
                     type="button"
                     @click="eliminarPlantillaPersonalizada(plt.id)"
                     title="Eliminar plantilla"
@@ -378,6 +386,7 @@ onMounted(() => {
                   </button>
 
                   <button
+                    v-if="authStore.tienePermiso('comunicaciones:enviar')"
                     type="button"
                     @click="abrirEnvioConPlantilla(plt)"
                     class="px-2.5 py-1 bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium transition"

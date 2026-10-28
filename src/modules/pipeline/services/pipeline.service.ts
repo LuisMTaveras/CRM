@@ -3,6 +3,7 @@ import { clienteService } from '@/modules/clientes/services/cliente.service';
 import { actividadesService } from '@/modules/agenda/services/actividades.service';
 import { timelineService } from '@/modules/clientes/services/timeline.service';
 import { toastService } from '@/core/notifications/toast.service';
+import { formatCurrency } from '@/core/formatters/formatters';
 import type {
   Pipeline,
   ColumnaPipeline,
@@ -1007,7 +1008,7 @@ class PipelineService {
             clienteId: tarjeta.cliente_id,
             tipo: 'cambio_etapa',
             titulo: `¡Trato Ganado con Éxito! (${tarjeta.titulo})`,
-            descripcion: `Oportunidad cerrada formalmente por un monto de RD$ ${(tarjeta.monto || 0).toLocaleString()}.`,
+            descripcion: `Oportunidad cerrada formalmente por un monto de ${formatCurrency(tarjeta.monto || 0)}.`,
             autor: tarjeta.responsable || 'Equipo Comercial',
           });
           toastService.exito(`¡Felicidades! Trato ganado con ${tarjeta.cliente_nombre}.`);

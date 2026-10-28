@@ -267,7 +267,7 @@ export class PdfGeneratorService {
     // Asegurar que Atendido por sea el nombre del ejecutivo y no de la empresa
     const nombreEjecutivoVal = variables.ejecutivo && variables.ejecutivo !== razonSocial
       ? variables.ejecutivo
-      : 'Luis M. Taveras';
+      : '—';
 
     const cargoEjecutivoVal = variables.cargo_ejecutivo && variables.cargo_ejecutivo !== '—'
       ? variables.cargo_ejecutivo

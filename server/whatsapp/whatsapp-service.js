@@ -22,6 +22,7 @@ const AUTH_DIR = path.join(__dirname, '..', 'data', 'whatsapp_auth');
 const MEDIA_DIR = path.join(__dirname, '..', 'data', 'whatsapp_media');
 const CHATS_FILE = path.join(__dirname, '..', 'data', 'whatsapp_chats.json');
 const EMPRESA_FILE = path.join(__dirname, '..', 'empresa-config.json');
+const ES_PRODUCCION = process.env.NODE_ENV === 'production';
 
 function obtenerNombreEmpresa() {
   try {
@@ -1075,13 +1076,15 @@ class WhatsAppService {
       }
     }
 
-    console.log(`[WhatsApp Auth] Código OTP para ${limpio}: ${codigo} (Enviado por WA: ${mensajeEnviado})`);
+    if (!ES_PRODUCCION) {
+      console.log(`[WhatsApp Auth] Código OTP para ${limpio}: ${codigo} (Enviado por WA: ${mensajeEnviado})`);
+    }
     return {
       ok: true,
       mensaje: mensajeEnviado
         ? 'Código de acceso enviado a tu WhatsApp.'
         : 'Código de acceso generado (WhatsApp desconectado, ingresa el código en pantalla).',
-      codigo,
+      ...(ES_PRODUCCION ? {} : { codigo }),
       enviadoPorWhatsApp: mensajeEnviado,
     };
   }
@@ -1094,7 +1097,7 @@ class WhatsAppService {
 
     const reg = this.otpsLogin.get(limpio);
     if (!reg) {
-      if (codigoIngresado === '123456') {
+      if (!ES_PRODUCCION && codigoIngresado === '123456') {
         return { valido: true };
       }
       throw new Error('No hay un código pendiente para este número. Solicita un nuevo código.');
@@ -1105,7 +1108,7 @@ class WhatsAppService {
       throw new Error('El código de verificación ha expirado. Solicita uno nuevo.');
     }
 
-    if (reg.codigo !== String(codigoIngresado).trim() && codigoIngresado !== '123456') {
+    if (reg.codigo !== String(codigoIngresado).trim() && (ES_PRODUCCION || codigoIngresado !== '123456')) {
       throw new Error('El código ingresado es incorrecto.');
     }
 

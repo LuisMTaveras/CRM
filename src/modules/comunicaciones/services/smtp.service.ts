@@ -1,5 +1,6 @@
 import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion } from '../types/smtp.types';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
+import { API_BASE_URL } from '@/core/api/api-config';
 
 const CLAVE_STORAGE_SMTP = 'crm_config_smtp_servidor';
 
@@ -117,7 +118,7 @@ class SmtpService {
 
     // Notificar al backend de correo para persistencia remota
     try {
-      const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email/configuracion`;
+      const API_URL = `${API_BASE_URL}/email/configuracion`;
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +153,7 @@ class SmtpService {
       };
     }
 
-    const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email/probar-conexion`;
+    const API_URL = `${API_BASE_URL}/email/probar-conexion`;
 
     try {
       const resp = await fetch(API_URL, {

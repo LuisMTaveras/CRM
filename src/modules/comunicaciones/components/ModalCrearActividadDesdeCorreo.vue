@@ -7,6 +7,7 @@ import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import type { MensajeCorreo } from '../types/webmail.types';
 import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const props = defineProps<{
   abierto: boolean;
@@ -26,7 +27,8 @@ const tipo = ref<TipoActividad>('llamada');
 const prioridad = ref<PrioridadActividad>('alta');
 const fecha = ref('');
 const hora = ref('10:00');
-const responsable = ref('Jean Carlos Peña');
+const authStore = useAuthStore();
+const responsable = ref(authStore.usuario?.nombre || '—');
 const descripcion = ref('');
 const guardando = ref(false);
 

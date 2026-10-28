@@ -15,7 +15,7 @@ import {
   Clock, 
   FileText
 } from 'lucide-vue-next';
-import { formatCurrency } from '@/core/formatters/formatters';
+import { formatCurrency, getCurrencySymbol } from '@/core/formatters/formatters';
 import type { 
   TarjetaPipeline, 
   Pipeline, 
@@ -26,6 +26,9 @@ import { pipelineService } from '../services/pipeline.service';
 import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import SectorIcon from '@/shared/components/SectorIcon.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
+
+const authStore = useAuthStore();
 
 const props = defineProps<{
   abierto: boolean;
@@ -147,6 +150,10 @@ const columnaBloqueada = computed(() => {
 
 const guardarCambios = async () => {
   if (!props.tarjeta || !props.pipeline) return;
+  if (!authStore.tienePermiso('pipeline:editar')) {
+    errorMensaje.value = 'No tienes permiso para editar oportunidades.';
+    return;
+  }
   if (!formulario.titulo.trim()) {
     errorMensaje.value = 'El título de la tarjeta u oportunidad es obligatorio.';
     return;
@@ -297,7 +304,7 @@ const marcarComoBloqueada = async () => {
           <div class="flex items-center justify-between">
             <label class="text-zinc-800 dark:text-zinc-200 font-semibold flex items-center gap-1.5">
               <DollarSign class="w-3.5 h-3.5 text-indigo-500" />
-              <span>Monto Comercial Estimado (RD$)</span>
+              <span>Monto Comercial Estimado ({{ getCurrencySymbol() }})</span>
             </label>
             <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold text-xs bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20 tabular-nums">
               {{ formatCurrency(formulario.monto) }}
@@ -308,7 +315,7 @@ const marcarComoBloqueada = async () => {
           <div class="space-y-2">
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-mono text-xs font-semibold">
-                RD$
+                {{ getCurrencySymbol() }}
               </span>
               <input
                 v-model.number="formulario.monto"
@@ -467,6 +474,7 @@ const marcarComoBloqueada = async () => {
         <!-- Acciones directas de etapa -->
         <div class="flex items-center gap-1.5">
           <button
+            v-if="authStore.tienePermiso('pipeline:mover')"
             type="button"
             @click="marcarComoGanada"
             :disabled="guardando"
@@ -478,7 +486,7 @@ const marcarComoBloqueada = async () => {
           </button>
 
           <button
-            v-if="columnaBloqueada"
+            v-if="columnaBloqueada && authStore.tienePermiso('pipeline:mover')"
             type="button"
             @click="marcarComoBloqueada"
             :disabled="guardando"
@@ -490,6 +498,7 @@ const marcarComoBloqueada = async () => {
           </button>
 
           <button
+            v-if="authStore.tienePermiso('clientes:editar')"
             type="button"
             @click="emit('programar-actividad', tarjeta)"
             class="px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
@@ -503,6 +512,7 @@ const marcarComoBloqueada = async () => {
         <!-- Botones Principales -->
         <div class="flex items-center gap-2">
           <button
+            v-if="authStore.tienePermiso('pipeline:eliminar')"
             type="button"
             @click="emit('eliminar', tarjeta)"
             :disabled="guardando"
@@ -513,6 +523,7 @@ const marcarComoBloqueada = async () => {
           </button>
 
           <button
+            v-if="authStore.tienePermiso('pipeline:editar')"
             type="button"
             @click="guardarCambios"
             :disabled="guardando"

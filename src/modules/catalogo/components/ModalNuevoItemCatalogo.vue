@@ -4,6 +4,8 @@ import { catalogoService } from '@/modules/comunicaciones/services/catalogo.serv
 import type { CategoriaServicio, MonedaCotizacion } from '@/modules/comunicaciones/types/catalogo.types';
 import { X, Check, Package } from 'lucide-vue-next';
 import { toastService } from '@/core/notifications/toast.service';
+import { getCurrencySymbol } from '@/core/formatters/formatters';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
 
 defineProps<{
   abierto: boolean;
@@ -29,7 +31,7 @@ const formulario = reactive({
   descripcion: '',
   categoria: 'licenciamiento' as CategoriaServicio,
   precioBase: 0,
-  moneda: 'DOP' as MonedaCotizacion,
+  moneda: (empresaService.obtenerDatos().monedaPrincipal === 'USD' ? 'USD' : 'DOP') as MonedaCotizacion,
   aplicaItbis: true,
   tasaItbis: 0.18,
   unidadMedida: 'Mes',
@@ -161,10 +163,10 @@ const guardar = () => {
           ></textarea>
         </div>
 
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">
-              Precio Unitario (RD$) *
+              Precio Unitario ({{ getCurrencySymbol(formulario.moneda) }}) *
             </label>
             <input
               v-model.number="formulario.precioBase"
@@ -183,8 +185,8 @@ const guardar = () => {
               v-model="formulario.moneda"
               class="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
             >
-              <option value="DOP">DOP (RD$)</option>
-              <option value="USD">USD ($)</option>
+              <option value="DOP">DOP ({{ getCurrencySymbol('DOP') }})</option>
+              <option value="USD">USD ({{ getCurrencySymbol('USD') }})</option>
             </select>
           </div>
 

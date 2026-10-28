@@ -34,6 +34,18 @@ export interface ConfiguracionSMTP {
   latenciaMs?: number;
 }
 
+export interface ResultadoPruebaImap {
+  exito: boolean;
+  mensaje: string;
+  latenciaMs?: number;
+  detalles: {
+    imapConectado: boolean;
+    autenticacionAceptada: boolean;
+    totalCarpetas?: number;
+    modoSandbox?: boolean;
+  };
+}
+
 export interface ResultadoPruebaConexion {
   exito: boolean;
   mensaje: string;

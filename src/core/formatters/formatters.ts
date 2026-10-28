@@ -130,6 +130,88 @@ export function formatCurrency(
 }
 
 /**
+ * Returns the active currency code (e.g. "DOP") configured for the project.
+ */
+export function getCurrencyCode(): string {
+  return formatConfig.defaultCurrency;
+}
+
+/**
+ * Returns the localized currency symbol for labels and inputs (e.g. "RD$", "US$").
+ */
+export function getCurrencySymbol(
+  currency = formatConfig.defaultCurrency,
+  locale = formatConfig.defaultLocale
+): string {
+  const parts = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'symbol',
+  }).formatToParts(0);
+
+  return parts.find((part) => part.type === 'currency')?.value || currency;
+}
+
+/**
+ * Returns a human readable currency label for the active locale (e.g. "Peso dominicano (DOP)").
+ */
+export function getCurrencyLabel(
+  currency = formatConfig.defaultCurrency,
+  locale = formatConfig.defaultLocale
+): string {
+  try {
+    const nombre = new Intl.DisplayNames([locale], { type: 'currency' }).of(currency) || currency;
+    return `${nombre} (${currency})`;
+  } catch {
+    return currency;
+  }
+}
+
+/**
+ * Formats a monetary amount in compact notation for charts and tight spaces.
+ * Example (es-DO): 17870000 -> "RD$17.9 M"
+ */
+export function formatCompactCurrency(
+  amount: number | string | null | undefined,
+  options: string | { currency?: string; locale?: string; maximumFractionDigits?: number } = {}
+): string {
+  const num = toNumber(amount);
+  if (num === null) return formatConfig.fallbackString;
+
+  const optObj = typeof options === 'string' ? { currency: options } : options;
+  return new Intl.NumberFormat(optObj.locale || formatConfig.defaultLocale, {
+    style: 'currency',
+    currency: optObj.currency || formatConfig.defaultCurrency,
+    notation: 'compact',
+    maximumFractionDigits: optObj.maximumFractionDigits ?? 1,
+  }).format(num);
+}
+
+/**
+ * Formats a file size in bytes using localized separators.
+ * Example: 1536 -> "1.5 KB"
+ */
+export function formatFileSize(
+  bytes: number | string | null | undefined,
+  options: { locale?: string; maximumFractionDigits?: number } = {}
+): string {
+  const num = toNumber(bytes);
+  if (num === null || num < 0) return formatConfig.fallbackString;
+  if (num === 0) return '0 B';
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const exponent = Math.min(Math.floor(Math.log(num) / Math.log(1024)), units.length - 1);
+  const value = num / Math.pow(1024, exponent);
+  const decimals = exponent === 0 ? 0 : (options.maximumFractionDigits ?? 1);
+
+  return `${formatNumber(value, {
+    locale: options.locale,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  })} ${units[exponent]}`;
+}
+
+/**
  * Formats a date into localized string (e.g., "11 sept 2026", es-DO).
  */
 export function formatDate(

@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import type { EventoTimeline, NuevoEventoInput, FiltrosTimeline, TipoEventoTimeline } from '../types/timeline.types';
 import { clienteService } from './cliente.service';
+import { formatCurrency } from '@/core/formatters/formatters';
 
 const CLAVE_STORAGE = 'crm_cliente_timeline_v1';
 
@@ -19,7 +20,7 @@ const EVENTOS_SEMILLA: EventoTimeline[] = [
     clienteId: 'c0010000-0000-4000-8000-000000000001',
     tipo: 'propuesta',
     titulo: 'Emisión de propuesta comercial formal',
-    descripcion: 'Se generó y adjuntó la propuesta Ref AL-PROP-0EF4CF por un monto de RD$ 1,920,000.00 con términos de pago a 30 días.',
+    descripcion: `Se generó y adjuntó la propuesta Ref AL-PROP-0EF4CF por un monto de ${formatCurrency(1920000)} con términos de pago a 30 días.`,
     autor: 'Camila Morales',
     fecha: new Date(Date.now() - 86400000 * 3).toISOString(),
   },

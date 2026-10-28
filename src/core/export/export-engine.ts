@@ -3,17 +3,17 @@
  * Zero-dependency, pure TypeScript CSV and data exporter with UTF-8 BOM encoding for Excel.
  */
 
-export interface ExportColumn<T = any> {
+export interface ExportColumn<T = Record<string, unknown>> {
   header: string;
   key: keyof T | string;
-  formatter?: (value: any, item: T) => string | number;
+  formatter?: (value: unknown, item: T) => string | number;
 }
 
 /**
  * Exports an array of objects to a downloadable CSV file.
  * Includes UTF-8 BOM so Microsoft Excel renders accents, ñ, and special characters cleanly.
  */
-export function exportToCSV<T extends Record<string, any>>(
+export function exportToCSV<T extends object>(
   data: T[],
   columns: ExportColumn<T>[],
   filename = 'reporte-exportado.csv'
@@ -62,13 +62,13 @@ function escapeCSVValue(val: unknown): string {
   return `"${str}"`;
 }
 
-function getNestedValue(obj: Record<string, any>, path: string): any {
+function getNestedValue(obj: object, path: string): unknown {
   if (!obj || !path) return undefined;
   const parts = path.split('.');
-  let current: any = obj;
+  let current: unknown = obj;
   for (const part of parts) {
     if (current === null || current === undefined) return undefined;
-    current = current[part];
+    current = (current as Record<string, unknown>)[part];
   }
   return current;
 }

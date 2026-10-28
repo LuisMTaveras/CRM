@@ -1,8 +1,9 @@
 import { ref, readonly } from 'vue';
 import type { DatosEmpresa } from '../types/empresa.types';
+import { API_BASE_URL } from '@/core/api/api-config';
 
 const CLAVE_STORAGE_EMPRESA = 'crm_perfil_empresa_emisora';
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/empresa`;
+const API_URL = `${API_BASE_URL}/empresa`;
 
 /**
  * La identidad corporativa se obtiene del perfil persistido por el servidor.

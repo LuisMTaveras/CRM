@@ -26,8 +26,10 @@ import { dialogService } from '@/core/dialog/dialog.service';
 import { toastService } from '@/core/notifications/toast.service';
 import { FlickerlessSurface } from '@flickerless/vue';
 import NuevoPipelineModal from '../components/NuevoPipelineModal.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const cargando = ref(true);
 const resumenPipelines = ref<ResumenPipelineItem[]>([]);
@@ -191,12 +193,13 @@ onMounted(() => {
   <!-- Teleport de Acciones Globales a la Barra Superior -->
   <Teleport to="#header-portal-right">
     <div class="flex items-center gap-2">
-      <button
-        @click="modalNuevoPipelineAbierto = true"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
-      >
+        <button
+          v-if="authStore.tienePermiso('pipeline:configurar')"
+          @click="modalNuevoPipelineAbierto = true"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/40"
+        >
         <Plus class="w-3.5 h-3.5" />
-        <span>+ Nuevo Tablero</span>
+        <span class="hidden sm:inline">+ Nuevo Tablero</span>
       </button>
 
       <button
@@ -385,9 +388,10 @@ onMounted(() => {
 
               <!-- Menú de opciones (3 puntos) -->
               <div class="relative shrink-0">
-                <button
-                  type="button"
-                  @click="toggleMenu(pipe.id, $event)"
+              <button
+                v-if="authStore.tienePermiso('pipeline:configurar')"
+                type="button"
+                @click="toggleMenu(pipe.id, $event)"
                   class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                   title="Opciones del tablero"
                 >
@@ -494,6 +498,7 @@ onMounted(() => {
 
         <!-- Tarjeta Especial: + Crear Nuevo Tablero -->
         <div
+          v-if="authStore.tienePermiso('pipeline:configurar')"
           @click="modalNuevoPipelineAbierto = true"
           class="rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-800 hover:border-indigo-500/50 bg-zinc-50/50 dark:bg-zinc-950/40 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 p-8 flex flex-col items-center justify-center text-center gap-3 transition cursor-pointer group min-h-[360px]"
         >

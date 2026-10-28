@@ -1,4 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+const { EMPRESA_PRUEBA } = vi.hoisted(() => ({
+  EMPRESA_PRUEBA: {
+    razonSocial: 'Empresa de Prueba S.R.L.',
+    nombreComercial: 'Empresa de Prueba',
+    identificacionFiscal: '1-01-99999-1',
+    sitioWeb: 'empresa.test',
+    telefono: '+1 (809) 555-0100',
+    direccion: 'Calle Falsa 123',
+    ciudad: 'Santo Domingo',
+  },
+}));
+
+vi.mock('@/modules/configuracion/services/empresa.service', () => ({
+  empresaService: {
+    obtenerDatos: () => ({ ...EMPRESA_PRUEBA }),
+  },
+}));
+
 import { firmaPieService, FIRMA_POR_DEFECTO } from './firma-pie.service';
 
 describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
@@ -6,13 +25,14 @@ describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
     localStorage.clear();
   });
 
-  it('obtiene la firma por defecto con los datos requeridos', () => {
+  it('obtiene la firma con los datos institucionales de la empresa', () => {
     const firma = firmaPieService.obtenerFirma();
     expect(firma.habilitada).toBe(true);
     expect(firma.nombreRemitente).toBe(FIRMA_POR_DEFECTO.nombreRemitente);
     expect(firma.cargo).toBe(FIRMA_POR_DEFECTO.cargo);
-    expect(firma.empresa).toBe(FIRMA_POR_DEFECTO.empresa);
-    expect(firma.telefono).toBe(FIRMA_POR_DEFECTO.telefono);
+    expect(firma.empresa).toBe(EMPRESA_PRUEBA.razonSocial);
+    expect(firma.telefono).toBe(EMPRESA_PRUEBA.telefono);
+    expect(firma.sitioWeb).toBe(EMPRESA_PRUEBA.sitioWeb);
   });
 
   it('guarda y recupera cambios en la firma personalizada', () => {
@@ -30,6 +50,7 @@ describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
     expect(recuperada.nombreRemitente).toBe('Ignacio Silva');
     expect(recuperada.cargo).toBe('Ejecutivo Comercial Senior');
     expect(recuperada.colorAcento).toBe('#3b82f6');
+    expect(recuperada.telefono).toBe(EMPRESA_PRUEBA.telefono);
   });
 
   it('genera correctamente el HTML de la firma con jerarquía y colores', () => {
@@ -55,18 +76,21 @@ describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
     const pie = firmaPieService.obtenerPie();
     expect(pie.habilitado).toBe(true);
     expect(pie.incluirAvisoConfidencialidad).toBe(true);
-    expect(pie.rncEmpresa).toMatch(/RNC:\s*[\d-]+/);
+    expect(pie.direccionFisica).toBe('Calle Falsa 123, Santo Domingo');
+    expect(pie.rncEmpresa).toBe(`RNC: ${EMPRESA_PRUEBA.identificacionFiscal}`);
 
     const pieEditado = {
       ...pie,
-      direccionFisica: 'Av. 27 de Febrero, Santo Domingo',
-      rncEmpresa: 'RNC: 1-01-99999-1',
+      textoLegal: 'Texto legal personalizado para pruebas.',
+      incluirDireccionEmpresa: false,
     };
     firmaPieService.guardarPie(pieEditado);
     const recuperado = firmaPieService.obtenerPie();
 
-    expect(recuperado.direccionFisica).toBe('Av. 27 de Febrero, Santo Domingo');
-    expect(recuperado.rncEmpresa).toBe('RNC: 1-01-99999-1');
+    expect(recuperado.textoLegal).toBe('Texto legal personalizado para pruebas.');
+    expect(recuperado.incluirDireccionEmpresa).toBe(false);
+    expect(recuperado.direccionFisica).toBe('Calle Falsa 123, Santo Domingo');
+    expect(recuperado.rncEmpresa).toBe(`RNC: ${EMPRESA_PRUEBA.identificacionFiscal}`);
   });
 
   it('genera correctamente el HTML del pie legal con aviso de confidencialidad', () => {
@@ -75,6 +99,6 @@ describe('FirmaPieService - Firmas y Pie Legal Corporativo', () => {
 
     expect(html).toContain('AVISO DE CONFIDENCIALIDAD');
     expect(html).toContain('Ley No. 172-13');
-    expect(html).toContain(pie.rncEmpresa || '');
+    expect(html).toContain(pie.rncEmpresa);
   });
 });

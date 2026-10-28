@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useClientes } from '../composables/useClientes';
 import DashboardKpis from '@/modules/dashboard/components/DashboardKpis.vue';
 import ClientesDataGrid from '../components/ClientesDataGrid.vue';
@@ -8,7 +8,10 @@ import NuevoClienteModal from '../components/NuevoClienteModal.vue';
 import EnvioMasivoModal from '@/modules/comunicaciones/components/EnvioMasivoModal.vue';
 import ModalEnviarWhatsApp from '@/modules/comunicaciones/components/ModalEnviarWhatsApp.vue';
 import { RefreshCw, AlertCircle, Building2, Plus } from 'lucide-vue-next';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import type { Cliente, Contacto } from '../types/cliente.types';
+
+const authStore = useAuthStore();
 
 const {
   parametrosURL,
@@ -55,6 +58,28 @@ const abrirWhatsApp = (cliente: Cliente, contacto?: Contacto) => {
 const onEnvioCompletado = () => {
   consultarClientes();
 };
+
+const estadoDatos = computed(() => {
+  if (import.meta.env.VITE_USE_MOCK !== 'false') {
+    return {
+      texto: 'Datos locales',
+      clase: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
+      punto: 'bg-amber-500',
+    };
+  }
+  if (error.value) {
+    return {
+      texto: 'Sin conexión',
+      clase: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+      punto: 'bg-rose-500',
+    };
+  }
+  return {
+    texto: 'API conectada',
+    clase: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    punto: 'bg-emerald-500',
+  };
+});
 </script>
 
 <template>
@@ -69,9 +94,9 @@ const onEnvioCompletado = () => {
             <h1 class="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
               Directorio Comercial & Clientes B2B
             </h1>
-            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
-              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-              PostgreSQL Conectado
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0" :class="estadoDatos.clase">
+              <span class="w-1.5 h-1.5 rounded-full" :class="estadoDatos.punto"></span>
+              {{ estadoDatos.texto }}
             </span>
           </div>
           <p class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate hidden md:block">
@@ -85,11 +110,12 @@ const onEnvioCompletado = () => {
     <Teleport to="#header-portal-right">
       <div class="flex items-center gap-2">
         <button
+          v-if="authStore.tienePermiso('clientes:crear')"
           @click="modalNuevoClienteAbierto = true"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/40"
         >
           <Plus class="w-3.5 h-3.5" />
-          <span>+ Nuevo Cliente</span>
+          <span class="hidden sm:inline">+ Nuevo Cliente</span>
         </button>
 
         <button

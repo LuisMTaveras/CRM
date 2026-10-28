@@ -10,6 +10,7 @@ import type {
   RespuestaClientesPaginada 
 } from '../types/cliente.types';
 import { CLIENTES_SEMILLA } from './cliente.mock-data';
+import { API_BASE_URL } from '@/core/api/api-config';
 
 const CLAVE_STORAGE_CLIENTES = 'crm_clientes_registrados';
 
@@ -80,7 +81,7 @@ class ClienteService {
       if (params.estado) queryParams.set('estado', params.estado);
       if (params.sector) queryParams.set('sector', params.sector);
 
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/clientes?${queryParams.toString()}`);
+      const resp = await fetch(`${API_BASE_URL}/clientes?${queryParams.toString()}`);
       if (!resp.ok) {
         throw new Error(`Error en el servidor al consultar clientes: ${resp.statusText}`);
       }

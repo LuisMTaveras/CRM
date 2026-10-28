@@ -25,6 +25,7 @@ import {
 } from 'lucide-vue-next';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { computed } from 'vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const props = defineProps<{
   abierto: boolean;
@@ -34,6 +35,9 @@ const props = defineProps<{
   actividadId?: string;
   fechaInicial?: string;
 }>();
+
+const authStore = useAuthStore();
+const nombreUsuarioActual = computed(() => authStore.usuario?.nombre || '—');
 
 const emit = defineEmits<{
   (e: 'update:abierto', valor: boolean): void;
@@ -122,7 +126,7 @@ watch(
     descripcion.value = '';
     tipo.value = 'llamada';
     prioridad.value = 'alta';
-    responsable.value = 'Luis M. Taveras';
+    responsable.value = nombreUsuarioActual.value;
 
     // Fecha límite predeterminada: Fecha inicial provista o Mañana a las 10:00 AM
     if (props.fechaInicial) {
@@ -177,9 +181,9 @@ const opcionesCliente = computed((): SelectOption<string>[] => [
   })),
 ]);
 
-const opcionesResponsable: SelectOption<string>[] = [
-  { value: 'Luis M. Taveras', label: 'Luis M. Taveras' },
-];
+const opcionesResponsable = computed((): SelectOption<string>[] => [
+  { value: nombreUsuarioActual.value, label: nombreUsuarioActual.value },
+]);
 
 const prioridades = [
   { valor: 'alta', etiqueta: 'Alta', clase: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },

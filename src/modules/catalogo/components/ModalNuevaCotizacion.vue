@@ -6,7 +6,7 @@ import { clienteService } from '@/modules/clientes/services/cliente.service';
 import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import type { ItemCatalogo } from '@/modules/comunicaciones/types/catalogo.types';
 import type { ItemCotizacion } from '../types/catalogo.types';
-import { formatCurrency } from '@/core/formatters/formatters';
+import { formatCurrency, getCurrencySymbol } from '@/core/formatters/formatters';
 import { 
   X, 
   Trash2, 
@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-vue-next';
 import { toastService } from '@/core/notifications/toast.service';
+import { empresaService } from '@/modules/configuracion/services/empresa.service';
 
 const props = defineProps<{
   abierto: boolean;
@@ -42,6 +43,7 @@ const fechaVencimiento = ref(
 );
 
 const guardando = ref(false);
+const monedaEmpresa = empresaService.obtenerDatos().monedaPrincipal === 'USD' ? 'USD' : 'DOP';
 
 onMounted(async () => {
   cargandoClientes.value = true;
@@ -166,7 +168,7 @@ const guardarCotizacion = () => {
       descuento_monto: descuentoGeneral.value,
       itbis_total: itbisGeneral.value,
       total: totalGeneral.value,
-      moneda: 'DOP',
+      moneda: monedaEmpresa,
       notas: notas.value,
       terminos_condiciones: terminos.value,
     });
@@ -268,7 +270,7 @@ const guardarCotizacion = () => {
               >
                 <option value="">+ Agregar ítem desde Catálogo...</option>
                 <option v-for="item in catalogoItems" :key="item.id" :value="item.id">
-                  {{ item.codigo }} - {{ item.nombre }} (RD$ {{ item.precioBase.toLocaleString() }})
+                  {{ item.codigo }} - {{ item.nombre }} ({{ formatCurrency(item.precioBase, { currency: item.moneda }) }})
                 </option>
               </select>
             </div>
@@ -281,7 +283,7 @@ const guardarCotizacion = () => {
                 <tr>
                   <th class="py-2.5 px-3">SKU / Concepto</th>
                   <th class="py-2.5 px-3 w-20 text-center">Cant.</th>
-                  <th class="py-2.5 px-3 w-28 text-right">Precio (RD$)</th>
+                  <th class="py-2.5 px-3 w-28 text-right">Precio ({{ getCurrencySymbol() }})</th>
                   <th class="py-2.5 px-3 w-20 text-center">Desc %</th>
                   <th class="py-2.5 px-3 w-20 text-center">ITBIS</th>
                   <th class="py-2.5 px-3 w-28 text-right">Total</th>

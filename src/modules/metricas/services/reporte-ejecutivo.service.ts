@@ -301,7 +301,7 @@ export class ReporteEjecutivoService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(...PALETTE.slate950);
-    doc.text('Lic. Luis M. Taveras', margin + 4, y + 19.5);
+    doc.text(datosEmpresa.razonSocial || 'Dirección Comercial', margin + 4, y + 19.5);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(5);
     doc.setTextColor(...PALETTE.slate500);

@@ -42,6 +42,9 @@ const mensajeExito = ref<string | null>(null);
 const recordarme = ref(true);
 const cargando = ref(false);
 const error = ref<string | null>(null);
+const etiquetaAutenticacion = import.meta.env.VITE_USE_MOCK !== 'false'
+  ? 'Autenticación local'
+  : 'Autenticación segura';
 
 const cambiarMetodo = (metodo: 'password' | 'whatsapp') => {
   metodoAutenticacion.value = metodo;
@@ -256,7 +259,9 @@ const reiniciarPasoWhatsApp = () => {
               />
               <span>Recordar este equipo</span>
             </label>
-            <span class="text-zinc-400 dark:text-zinc-500">PostgreSQL Auth</span>
+            <span class="text-zinc-400 dark:text-zinc-500">
+              {{ etiquetaAutenticacion }}
+            </span>
           </div>
 
           <!-- Botón de Entrar -->

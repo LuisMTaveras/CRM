@@ -221,7 +221,7 @@ const guardar = async () => {
 
       <!-- Barra de Pasos Numerados (Step Wizard Header) -->
       <div class="px-6 py-3.5 bg-zinc-100/60 dark:bg-zinc-950/60 border-b border-zinc-200 dark:border-zinc-800/80">
-        <div class="grid grid-cols-3 gap-2 sm:gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
           <!-- Paso 1 -->
           <button
             type="button"

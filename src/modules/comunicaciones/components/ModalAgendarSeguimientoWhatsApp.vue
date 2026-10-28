@@ -265,7 +265,7 @@ function guardarActividad() {
         <!-- Prioridad -->
         <div>
           <label class="block text-xs font-medium text-foreground mb-1.5">Nivel de Prioridad</label>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               type="button"
               class="py-2 text-xs rounded-xl font-medium border text-center transition-colors"

@@ -19,8 +19,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   const tienePermiso = (permisoId: string): boolean => {
     if (!usuario.value) return false;
-    if (usuario.value.rol === 'admin') return true;
     return permisosEfectivos.value.includes(permisoId);
+  };
+
+  const tieneAlgunPermiso = (permisoIds: string[]): boolean => {
+    return permisoIds.some((permisoId) => tienePermiso(permisoId));
   };
 
   // Inicializar sesión desde almacenamiento local si existe
@@ -117,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     rol,
     permisosEfectivos,
     tienePermiso,
+    tieneAlgunPermiso,
     inicializarSesion,
     iniciarSesion,
     solicitarOtpWhatsApp,

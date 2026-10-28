@@ -9,6 +9,9 @@ import type {
   AdjuntoCorreo,
   RespuestaMensajesPaginada 
 } from '../types/webmail.types';
+import BandejaCorreoToolbar from './BandejaCorreoToolbar.vue';
+import CarpetasCorreoNav from './CarpetasCorreoNav.vue';
+import CorreoListItem from './CorreoListItem.vue';
 import RedactarCorreoModal from './RedactarCorreoModal.vue';
 import ReglasCorreoModal from './ReglasCorreoModal.vue';
 import EmailViewer from './EmailViewer.vue';
@@ -16,16 +19,14 @@ import ModalCrearOportunidadDesdeCorreo from './ModalCrearOportunidadDesdeCorreo
 import ModalCrearActividadDesdeCorreo from './ModalCrearActividadDesdeCorreo.vue';
 import FichaClienteDrawer from './FichaClienteDrawer.vue';
 import { reglasCorreoService } from '../services/reglas-correo.service';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import type { CarpetaPersonalizada } from '../types/reglas-correo.types';
 import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import type { ActividadSeguimiento } from '@/modules/agenda/types/actividad.types';
 import { 
-  Inbox, 
   Send, 
-  FileEdit, 
   Archive, 
   Trash2, 
-  Search, 
   RefreshCw, 
   Star, 
   Paperclip, 
@@ -48,27 +49,25 @@ import {
   FileSpreadsheet,
   FolderArchive,
   Folder,
-  FolderPlus,
-  SlidersHorizontal,
   Check,
-  X,
   Kanban,
   CalendarClock,
   UserCheck,
   UserPlus,
-  Globe,
+
   Bell,
   GitMerge,
   ChevronDown,
   Maximize2,
   Minimize2
 } from 'lucide-vue-next';
-import { formatDate, formatRelativeTime } from '@/core/formatters/formatters';
+import { formatDate, formatFileSize, formatRelativeTime } from '@/core/formatters/formatters';
 import { toastService } from '@/core/notifications/toast.service';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
 import { timelineService } from '@/modules/clientes/services/timeline.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 
+const authStore = useAuthStore();
 const carpetas = ref<CarpetaCorreo[]>([]);
 const carpetaActiva = ref<CarpetaCorreoId>('inbox');
 const mensajes = ref<MensajeCorreo[]>([]);
@@ -103,6 +102,16 @@ const hiloMensajes = ref<MensajeCorreo[]>([]);
 const cargandoHilo = ref(false);
 const modoVerHilo = ref(false);
 const modoEnfoqueLectura = ref(false);
+const panelMovil = ref<'lista' | 'lectura'>('lista');
+
+const volverALista = () => {
+  panelMovil.value = 'lista';
+  modoEnfoqueLectura.value = false;
+};
+
+watch(mensajeSeleccionado, (mensaje) => {
+  if (!mensaje) panelMovil.value = 'lista';
+});
 const mostrarAdjuntosCabecera = ref(false);
 
 // Sincronización silenciosa periódica
@@ -114,6 +123,14 @@ const modalRedactarAbierto = ref(false);
 const redactarDestinatario = ref('');
 const redactarAsunto = ref('');
 const redactarCuerpo = ref('');
+
+const abrirModalRedactar = () => {
+  if (!authStore.tienePermiso('comunicaciones:enviar')) return;
+  redactarDestinatario.value = '';
+  redactarAsunto.value = '';
+  redactarCuerpo.value = '';
+  modalRedactarAbierto.value = true;
+};
 
 // Reglas de Correo y Carpetas Personalizadas
 const modalReglasAbierto = ref(false);
@@ -127,17 +144,10 @@ const opcionesCarpetaMovimiento = computed((): SelectOption<string>[] => [
 ]);
 const totalReglasActivas = ref(0);
 
-const obtenerColorPuntoCarpeta = (color?: string) => {
-  switch (color) {
-    case 'emerald': return 'bg-emerald-500';
-    case 'amber': return 'bg-amber-500';
-    case 'rose': return 'bg-rose-500';
-    case 'purple': return 'bg-purple-500';
-    case 'sky':
-    case 'teal': return 'bg-sky-500';
-    default: return 'bg-indigo-500';
-  }
-};
+const opcionesCarpetasMovil = computed((): SelectOption<string>[] => [
+  ...carpetas.value.map((c) => ({ value: c.id, label: `${c.nombre} (${c.total})` })),
+  ...carpetasPersonalizadas.value.map((c) => ({ value: c.id, label: `📁 ${c.nombre}` })),
+]);
 
 const nombreCarpetaActiva = computed(() => {
   const cEst = carpetas.value.find((c) => c.id === carpetaActiva.value);
@@ -157,9 +167,13 @@ const feedbackRespuesta = ref<{ exito: boolean; mensaje: string } | null>(null);
 const replyInputRef = ref<HTMLTextAreaElement | null>(null);
 
 const cuentaConfigurada = ref('');
+const protocoloImap = ref('IMAP sin configurar');
+const imapActivo = ref(false);
 const actualizarCuentaConfigurada = () => {
   const conf = smtpService.obtenerConfiguracion();
   cuentaConfigurada.value = conf.usuarioImap || conf.usuarioSmtp || '';
+  imapActivo.value = Boolean(conf.habilitarImap && conf.servidorImap);
+  protocoloImap.value = imapActivo.value ? `IMAP ${conf.puertoImap}` : 'IMAP sin configurar';
 };
 
 const cargarCarpetas = async () => {
@@ -357,6 +371,7 @@ const seleccionarCarpeta = (id: CarpetaCorreoId) => {
   coincidenciasServidorContador.value = 0;
   filtroEstado.value = 'todos';
   mensajeSeleccionado.value = null;
+  panelMovil.value = 'lista';
   cargarMensajes();
 };
 
@@ -452,7 +467,7 @@ const registrarEnBitacora = async () => {
       tipo: 'correo',
       titulo: `Correo archivado: ${mensajeSeleccionado.value.asunto}`,
       descripcion: `Intercambio de correo recibido de ${mensajeSeleccionado.value.de.nombre || mensajeSeleccionado.value.de.correo}. ${mensajeSeleccionado.value.extracto || ''}`,
-      autor: 'Luis M. Taveras',
+      autor: authStore.usuario?.nombre || '—',
     });
     toastService.exito(`Correo registrado en el historial de ${clienteVinculado.value.nombre}`);
   } catch {
@@ -462,12 +477,7 @@ const registrarEnBitacora = async () => {
   }
 };
 
-const formatearTamanoBytes = (bytes: number): string => {
-  if (!bytes || bytes === 0) return '0 KB';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
+const formatearTamanoBytes = (bytes: number): string => formatFileSize(bytes);
 
 const tamanoTotalAdjuntos = computed(() => {
   if (!mensajeSeleccionado.value?.adjuntos) return '0 KB';
@@ -549,6 +559,7 @@ const aplicarPlantilla = (texto: string) => {
 
 const seleccionarMensaje = async (mensaje: MensajeCorreo) => {
   mensajeSeleccionado.value = mensaje;
+  panelMovil.value = 'lectura';
   feedbackRespuesta.value = null;
   respuestaCuerpo.value = '';
   mostrarAdjuntosCabecera.value = false;
@@ -718,6 +729,7 @@ const nombreCarpetaDeMensaje = (carpetaId?: string) => {
 };
 
 const reenviar = (mensaje: MensajeCorreo) => {
+  if (!authStore.tienePermiso('comunicaciones:enviar')) return;
   redactarDestinatario.value = '';
   redactarAsunto.value = mensaje.asunto.startsWith('Fwd:') 
     ? mensaje.asunto 
@@ -743,6 +755,10 @@ const imprimir = () => {
 };
 
 const enviarRespuesta = async () => {
+  if (!authStore.tienePermiso('comunicaciones:enviar')) {
+    toastService.error('No tienes permiso para enviar correos.');
+    return;
+  }
   if (!mensajeSeleccionado.value || !respuestaCuerpo.value.trim()) return;
 
   enviandoRespuesta.value = true;
@@ -900,317 +916,59 @@ onUnmounted(() => {
 <template>
   <div class="space-y-4 w-full">
     <!-- Barra de Control Superior Moderna (Superhuman / Linear Style) -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
-      <!-- Búsqueda rápida con botón de limpiar y selector global -->
-      <div class="flex items-center gap-2 flex-1 max-w-xl">
-        <div class="relative flex-1">
-          <Search class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            v-model="busqueda"
-            :placeholder="busquedaGlobal ? 'Buscar en TODAS las carpetas por asunto, cuerpo, remitente...' : `Buscar en ${nombreCarpetaActiva}...`"
-            class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
-          />
-          <button
-            v-if="busqueda"
-            type="button"
-            @click="busqueda = ''"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-          >
-            <X class="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <!-- Botón Toggle de Búsqueda Global -->
-        <button
-          type="button"
-          @click="busquedaGlobal = !busquedaGlobal"
-          class="px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border shrink-0 cursor-pointer"
-          :class="busquedaGlobal 
-            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/80 hover:bg-zinc-200 dark:hover:bg-zinc-700'"
-          :title="busquedaGlobal ? 'Búsqueda global activa: busca en todas las carpetas del servidor' : 'Hacer clic para buscar en todas las carpetas'"
-        >
-          <Globe class="w-3.5 h-3.5" :class="busquedaGlobal ? 'text-white' : 'text-zinc-500'" />
-          <span class="hidden md:inline">{{ busquedaGlobal ? 'Todas las carpetas' : 'Esta carpeta' }}</span>
-        </button>
-
-        <!-- Indicador de Búsqueda Remota en Servidor IMAP -->
-        <div
-          v-if="buscandoEnServidor"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20 shrink-0 animate-pulse"
-        >
-          <Loader2 class="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" />
-          <span class="hidden lg:inline">Buscando en servidor IMAP...</span>
-        </div>
-        <div
-          v-else-if="coincidenciasServidorContador > 0 && busqueda"
-          class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20 shrink-0"
-        >
-          <Globe class="w-3.5 h-3.5 text-sky-500" />
-          <span>{{ coincidenciasServidorContador }} en servidor</span>
-        </div>
-      </div>
-
-      <!-- Acciones de Cabecera (Sincronizar y Redactar) -->
-      <div class="flex items-center gap-2.5 shrink-0 justify-end">
-        <!-- Indicador de Escucha en Segundo Plano -->
-        <div
-          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-          title="Servicio de escucha continua activo en segundo plano (Monitorea el servidor IMAP cada 15s)"
-        >
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Escucha automática activa</span>
-        </div>
-
-        <!-- Botón de Sincronización IMAP en Vivo -->
-        <button
-          type="button"
-          @click="() => sincronizarCorreos(false)"
-          :disabled="sincronizando || cargando"
-          title="Sincronizar correos desde el servidor IMAP configurado"
-          class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 rounded-xl text-xs font-semibold transition disabled:opacity-50"
-        >
-          <RefreshCw :class="['w-3.5 h-3.5', sincronizando ? 'animate-spin text-indigo-600 dark:text-indigo-400' : '']" />
-          <span>{{ sincronizando ? 'Sincronizando...' : 'Sincronizar' }}</span>
-        </button>
-
-        <!-- Botón de Reglas de Enrutamiento y Carpetas Automáticas -->
-        <button
-          type="button"
-          @click="modalReglasAbierto = true"
-          title="Configurar reglas automáticas por dominio de cliente o asunto"
-          class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs font-semibold transition"
-        >
-          <SlidersHorizontal class="w-3.5 h-3.5 text-indigo-500" />
-          <span class="hidden sm:inline">Reglas de Correo</span>
-          <span
-            v-if="totalReglasActivas > 0"
-            class="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[9px] font-bold"
-          >
-            {{ totalReglasActivas }}
-          </span>
-        </button>
-
-        <!-- Botón Redactar Nuevo Correo -->
-        <button
-          type="button"
-          @click="() => { redactarDestinatario = ''; redactarAsunto = ''; redactarCuerpo = ''; modalRedactarAbierto = true; }"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition shadow-md shadow-indigo-950/20 active:scale-95"
-        >
-          <Send class="w-3.5 h-3.5" />
-          <span>+ Redactar</span>
-        </button>
-      </div>
-    </div>
+    <BandejaCorreoToolbar
+      v-model:busqueda="busqueda"
+      v-model:busqueda-global="busquedaGlobal"
+      :buscando-en-servidor="buscandoEnServidor"
+      :coincidencias-servidor-contador="coincidenciasServidorContador"
+      :nombre-carpeta-activa="nombreCarpetaActiva"
+      :sincronizando="sincronizando"
+      :cargando="cargando"
+      :total-reglas-activas="totalReglasActivas"
+      :puede-enviar="authStore.tienePermiso('comunicaciones:enviar')"
+      :puede-configurar="authStore.tienePermiso('configuracion:editar')"
+      @sincronizar="() => sincronizarCorreos(false)"
+      @administrar-reglas="modalReglasAbierto = true"
+      @redactar="abrirModalRedactar"
+    />
 
     <!-- Contenedor Principal Dividido (Layout de 3 Columnas) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[660px]">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[520px] lg:min-h-[660px]">
       
-      <!-- ==================== COLUMNA 1: SELECTOR DE CARPETAS (2 cols) ==================== -->
-      <div v-show="!modoEnfoqueLectura" class="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 flex flex-col justify-between shadow-sm">
-        <div class="space-y-1">
-          <div class="px-3 py-2 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono flex items-center justify-between">
-            <span>Carpetas</span>
-            <span
-              v-if="totalNoLeidos > 0"
-              class="px-2 py-0.5 bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 text-[9px] rounded-full font-bold"
-            >
-              {{ totalNoLeidos }} {{ totalNoLeidos === 1 ? 'nuevo' : 'nuevos' }}
-            </span>
-          </div>
-
-          <!-- Bandeja de Entrada -->
-          <button
-            type="button"
-            @click="seleccionarCarpeta('inbox')"
-            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition"
-            :class="carpetaActiva === 'inbox' 
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold' 
-              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
-          >
-            <span class="flex items-center gap-2.5">
-              <Inbox class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Bandeja</span>
-            </span>
-            <span
-              v-if="(carpetas.find(c => c.id === 'inbox')?.noLeidos || 0) > 0"
-              class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-600 text-white font-bold tracking-tight shadow-xs"
-            >
-              {{ carpetas.find(c => c.id === 'inbox')?.noLeidos }} {{ carpetas.find(c => c.id === 'inbox')?.noLeidos === 1 ? 'nuevo' : 'nuevos' }}
-            </span>
-            <span v-else class="text-[10px] text-zinc-400 font-mono">
-              {{ carpetas.find(c => c.id === 'inbox')?.total || 0 }}
-            </span>
-          </button>
-
-          <!-- Enviados -->
-          <button
-            type="button"
-            @click="seleccionarCarpeta('enviados')"
-            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition"
-            :class="carpetaActiva === 'enviados' 
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold' 
-              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
-          >
-            <span class="flex items-center gap-2.5">
-              <Send class="w-4 h-4 text-sky-500" />
-              <span>Enviados</span>
-            </span>
-            <span class="text-[10px] text-zinc-400 font-mono">
-              {{ carpetas.find(c => c.id === 'enviados')?.total || 0 }}
-            </span>
-          </button>
-
-          <!-- Borradores -->
-          <button
-            type="button"
-            @click="seleccionarCarpeta('borradores')"
-            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition"
-            :class="carpetaActiva === 'borradores' 
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold' 
-              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
-          >
-            <span class="flex items-center gap-2.5">
-              <FileEdit class="w-4 h-4 text-amber-500" />
-              <span>Borradores</span>
-            </span>
-            <span class="text-[10px] text-zinc-400 font-mono">
-              {{ carpetas.find(c => c.id === 'borradores')?.total || 0 }}
-            </span>
-          </button>
-
-          <!-- Archivados -->
-          <button
-            type="button"
-            @click="seleccionarCarpeta('archivados')"
-            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition"
-            :class="carpetaActiva === 'archivados' 
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold' 
-              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
-          >
-            <span class="flex items-center gap-2.5">
-              <Archive class="w-4 h-4 text-purple-500" />
-              <span>Archivados</span>
-            </span>
-            <span class="text-[10px] text-zinc-400 font-mono">
-              {{ carpetas.find(c => c.id === 'archivados')?.total || 0 }}
-            </span>
-          </button>
-
-          <!-- Papelera -->
-          <button
-            type="button"
-            @click="seleccionarCarpeta('papelera')"
-            class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition"
-            :class="carpetaActiva === 'papelera' 
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold' 
-              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
-          >
-            <span class="flex items-center gap-2.5">
-              <Trash2 class="w-4 h-4 text-rose-500" />
-              <span>Papelera</span>
-            </span>
-            <span class="text-[10px] text-zinc-400 font-mono">
-              {{ carpetas.find(c => c.id === 'papelera')?.total || 0 }}
-            </span>
-          </button>
-
-          <!-- Sección: Carpetas Inteligentes / Personalizadas por Reglas -->
-          <div class="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-1">
-            <div class="px-3 py-1.5 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-mono flex items-center justify-between">
-              <span>Carpetas Reglas</span>
-              <button
-                type="button"
-                @click="modalReglasAbierto = true"
-                title="Crear regla o carpeta automática"
-                class="p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-              >
-                <FolderPlus class="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div v-if="carpetasPersonalizadas.length === 0" class="px-3 py-1 text-[11px] text-zinc-400 italic">
-              Sin carpetas personalizadas
-            </div>
-
-            <button
-              v-for="carp in carpetasPersonalizadas"
-              :key="carp.id"
-              type="button"
-              @click="seleccionarCarpeta(carp.id)"
-              class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition"
-              :class="carpetaActiva === carp.id
-                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 font-semibold'
-                : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'"
-            >
-              <span class="flex items-center gap-2.5 min-w-0">
-                <span
-                  class="w-2.5 h-2.5 rounded-full shrink-0"
-                  :class="obtenerColorPuntoCarpeta(carp.color)"
-                />
-                <span class="truncate">{{ carp.nombre }}</span>
-              </span>
-              <span class="text-[10px] text-zinc-400 font-mono shrink-0 ml-1">
-                {{ carpetas.find(c => c.id === carp.id)?.total || 0 }}
-              </span>
-            </button>
-
-            <!-- Botón Configurar Reglas Automáticas y Gestión de Carpetas -->
-            <button
-              type="button"
-              @click="modalReglasAbierto = true"
-              class="w-full mt-2 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-200/60 dark:border-indigo-500/20 transition"
-            >
-              <span class="flex items-center gap-2 min-w-0">
-                <SlidersHorizontal class="w-3.5 h-3.5 shrink-0" />
-                <span class="truncate">Administrar Reglas & Carpetas</span>
-              </span>
-              <span
-                v-if="totalReglasActivas > 0"
-                class="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[9px] font-bold"
-              >
-                {{ totalReglasActivas }}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Tarjeta de Cuenta Activa & Protocolo IMAP -->
-        <div class="mt-6 pt-3.5 border-t border-zinc-200 dark:border-zinc-800 p-2 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] uppercase tracking-wider font-bold text-zinc-400 dark:text-zinc-500 font-mono">
-              Cuenta Vinculada
-            </span>
-            <span class="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>IMAP 993</span>
-            </span>
-          </div>
-
-          <div class="flex items-center gap-2 min-w-0">
-            <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 border border-indigo-500/20">
-              {{ (cuentaConfigurada || 'CRM').substring(0, 2).toUpperCase() }}
-            </div>
-            <div class="min-w-0">
-              <div class="font-mono truncate text-[11px] text-zinc-800 dark:text-zinc-200 font-medium" :title="cuentaConfigurada || 'Sin cuenta configurada'">
-                {{ cuentaConfigurada || 'Sin configurar' }}
-              </div>
-              <router-link
-                to="/configuracion?tab=correo"
-                class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline block"
-              >
-                Cambiar en Ajustes
-              </router-link>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CarpetasCorreoNav
+        v-show="!modoEnfoqueLectura"
+        class="hidden lg:flex"
+        :carpetas="carpetas"
+        :carpeta-activa="carpetaActiva"
+        :carpetas-personalizadas="carpetasPersonalizadas"
+        :total-no-leidos="totalNoLeidos"
+        :total-reglas-activas="totalReglasActivas"
+        :cuenta-configurada="cuentaConfigurada"
+        :protocolo-imap="protocoloImap"
+        :imap-activo="imapActivo"
+        @seleccionar="seleccionarCarpeta"
+        @administrar-reglas="modalReglasAbierto = true"
+      />
 
       <!-- ==================== COLUMNA 2: LISTA DE CORREOS (4 cols) ==================== -->
-      <div v-show="!modoEnfoqueLectura" class="lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden max-h-[820px] shadow-sm">
+      <div
+        v-show="!modoEnfoqueLectura"
+        :class="[
+          panelMovil === 'lectura' ? 'hidden lg:flex' : 'flex',
+          'lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex-col overflow-hidden max-h-[calc(100dvh-220px)] lg:max-h-[820px] shadow-sm'
+        ]"
+      >
         <!-- Cabecera de la lista con Filtros Rápidos -->
         <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 space-y-2 shrink-0">
+          <div class="lg:hidden">
+            <AppSelect
+              :model-value="carpetaActiva"
+              @update:model-value="(nueva) => seleccionarCarpeta(nueva as CarpetaCorreoId)"
+              :options="opcionesCarpetasMovil"
+              :full-width="true"
+              size="sm"
+            />
+          </div>
           <div class="flex items-center justify-between">
             <div class="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
               <span class="truncate">{{ nombreCarpetaActiva }}</span>
@@ -1341,122 +1099,16 @@ onUnmounted(() => {
           </div>
 
           <!-- Cards de Correos Rediseñadas -->
-          <div
+          <CorreoListItem
             v-for="msg in mensajesFiltrados"
             :key="msg.id"
-            @click="seleccionarMensaje(msg)"
-            class="p-4 cursor-pointer transition-all relative border-l-4"
-            :class="[
-              mensajeSeleccionado?.id === msg.id 
-                ? 'bg-indigo-50/70 dark:bg-zinc-800/90 border-indigo-600 dark:border-indigo-500 shadow-sm' 
-                : 'border-transparent hover:bg-zinc-50/90 dark:hover:bg-zinc-800/40',
-              !msg.leido ? 'bg-zinc-50/60 dark:bg-zinc-950/40' : ''
-            ]"
-          >
-            <!-- Fila superior: Remitente y Fecha -->
-            <div class="flex items-center justify-between gap-2 mb-1.5">
-              <div class="flex items-center gap-2 min-w-0">
-                <!-- Indicador visual de no leído -->
-                <span
-                  v-if="!msg.leido"
-                  class="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 shrink-0 ring-2 ring-indigo-500/20"
-                  title="Mensaje no leído"
-                ></span>
-                <span
-                  class="text-xs truncate"
-                  :class="!msg.leido ? 'text-zinc-900 dark:text-zinc-100 font-bold' : 'text-zinc-700 dark:text-zinc-300 font-medium'"
-                >
-                  {{ msg.de.nombre || msg.de.correo }}
-                </span>
-                <span
-                  v-if="!msg.leido"
-                  class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/25 shrink-0"
-                >
-                  Nuevo
-                </span>
-              </div>
-
-              <div class="flex items-center gap-1.5 shrink-0">
-                <span class="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
-                  {{ formatRelativeTime(msg.fecha) }}
-                </span>
-                <button
-                  type="button"
-                  @click="toggleDestacado(msg, $event)"
-                  class="p-1 text-zinc-400 hover:text-amber-500 transition rounded"
-                  :class="msg.destacado ? 'text-amber-500' : ''"
-                >
-                  <Star class="w-3.5 h-3.5" :class="msg.destacado ? 'fill-amber-500' : ''" />
-                </button>
-              </div>
-            </div>
-
-            <!-- Asunto -->
-            <div
-              class="text-xs truncate mb-1"
-              :class="!msg.leido ? 'text-zinc-900 dark:text-zinc-100 font-bold' : 'text-zinc-800 dark:text-zinc-200 font-medium'"
-            >
-              {{ msg.asunto }}
-            </div>
-
-            <!-- Extracto -->
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-              {{ msg.extracto }}
-            </p>
-
-            <!-- Badges inferiores (Cliente CRM / Hilo / Carpeta / Adjuntos / Servidor) -->
-            <div class="flex items-center gap-2 mt-2.5 flex-wrap">
-              <span
-                v-if="msg.clienteNombreRelacionado"
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20"
-              >
-                <Building2 class="w-3 h-3" />
-                <span class="truncate max-w-[150px]">{{ msg.clienteNombreRelacionado }}</span>
-              </span>
-
-              <span
-                v-if="msg.totalEnHilo && msg.totalEnHilo > 1"
-                class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20"
-                title="Respuestas en esta conversación"
-              >
-                <GitMerge class="w-3 h-3 text-indigo-500" />
-                <span>{{ msg.totalEnHilo }}</span>
-              </span>
-
-              <span
-                v-if="busquedaGlobal && msg.carpeta"
-                class="inline-flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60 font-mono"
-              >
-                <Folder class="w-2.5 h-2.5" />
-                <span>{{ nombreCarpetaDeMensaje(msg.carpeta) }}</span>
-              </span>
-
-              <span
-                v-if="msg.esCoincidenciaServidor"
-                class="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-500/10 border border-sky-500/20"
-                title="Mensaje sincronizado desde el servidor remoto IMAP"
-              >
-                <Globe class="w-3 h-3 text-sky-500" />
-                <span>Servidor IMAP</span>
-              </span>
-
-              <span
-                v-if="msg.tieneAdjuntos || (msg.adjuntos && msg.adjuntos.length > 0)"
-                class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md font-mono transition-colors"
-                :class="!msg.leido 
-                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold shadow-xs' 
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60'"
-              >
-                <FileText class="w-3 h-3" :class="!msg.leido ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'" />
-                <span>
-                  {{ !msg.leido 
-                    ? (msg.adjuntos?.length ? `${msg.adjuntos.length} doc. nuevo(s)` : 'Doc. nuevo') 
-                    : (msg.adjuntos?.length ? `${msg.adjuntos.length} adjuntos` : 'Con adjuntos') 
-                  }}
-                </span>
-              </span>
-            </div>
-          </div>
+            :msg="msg"
+            :seleccionado="mensajeSeleccionado?.id === msg.id"
+            :busqueda-global="busquedaGlobal"
+            :nombre-carpeta="msg.carpeta ? nombreCarpetaDeMensaje(msg.carpeta) : ''"
+            @seleccionar="seleccionarMensaje(msg)"
+            @toggle-destacado="(event) => toggleDestacado(msg, event)"
+          />
 
           <!-- Indicador de carga de más correos por Scroll / Lazy Sync -->
           <div
@@ -1478,7 +1130,13 @@ onUnmounted(() => {
       </div>
 
       <!-- ==================== COLUMNA 3: VISOR DE LECTURA & RESPUESTA (6 o 12 cols) ==================== -->
-      <div :class="modoEnfoqueLectura ? 'lg:col-span-12' : 'lg:col-span-6'" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden max-h-[820px] shadow-sm">
+      <div
+        :class="[
+          modoEnfoqueLectura ? 'lg:col-span-12' : 'lg:col-span-6',
+          panelMovil === 'lista' ? 'hidden lg:flex' : 'flex',
+          'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex-col overflow-hidden max-h-[calc(100dvh-190px)] lg:max-h-[820px] shadow-sm'
+        ]"
+      >
         
         <!-- Si no hay mensaje seleccionado -->
         <div
@@ -1503,8 +1161,18 @@ onUnmounted(() => {
           <div class="px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 flex items-center justify-between shrink-0 gap-2 overflow-x-auto">
             <!-- Grupo Izquierdo: Acciones de Correo & CRM -->
             <div class="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                @click="volverALista"
+                class="lg:hidden px-2.5 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+              >
+                <ChevronLeft class="w-3.5 h-3.5" />
+                <span>Volver</span>
+              </button>
+
               <!-- Responder -->
               <button
+                v-if="authStore.tienePermiso('comunicaciones:enviar')"
                 type="button"
                 @click="enfocarRespuesta"
                 class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm shadow-indigo-600/20 active:scale-95 cursor-pointer"
@@ -1515,6 +1183,7 @@ onUnmounted(() => {
 
               <!-- Reenviar -->
               <button
+                v-if="authStore.tienePermiso('comunicaciones:enviar')"
                 type="button"
                 @click="reenviar(mensajeSeleccionado)"
                 class="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
@@ -1568,6 +1237,7 @@ onUnmounted(() => {
 
               <!-- Acciones CRM Directas (Chips compactos) -->
               <button
+                v-if="authStore.tienePermiso('pipeline:crear')"
                 type="button"
                 @click="modalOportunidadAbierto = true"
                 class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-xs cursor-pointer"
@@ -1578,6 +1248,7 @@ onUnmounted(() => {
               </button>
 
               <button
+                v-if="authStore.tienePermiso('clientes:crear')"
                 type="button"
                 @click="modalActividadAbierto = true"
                 class="px-2 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-xs cursor-pointer"
@@ -1588,6 +1259,7 @@ onUnmounted(() => {
               </button>
 
               <button
+                v-if="clienteCompletoVinculado ? authStore.tienePermiso('clientes:ver') : authStore.tienePermiso('clientes:crear')"
                 type="button"
                 @click="drawerClienteAbierto = true"
                 class="px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shadow-xs cursor-pointer"
@@ -1649,7 +1321,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Cabecera Compacta del Mensaje -->
-          <div class="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 space-y-2">
+          <div class="px-3 sm:px-5 py-3 border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/60 dark:bg-zinc-950/40 shrink-0 space-y-2">
             <!-- Fila 1: Asunto, Destacado, Carpeta, Cliente y Copiar -->
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -1945,7 +1617,10 @@ onUnmounted(() => {
             </div>
 
             <!-- CAJA DE RESPUESTA RÁPIDA INTEGRADA CON PLANTILLAS -->
-            <div class="border-t border-zinc-200 dark:border-zinc-800 pt-5 space-y-3.5">
+            <div
+              v-if="authStore.tienePermiso('comunicaciones:enviar')"
+              class="border-t border-zinc-200 dark:border-zinc-800 pt-5 space-y-3.5"
+            >
               <div class="flex items-center justify-between flex-wrap gap-2">
                 <div class="text-xs font-bold text-zinc-900 dark:text-zinc-200 flex items-center gap-2">
                   <Reply class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />

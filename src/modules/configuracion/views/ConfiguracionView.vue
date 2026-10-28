@@ -40,9 +40,15 @@ import { useRoute } from 'vue-router';
 import ConfiguracionCorreoSection from '../components/ConfiguracionCorreoSection.vue';
 import ModalConexionWhatsApp from '@/modules/comunicaciones/components/ModalConexionWhatsApp.vue';
 import { whatsAppService } from '@/modules/comunicaciones/services/whatsapp.service';
+import { API_ORIGIN } from '@/core/api/api-config';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const route = useRoute();
+const authStore = useAuthStore();
+const puedeEditar = computed(() => authStore.tienePermiso('configuracion:editar'));
 const pestanaActiva = ref<'empresa' | 'correo' | 'sectores' | 'sistema'>('empresa');
+const esModoDemo = import.meta.env.VITE_USE_MOCK !== 'false';
+const origenApi = API_ORIGIN;
 const modalWhatsAppAbierto = ref(false);
 const formulario = reactive<DatosEmpresa>(empresaService.obtenerDatos());
 const mensajeGuardado = ref(false);
@@ -75,6 +81,7 @@ const iconosFiltrados = computed(() => {
 });
 
 const abrirNuevoSector = () => {
+  if (!puedeEditar.value) return;
   sectorEditando.value = null;
   formSector.nombre = '';
   formSector.codigo = '';
@@ -86,6 +93,7 @@ const abrirNuevoSector = () => {
 };
 
 const abrirEditarSector = (sec: SectorEconomico) => {
+  if (!puedeEditar.value) return;
   sectorEditando.value = sec;
   formSector.nombre = sec.nombre;
   formSector.codigo = sec.codigo;
@@ -100,6 +108,7 @@ const abrirEditarSector = (sec: SectorEconomico) => {
 };
 
 const guardarSectorModal = () => {
+  if (!puedeEditar.value) return;
   if (!formSector.nombre.trim()) {
     toastService.error('El nombre del sector es obligatorio.');
     return;
@@ -138,12 +147,14 @@ const guardarSectorModal = () => {
 };
 
 const alternarEstadoSector = (sec: SectorEconomico) => {
+  if (!puedeEditar.value) return;
   sectoresService.actualizarSector(sec.id, { activo: !sec.activo });
   refrescarSectores();
   toastService.info(`Sector "${sec.nombre}" ${!sec.activo ? 'activado' : 'desactivado'}.`);
 };
 
 const eliminarSector = async (sec: SectorEconomico) => {
+  if (!puedeEditar.value) return;
   const confirmado = await dialogService.confirmar({
     titulo: 'ELIMINAR SECTOR ECONÓMICO',
     subtitulo: `SECTOR: ${sec.nombre.toUpperCase()}`,
@@ -162,6 +173,7 @@ const eliminarSector = async (sec: SectorEconomico) => {
 };
 
 const restablecerSectores = async () => {
+  if (!puedeEditar.value) return;
   const confirmado = await dialogService.confirmar({
     titulo: 'RESTABLECER CATÁLOGO DE SECTORES',
     subtitulo: 'RESTAURAR SECTORES PREDETERMINADOS',
@@ -198,10 +210,12 @@ watch(
 const inputLogoRef = ref<HTMLInputElement | null>(null);
 
 const seleccionarLogo = () => {
+  if (!puedeEditar.value) return;
   inputLogoRef.value?.click();
 };
 
 const alCambiarLogo = (event: Event) => {
+  if (!puedeEditar.value) return;
   const input = event.target as HTMLInputElement;
   const archivo = input.files?.[0];
   if (!archivo) return;
@@ -227,16 +241,19 @@ const alCambiarLogo = (event: Event) => {
 };
 
 const restablecerLogoPorDefecto = () => {
+  if (!puedeEditar.value) return;
   formulario.logoUrl = empresaService.obtenerDatos().logoUrl || '';
   toastService.info('Logotipo institucional restablecido desde la configuración guardada.');
 };
 
 const quitarLogo = () => {
+  if (!puedeEditar.value) return;
   formulario.logoUrl = '';
   toastService.info('Logotipo eliminado. Se utilizará el monograma geométrico institucional.');
 };
 
 const guardarCambios = () => {
+  if (!puedeEditar.value) return;
   guardando.value = true;
   try {
     empresaService.guardarDatos(formulario);
@@ -250,6 +267,7 @@ const guardarCambios = () => {
 };
 
 const restablecer = async () => {
+  if (!puedeEditar.value) return;
   const confirmado = await dialogService.confirmar({
     titulo: 'RESTABLECER CONFIGURACIÓN',
     subtitulo: 'RESTAURAR VALORES PREDETERMINADOS DE LA EMPRESA',
@@ -313,7 +331,7 @@ onMounted(() => {
           ]"
         >
           <Building2 class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span>Perfil Empresa</span>
+          <span class="hidden sm:inline">Perfil Empresa</span>
         </button>
         <button
           type="button"
@@ -326,7 +344,7 @@ onMounted(() => {
           ]"
         >
           <Mail class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span>Servidores & Correo</span>
+          <span class="hidden sm:inline">Servidores & Correo</span>
         </button>
         <button
           type="button"
@@ -339,7 +357,7 @@ onMounted(() => {
           ]"
         >
           <Server class="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-          <span>Servicios</span>
+          <span class="hidden sm:inline">Servicios</span>
         </button>
         <button
           type="button"
@@ -352,7 +370,7 @@ onMounted(() => {
           ]"
         >
           <Layers class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-          <span>Sectores Económicos</span>
+          <span class="hidden sm:inline">Sectores Económicos</span>
         </button>
       </div>
     </Teleport>
@@ -432,6 +450,14 @@ onMounted(() => {
 
       <!-- Formulario de Configuración -->
       <form @submit.prevent="guardarCambios" class="space-y-6">
+        <div
+          v-if="!puedeEditar"
+          class="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-[11px] text-amber-700 dark:text-amber-300"
+        >
+          <Eye class="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Solo lectura: tu rol permite consultar la configuración, pero no modificarla.</span>
+        </div>
+
         <!-- Bloque: Logotipo Oficial de la Empresa -->
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
           <div class="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
@@ -466,7 +492,7 @@ onMounted(() => {
                 class="hidden"
                 @change="alCambiarLogo"
               />
-              <div class="flex flex-wrap items-center gap-2">
+              <div v-if="puedeEditar" class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   @click="seleccionarLogo"
@@ -711,7 +737,7 @@ onMounted(() => {
 
         <!-- Barra de Acciones y Notificación -->
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-          <div class="flex items-center gap-2">
+          <div v-if="puedeEditar" class="flex items-center gap-2">
             <button
               type="submit"
               :disabled="guardando"
@@ -755,7 +781,7 @@ onMounted(() => {
 
     <!-- PESTAÑA: SERVIDORES & CORREO -->
     <div v-else-if="pestanaActiva === 'correo'">
-      <ConfiguracionCorreoSection />
+      <ConfiguracionCorreoSection :puede-editar="puedeEditar" />
     </div>
 
     <!-- PESTAÑA 2: SERVICIOS Y CONECTIVIDAD DEL SISTEMA -->
@@ -765,30 +791,37 @@ onMounted(() => {
         <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
           <div class="flex items-center gap-2 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
             <Database class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span>Motor de Base de Datos PostgreSQL</span>
+            <span>Motor de Datos y Almacenamiento</span>
           </div>
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          <span
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border"
+            :class="esModoDemo
+              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'"
+          >
             <CheckCircle2 class="w-3 h-3" />
-            Conectado
+            {{ esModoDemo ? 'Modo demostración' : 'API configurada' }}
           </span>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
           <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
-            <span class="text-zinc-500 text-[10px] block font-sans">HOST</span>
-            <span class="text-zinc-800 dark:text-zinc-200">localhost</span>
+            <span class="text-zinc-500 text-[10px] block font-sans">ORIGEN API</span>
+            <span class="text-zinc-800 dark:text-zinc-200 break-all">{{ origenApi }}</span>
           </div>
           <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
-            <span class="text-zinc-500 text-[10px] block font-sans">PUERTO</span>
-            <span class="text-zinc-800 dark:text-zinc-200">5432</span>
+            <span class="text-zinc-500 text-[10px] block font-sans">MODO</span>
+            <span class="text-zinc-800 dark:text-zinc-200">{{ esModoDemo ? 'Demostración' : 'Producción' }}</span>
           </div>
           <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
-            <span class="text-zinc-500 text-[10px] block font-sans">BASE DE DATOS</span>
-            <span class="text-zinc-800 dark:text-zinc-200">crm_db</span>
+            <span class="text-zinc-500 text-[10px] block font-sans">PERSISTENCIA</span>
+            <span class="text-zinc-800 dark:text-zinc-200">{{ esModoDemo ? 'localStorage' : 'Servidor remoto' }}</span>
           </div>
           <div class="bg-zinc-50 dark:bg-zinc-950 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800/80">
-            <span class="text-zinc-500 text-[10px] block font-sans">MODO OPERACIÓN</span>
-            <span class="text-emerald-600 dark:text-emerald-400">PostgreSQL Producción</span>
+            <span class="text-zinc-500 text-[10px] block font-sans">DATOS</span>
+            <span :class="esModoDemo ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'">
+              {{ esModoDemo ? 'Semilla de demostración' : 'Consultas remotas' }}
+            </span>
           </div>
         </div>
       </div>
@@ -801,7 +834,7 @@ onMounted(() => {
             <span>Servidor de Correo Nodemailer (SMTP / IMAP)</span>
           </div>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-            Puerto 3002
+            {{ origenApi }}
           </span>
         </div>
 
@@ -868,6 +901,7 @@ onMounted(() => {
             </div>
             <div>
               <button
+                v-if="puedeEditar"
                 type="button"
                 @click="modalWhatsAppAbierto = true"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-sm transition"
@@ -898,7 +932,7 @@ onMounted(() => {
             </p>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0">
+          <div v-if="puedeEditar" class="flex items-center gap-2 shrink-0">
             <button
               type="button"
               @click="restablecerSectores"
@@ -972,7 +1006,7 @@ onMounted(() => {
               <SectorBadge :sector="sec.nombre" tamano="xs" />
 
               <!-- Botones de Acción -->
-              <div class="flex items-center gap-1.5">
+              <div v-if="puedeEditar" class="flex items-center gap-1.5">
                 <button
                   type="button"
                   @click="abrirEditarSector(sec)"

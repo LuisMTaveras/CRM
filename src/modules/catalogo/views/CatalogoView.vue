@@ -7,7 +7,7 @@ import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import ModalNuevaCotizacion from '../components/ModalNuevaCotizacion.vue';
 import ModalNuevoItemCatalogo from '../components/ModalNuevoItemCatalogo.vue';
 import ModalEnviarWhatsApp from '@/modules/comunicaciones/components/ModalEnviarWhatsApp.vue';
-import { formatCurrency, formatDate } from '@/core/formatters/formatters';
+import { formatCurrency, formatDate, getCurrencySymbol } from '@/core/formatters/formatters';
 import { 
   Package, 
   FileText, 
@@ -23,7 +23,9 @@ import {
   TrendingUp
 } from 'lucide-vue-next';
 import { toastService } from '@/core/notifications/toast.service';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
+const authStore = useAuthStore();
 const pestanaActiva = ref<'cotizaciones' | 'catalogo'>('cotizaciones');
 
 const cotizaciones = computed(() => cotizacionesService.obtenerTodas());
@@ -175,22 +177,22 @@ const badgeEstado = (estado: EstadoCotizacion) => {
   <!-- Teleport Acciones Superiores -->
   <Teleport to="#header-portal-right">
     <div class="flex items-center gap-2">
-      <button
-        v-if="pestanaActiva === 'cotizaciones'"
-        @click="modalNuevaCotizacionAbierto = true"
+          <button
+            v-if="pestanaActiva === 'cotizaciones' && authStore.tienePermiso('comunicaciones:documentos')"
+            @click="modalNuevaCotizacionAbierto = true"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/40"
       >
         <Plus class="w-3.5 h-3.5" />
-        <span>+ Nueva Cotización</span>
+        <span class="hidden sm:inline">+ Nueva Cotización</span>
       </button>
 
-      <button
-        v-else
-        @click="modalNuevoItemAbierto = true"
+          <button
+            v-else-if="authStore.tienePermiso('configuracion:editar')"
+            @click="modalNuevoItemAbierto = true"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/40"
       >
         <Plus class="w-3.5 h-3.5" />
-        <span>+ Nuevo Ítem de Catálogo</span>
+        <span class="hidden sm:inline">+ Nuevo Ítem de Catálogo</span>
       </button>
     </div>
   </Teleport>
@@ -298,8 +300,8 @@ const badgeEstado = (estado: EstadoCotizacion) => {
       </div>
 
       <!-- Tabla de Cotizaciones -->
-      <div class="border border-zinc-200 dark:border-white/[0.08] rounded-xl overflow-hidden bg-white dark:bg-zinc-900/90 shadow-sm">
-        <table class="w-full text-left text-xs">
+      <div class="border border-zinc-200 dark:border-white/[0.08] rounded-xl overflow-x-auto bg-white dark:bg-zinc-900/90 shadow-sm">
+        <table class="w-full min-w-[720px] text-left text-xs">
           <thead class="bg-zinc-100/80 dark:bg-zinc-950/80 text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
             <tr>
               <th class="py-3 px-4 font-semibold">Folio</th>
@@ -307,7 +309,7 @@ const badgeEstado = (estado: EstadoCotizacion) => {
               <th class="py-3 px-4 font-semibold">Emisión / Vencimiento</th>
               <th class="py-3 px-4 font-semibold text-right">Subtotal</th>
               <th class="py-3 px-4 font-semibold text-right">ITBIS 18%</th>
-              <th class="py-3 px-4 font-semibold text-right">Total (RD$)</th>
+              <th class="py-3 px-4 font-semibold text-right">Total ({{ getCurrencySymbol() }})</th>
               <th class="py-3 px-4 font-semibold text-center">Estado</th>
               <th class="py-3 px-4 font-semibold text-right">Acciones</th>
             </tr>
@@ -371,9 +373,10 @@ const badgeEstado = (estado: EstadoCotizacion) => {
                     <Copy class="w-4 h-4" />
                   </button>
 
-                  <button
-                    type="button"
-                    @click="abrirWhatsAppCotizacion(cot)"
+              <button
+                v-if="authStore.tienePermiso('comunicaciones:enviar')"
+                type="button"
+                @click="abrirWhatsAppCotizacion(cot)"
                     title="Enviar por WhatsApp al Cliente"
                     class="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition"
                   >
@@ -403,14 +406,14 @@ const badgeEstado = (estado: EstadoCotizacion) => {
       </div>
 
       <!-- Tabla de Ítems del Catálogo -->
-      <div class="border border-zinc-200 dark:border-white/[0.08] rounded-xl overflow-hidden bg-white dark:bg-zinc-900/90 shadow-sm">
-        <table class="w-full text-left text-xs">
+      <div class="border border-zinc-200 dark:border-white/[0.08] rounded-xl overflow-x-auto bg-white dark:bg-zinc-900/90 shadow-sm">
+        <table class="w-full min-w-[720px] text-left text-xs">
           <thead class="bg-zinc-100/80 dark:bg-zinc-950/80 text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
             <tr>
               <th class="py-3 px-4 font-semibold">SKU</th>
               <th class="py-3 px-4 font-semibold">Servicio / Producto</th>
               <th class="py-3 px-4 font-semibold">Categoría</th>
-              <th class="py-3 px-4 font-semibold text-right">Precio Base (RD$)</th>
+              <th class="py-3 px-4 font-semibold text-right">Precio Base ({{ getCurrencySymbol() }})</th>
               <th class="py-3 px-4 font-semibold text-center">ITBIS Fiscal</th>
               <th class="py-3 px-4 font-semibold text-center">Unidad</th>
             </tr>

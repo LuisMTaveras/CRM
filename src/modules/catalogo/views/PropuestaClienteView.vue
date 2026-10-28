@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router';
 import { cotizacionesService } from '../services/cotizaciones.service';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import type { Cotizacion } from '../types/catalogo.types';
-import { formatCurrency, formatDate } from '@/core/formatters/formatters';
+import { formatCurrency, formatDate, getCurrencyLabel } from '@/core/formatters/formatters';
 import { 
   Building2, 
   Clock, 
@@ -24,6 +24,7 @@ const token = computed(() => route.params.token as string);
 
 const cotizacion = ref<Cotizacion | null>(null);
 const perfilEmpresa = computed(() => empresaService.datos.value);
+const nombreMoneda = computed(() => getCurrencyLabel(cotizacion.value?.moneda));
 const cargando = ref(true);
 const error = ref('');
 
@@ -233,7 +234,7 @@ const imprimirPropuesta = () => {
                 Moneda & Términos:
               </span>
               <p class="font-medium text-zinc-800 dark:text-zinc-200">
-                Moneda de Transacción: <strong>Pesos Dominicanos (DOP)</strong>
+                Moneda de Transacción: <strong>{{ nombreMoneda }}</strong>
               </p>
               <p class="text-zinc-500 dark:text-zinc-400">
                 Impuestos: <strong>ITBIS 18% Incluido / Desglosado</strong>

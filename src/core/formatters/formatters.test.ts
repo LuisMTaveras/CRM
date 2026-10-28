@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  formatCompactCurrency,
   formatCurrency,
   formatDate,
   formatFallback,
+  formatFileSize,
   formatPhoneNumber,
   formatRelativeTime,
+  getCurrencyCode,
+  getCurrencyLabel,
+  getCurrencySymbol,
 } from './formatters';
 
 describe('formatCurrency', () => {
@@ -26,6 +31,22 @@ describe('formatCurrency', () => {
     expect(formatCurrency(undefined)).toBe('—');
     expect(formatCurrency('')).toBe('—');
     expect(formatCurrency('abc')).toBe('—');
+  });
+});
+
+describe('getCurrencyCode / getCurrencySymbol', () => {
+  it('devuelve la moneda y el símbolo activos', () => {
+    expect(getCurrencyCode()).toBe('DOP');
+    expect(getCurrencySymbol()).toBe('RD$');
+  });
+
+  it('permite indicar otra moneda', () => {
+    expect(getCurrencySymbol('USD')).toBe('US$');
+  });
+
+  it('devuelve una etiqueta legible de la moneda', () => {
+    expect(getCurrencyLabel('DOP')).toContain('DOP');
+    expect(getCurrencyLabel('USD')).toContain('USD');
   });
 });
 
@@ -86,5 +107,31 @@ describe('formatFallback', () => {
     expect(formatFallback(0)).toBe(0);
     expect(formatFallback(null)).toBe('—');
     expect(formatFallback('')).toBe('—');
+  });
+});
+
+describe('formatFileSize', () => {
+  it('formatea bytes, kilobytes y megabytes con separadores locales', () => {
+    expect(formatFileSize(0)).toBe('0 B');
+    expect(formatFileSize(512)).toBe('512 B');
+    expect(formatFileSize(1536)).toBe('1.5 KB');
+    expect(formatFileSize(5 * 1024 * 1024)).toBe('5 MB');
+  });
+
+  it('devuelve — para valores inválidos', () => {
+    expect(formatFileSize(null)).toBe('—');
+    expect(formatFileSize(-1)).toBe('—');
+    expect(formatFileSize('abc')).toBe('—');
+  });
+});
+
+describe('formatCompactCurrency', () => {
+  it('usa notación compacta localizada', () => {
+    expect(formatCompactCurrency(17_900_000)).toMatch(/^RD\$\s?17[.,]9\s?M$/);
+    expect(formatCompactCurrency(2_500_000_000, { maximumFractionDigits: 1 })).toBe('RD$2500\u00a0M');
+  });
+
+  it('devuelve — para vacío', () => {
+    expect(formatCompactCurrency(null)).toBe('—');
   });
 });

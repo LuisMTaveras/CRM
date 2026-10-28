@@ -22,10 +22,13 @@ import {
   Sparkles
 } from 'lucide-vue-next';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
-const opcionesAutor: SelectOption<string>[] = [
-  { value: 'Luis M. Taveras', label: 'Luis M. Taveras' },
-];
+const authStore = useAuthStore();
+const nombreUsuarioActual = computed(() => authStore.usuario?.nombre || '—');
+const opcionesAutor = computed((): SelectOption<string>[] => [
+  { value: nombreUsuarioActual.value, label: nombreUsuarioActual.value },
+]);
 
 const props = defineProps<{
   clienteId: string;
@@ -37,7 +40,7 @@ const formularioAbierto = ref(false);
 const tipoSeleccionado = ref<TipoEventoTimeline>('llamada');
 const tituloInteraccion = ref('');
 const descripcionInteraccion = ref('');
-const autorSeleccionado = ref('Luis M. Taveras');
+const autorSeleccionado = ref(nombreUsuarioActual.value);
 const errorFormulario = ref('');
 
 // Filtros

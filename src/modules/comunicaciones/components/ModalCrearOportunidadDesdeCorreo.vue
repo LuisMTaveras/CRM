@@ -7,6 +7,7 @@ import type { Cliente } from '@/modules/clientes/types/cliente.types';
 import type { MensajeCorreo } from '../types/webmail.types';
 import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { getCurrencySymbol } from '@/core/formatters/formatters';
 
 const props = defineProps<{
   abierto: boolean;
@@ -241,7 +242,7 @@ const guardarOportunidad = async () => {
           <div class="space-y-1">
             <label class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
               <DollarSign class="w-3.5 h-3.5 text-emerald-500" />
-              <span>Valor estimado (DOP):</span>
+              <span>Valor estimado ({{ getCurrencySymbol() }}):</span>
             </label>
             <input
               type="number"

@@ -1,4 +1,4 @@
-import type { Rule } from '@/core/permissions/ability';
+import type { Action, Rule } from '@/core/permissions/ability';
 import type { Usuario } from '../types/auth.types';
 import { 
   type RolDefinicion, 
@@ -7,20 +7,37 @@ import {
 } from '../types/permisos.types';
 
 const CLAVE_STORAGE_ROLES = 'crm_roles_definiciones';
+const IDS_PERMISOS_VALIDOS = new Set(CATALOGO_PERMISOS.map((permiso) => permiso.id));
 
 class RolesPermisosService {
+  private normalizarRol(rol: RolDefinicion): RolDefinicion {
+    const permisosValidos = Array.isArray(rol.permisos)
+      ? rol.permisos.filter((permiso) => IDS_PERMISOS_VALIDOS.has(permiso))
+      : [];
+
+    return {
+      ...rol,
+      esSistema: rol.id === 'admin' ? true : rol.esSistema,
+      permisos: rol.id === 'admin'
+        ? CATALOGO_PERMISOS.map((permiso) => permiso.id)
+        : permisosValidos,
+    };
+  }
+
   private cargarRolesPersistidos(): RolDefinicion[] {
     try {
       const guardados = localStorage.getItem(CLAVE_STORAGE_ROLES);
       if (guardados) {
         const parsed: RolDefinicion[] = JSON.parse(guardados);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Asegurar que los roles base de sistema estén siempre presentes
+          // Asegurar que los roles base de sistema estÃ©n siempre presentes
           const idsExistentes = new Set(parsed.map((r) => r.id));
-          const rolesCompletos = [...parsed];
+          const rolesCompletos = parsed
+            .filter((rol) => rol && typeof rol.id === 'string')
+            .map((rol) => this.normalizarRol(rol));
           for (const rolBase of ROLES_SISTEMA_INICIALES) {
             if (!idsExistentes.has(rolBase.id)) {
-              rolesCompletos.push(rolBase);
+              rolesCompletos.push(this.normalizarRol(rolBase));
             }
           }
           return rolesCompletos;
@@ -29,7 +46,7 @@ class RolesPermisosService {
     } catch {
       // fallback
     }
-    return [...ROLES_SISTEMA_INICIALES];
+    return ROLES_SISTEMA_INICIALES.map((rol) => this.normalizarRol(rol));
   }
 
   private guardarRoles(roles: RolDefinicion[]): void {
@@ -63,7 +80,7 @@ class RolesPermisosService {
       descripcion: datos.descripcion.trim(),
       colorBadge: datos.colorBadge || 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20',
       esSistema: false,
-      permisos: [...datos.permisos],
+      permisos: datos.permisos.filter((permiso) => IDS_PERMISOS_VALIDOS.has(permiso)),
     };
 
     roles.push(nuevoRol);
@@ -84,6 +101,9 @@ class RolesPermisosService {
       ...cambios,
       id: rolExistente.id, // el ID es inmutable
       esSistema: rolExistente.esSistema, // no se puede alterar flag de sistema
+      permisos: rolExistente.id === 'admin'
+        ? CATALOGO_PERMISOS.map((permiso) => permiso.id)
+        : (cambios.permisos ?? rolExistente.permisos).filter((permiso) => IDS_PERMISOS_VALIDOS.has(permiso)),
     };
 
     roles[idx] = rolActualizado;
@@ -111,14 +131,14 @@ class RolesPermisosService {
    */
   calcularPermisosEfectivos(usuario: Pick<Usuario, 'rol'> & { permisosExtras?: string[]; permisosRevocados?: string[] }): string[] {
     const roles = this.cargarRolesPersistidos();
-    const rol = roles.find((r) => r.id === usuario.rol) || roles.find((r) => r.id === 'ejecutivo');
+    const rol = roles.find((r) => r.id === usuario.rol);
 
     const conjunto = new Set<string>(rol?.permisos || []);
 
     // Conceder extras directos otorgados a este usuario
     if (usuario.permisosExtras && Array.isArray(usuario.permisosExtras)) {
       for (const extra of usuario.permisosExtras) {
-        conjunto.add(extra);
+        if (IDS_PERMISOS_VALIDOS.has(extra)) conjunto.add(extra);
       }
     }
 
@@ -129,14 +149,21 @@ class RolesPermisosService {
       }
     }
 
+    // El administrador conserva acceso total salvo revocaciones explÃ­citas
+    if (usuario.rol === 'admin') {
+      for (const permiso of CATALOGO_PERMISOS) {
+        if (!usuario.permisosRevocados?.includes(permiso.id)) conjunto.add(permiso.id);
+      }
+    }
+
     return Array.from(conjunto);
   }
 
   /**
-   * Determina el estado de un permiso específico para un usuario:
-   * - 'heredado': viene del rol asignado y no está revocado
-   * - 'extra': fue añadido manualmente al usuario (su rol no lo tenía)
-   * - 'revocado': su rol lo tenía, pero se le quitó específicamente
+   * Determina el estado de un permiso especÃ­fico para un usuario:
+   * - 'heredado': viene del rol asignado y no estÃ¡ revocado
+   * - 'extra': fue aÃ±adido manualmente al usuario (su rol no lo tenÃ­a)
+   * - 'revocado': su rol lo tenÃ­a, pero se le quitÃ³ especÃ­ficamente
    * - 'denegado': no lo tiene ni el rol ni el usuario
    */
   obtenerEstadoPermisoUsuario(
@@ -160,52 +187,82 @@ class RolesPermisosService {
    * Convierte la lista de permisos efectivos en reglas CASL para globalAbility
    */
   convertirPermisosAReglasCASL(permisos: string[]): Rule[] {
-    const permisosSet = new Set(permisos);
+    const permisosSet = new Set(permisos.filter((permiso) => IDS_PERMISOS_VALIDOS.has(permiso)));
 
-    // Si tiene todos los permisos o rol admin con manage all
-    if (permisosSet.size >= CATALOGO_PERMISOS.length) {
+    // Solo el catÃ¡logo completo concede control total
+    if (CATALOGO_PERMISOS.every((permiso) => permisosSet.has(permiso.id))) {
       return [{ action: 'manage', subject: 'all' }];
     }
 
     const reglas: Rule[] = [];
+    const agregarRegla = (subject: string, acciones: Rule['action']) => {
+      reglas.push({ action: acciones, subject });
+    };
 
     // Clientes
-    const accionesClientes: Array<'read' | 'create' | 'update' | 'delete'> = [];
+    const accionesClientes: Action[] = [];
     if (permisosSet.has('clientes:ver')) accionesClientes.push('read');
     if (permisosSet.has('clientes:crear')) accionesClientes.push('create');
     if (permisosSet.has('clientes:editar')) accionesClientes.push('update');
     if (permisosSet.has('clientes:eliminar')) accionesClientes.push('delete');
-    if (accionesClientes.length > 0) {
-      reglas.push({ action: accionesClientes, subject: 'Cliente' });
-    }
+    if (permisosSet.has('clientes:exportar')) accionesClientes.push('export');
+    if (accionesClientes.length > 0) agregarRegla('Cliente', accionesClientes);
+
+    // Agenda (se apoya en el acceso a clientes)
+    if (permisosSet.has('clientes:ver')) agregarRegla('Actividad', 'read');
+    if (permisosSet.has('clientes:crear') || permisosSet.has('clientes:editar')) agregarRegla('Actividad', 'create');
+    if (permisosSet.has('clientes:editar')) agregarRegla('Actividad', 'update');
+    if (permisosSet.has('clientes:eliminar')) agregarRegla('Actividad', 'delete');
 
     // Oportunidades / Pipeline
-    const accionesPipeline: Array<'read' | 'create' | 'update' | 'delete'> = [];
+    const accionesPipeline: Action[] = [];
     if (permisosSet.has('pipeline:ver')) accionesPipeline.push('read');
     if (permisosSet.has('pipeline:crear')) accionesPipeline.push('create');
-    if (permisosSet.has('pipeline:mover') || permisosSet.has('pipeline:editar')) accionesPipeline.push('update');
+    if (permisosSet.has('pipeline:mover')) accionesPipeline.push('update');
+    if (permisosSet.has('pipeline:editar')) accionesPipeline.push('update');
     if (permisosSet.has('pipeline:eliminar')) accionesPipeline.push('delete');
-    if (accionesPipeline.length > 0) {
-      reglas.push({ action: accionesPipeline, subject: 'Oportunidad' });
-    }
+    if (accionesPipeline.length > 0) agregarRegla('Oportunidad', accionesPipeline);
+
+    if (permisosSet.has('pipeline:ver')) agregarRegla('Pipeline', 'read');
+    if (permisosSet.has('pipeline:configurar')) agregarRegla('Pipeline', 'configure');
+    if (permisosSet.has('pipeline:configurar')) agregarRegla('Columna', 'manage');
 
     // Comunicaciones
     if (permisosSet.has('comunicaciones:ver')) {
-      reglas.push({ action: ['read', 'create'], subject: 'Comunicaciones' });
+      agregarRegla('Comunicaciones', 'read');
+      agregarRegla('Correo', 'read');
+      agregarRegla('WhatsApp', 'read');
     }
+    if (permisosSet.has('comunicaciones:enviar')) {
+      agregarRegla('Correo', ['create', 'send']);
+      agregarRegla('WhatsApp', ['create', 'send']);
+      agregarRegla('Comunicaciones', 'send');
+    }
+    if (permisosSet.has('comunicaciones:documentos')) {
+      agregarRegla('Documento', ['read', 'create', 'generate']);
+      agregarRegla('Cotizacion', ['read', 'create', 'generate']);
+    }
+    if (permisosSet.has('comunicaciones:plantillas')) agregarRegla('Plantilla', ['read', 'create', 'update', 'delete']);
 
-    // Métricas
-    if (permisosSet.has('metricas:ver_kpis') || permisosSet.has('metricas:ver_ejecutivos')) {
-      reglas.push({ action: 'read', subject: 'Metricas' });
-    }
+    // MÃ©tricas
+    if (permisosSet.has('metricas:ver_kpis')) agregarRegla('Metricas', 'read');
+    if (permisosSet.has('metricas:ver_ejecutivos')) agregarRegla('MetricasEjecutivos', 'read');
+    if (permisosSet.has('metricas:exportar')) agregarRegla('Metricas', 'export');
 
     // Usuarios
-    const accionesUsuarios: Array<'read' | 'create' | 'update'> = [];
+    const accionesUsuarios: Action[] = [];
     if (permisosSet.has('usuarios:ver')) accionesUsuarios.push('read');
     if (permisosSet.has('usuarios:crear')) accionesUsuarios.push('create');
-    if (permisosSet.has('usuarios:editar') || permisosSet.has('usuarios:permisos')) accionesUsuarios.push('update');
-    if (accionesUsuarios.length > 0) {
-      reglas.push({ action: accionesUsuarios, subject: 'Usuario' });
+    if (permisosSet.has('usuarios:editar')) accionesUsuarios.push('update');
+    if (accionesUsuarios.length > 0) agregarRegla('Usuario', accionesUsuarios);
+    if (permisosSet.has('usuarios:permisos')) agregarRegla('Permiso', 'assign');
+    if (permisosSet.has('roles:administrar')) agregarRegla('Rol', 'manage');
+
+    // ConfiguraciÃ³n
+    if (permisosSet.has('configuracion:ver')) agregarRegla('Configuracion', 'read');
+    if (permisosSet.has('configuracion:editar')) {
+      agregarRegla('Configuracion', 'update');
+      agregarRegla('Sector', 'manage');
     }
 
     return reglas;

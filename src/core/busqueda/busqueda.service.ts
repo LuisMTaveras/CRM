@@ -2,6 +2,7 @@ import { clienteService } from '@/modules/clientes/services/cliente.service';
 import { pipelineService } from '@/modules/pipeline/services/pipeline.service';
 import { emailService } from '@/modules/comunicaciones/services/email.service';
 import { themeService } from '@/core/theme/theme.service';
+import { formatCurrency } from '@/core/formatters/formatters';
 import type { ItemBusqueda, GrupoResultadosBusqueda, CategoriaBusqueda } from './busqueda.types';
 
 export class BusquedaService {
@@ -19,6 +20,7 @@ export class BusquedaService {
         badgeColor: 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border-indigo-500/20',
         icono: 'BarChart3',
         ruta: '/',
+        permiso: 'metricas:ver_kpis',
       },
       {
         id: 'mod-clientes',
@@ -29,6 +31,7 @@ export class BusquedaService {
         badgeColor: 'bg-blue-500/10 text-blue-500 dark:text-blue-400 border-blue-500/20',
         icono: 'Building2',
         ruta: '/clientes',
+        permiso: 'clientes:ver',
       },
       {
         id: 'mod-pipeline',
@@ -39,6 +42,7 @@ export class BusquedaService {
         badgeColor: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20',
         icono: 'Kanban',
         ruta: '/pipeline',
+        permiso: 'pipeline:ver',
       },
       {
         id: 'mod-agenda',
@@ -49,6 +53,7 @@ export class BusquedaService {
         badgeColor: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20',
         icono: 'CalendarClock',
         ruta: '/agenda',
+        permiso: 'clientes:ver',
       },
       {
         id: 'mod-comunicaciones',
@@ -59,6 +64,7 @@ export class BusquedaService {
         badgeColor: 'bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/20',
         icono: 'Mail',
         ruta: '/comunicaciones',
+        permiso: 'comunicaciones:ver',
       },
       {
         id: 'mod-usuarios',
@@ -69,6 +75,7 @@ export class BusquedaService {
         badgeColor: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20',
         icono: 'Users',
         ruta: '/usuarios',
+        permiso: 'usuarios:ver',
       },
       {
         id: 'mod-config-empresa',
@@ -79,6 +86,7 @@ export class BusquedaService {
         badgeColor: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-500/20',
         icono: 'Settings',
         ruta: '/configuracion?tab=empresa',
+        permiso: 'configuracion:ver',
       },
       {
         id: 'mod-config-correo',
@@ -89,6 +97,7 @@ export class BusquedaService {
         badgeColor: 'bg-sky-500/10 text-sky-500 dark:text-sky-400 border-sky-500/20',
         icono: 'Server',
         ruta: '/configuracion?tab=correo',
+        permiso: 'configuracion:ver',
       },
       {
         id: 'mod-config-sectores',
@@ -99,6 +108,7 @@ export class BusquedaService {
         badgeColor: 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border-indigo-500/20',
         icono: 'Layers',
         ruta: '/configuracion?tab=sectores',
+        permiso: 'configuracion:ver',
       },
     ];
   }
@@ -117,6 +127,7 @@ export class BusquedaService {
         badgeColor: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-500/20',
         icono: 'Plus',
         ruta: '/clientes?accion=nuevo',
+        permiso: 'clientes:crear',
       },
       {
         id: 'acc-nueva-actividad',
@@ -127,6 +138,7 @@ export class BusquedaService {
         badgeColor: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20',
         icono: 'CalendarClock',
         ruta: '/agenda?accion=nueva',
+        permiso: 'clientes:crear',
       },
       {
         id: 'acc-nueva-plantilla',
@@ -137,6 +149,7 @@ export class BusquedaService {
         badgeColor: 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border-indigo-500/20',
         icono: 'FileText',
         ruta: '/comunicaciones?accion=nuevo-doc',
+        permiso: 'comunicaciones:documentos',
       },
       {
         id: 'acc-envio-masivo',
@@ -147,6 +160,7 @@ export class BusquedaService {
         badgeColor: 'bg-purple-500/10 text-purple-500 dark:text-purple-400 border-purple-500/20',
         icono: 'Send',
         ruta: '/comunicaciones?accion=masivo',
+        permiso: 'comunicaciones:enviar',
       },
       {
         id: 'acc-cambiar-tema',
@@ -169,6 +183,7 @@ export class BusquedaService {
         badgeColor: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 border-amber-500/20',
         icono: 'Image',
         ruta: '/configuracion?tab=empresa',
+        permiso: 'configuracion:editar',
       },
     ];
   }
@@ -269,7 +284,7 @@ export class BusquedaService {
             categoria: 'pipeline',
             titulo: card.titulo,
             subtitulo: `${card.cliente_nombre} • Responsable: ${card.responsable}`,
-            badge: card.monto ? `RD$ ${card.monto.toLocaleString()}` : 'Negocio',
+            badge: card.monto ? formatCurrency(card.monto) : 'Negocio',
             badgeColor: 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border-indigo-500/20',
             icono: 'Kanban',
             ruta: `/pipeline/${card.pipeline_id}`,

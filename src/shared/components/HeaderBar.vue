@@ -5,10 +5,12 @@ import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import { themeService } from '@/core/theme/theme.service';
 import CommandPaletteModal from '@/shared/components/CommandPaletteModal.vue';
 import CentroNotificaciones from '@/shared/components/CentroNotificaciones.vue';
-import { LogOut, ChevronDown, User, Sun, Moon, Search } from 'lucide-vue-next';
+import { LogOut, ChevronDown, User, Sun, Moon, Search, Menu, Monitor } from 'lucide-vue-next';
+import { useUiStore } from '@/core/ui/ui.store';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const uiStore = useUiStore();
 const menuUsuarioAbierto = ref(false);
 const paletaAbierta = ref(false);
 
@@ -38,12 +40,21 @@ const cerrarSesion = () => {
 </script>
 
 <template>
-  <header class="h-14 border-b border-zinc-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none z-30 relative transition-colors duration-200">
+  <header class="h-14 border-b border-zinc-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#09090b]/90 backdrop-blur-md px-3 sm:px-4 lg:px-6 flex items-center justify-between shrink-0 select-none z-30 relative transition-colors duration-200">
+    <button
+      type="button"
+      @click="uiStore.alternarMenuMovil"
+      class="lg:hidden flex items-center justify-center w-8 h-8 mr-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/80 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] transition shadow-2xs shrink-0"
+      title="Abrir menú de navegación"
+    >
+      <Menu class="w-4 h-4" />
+    </button>
+
     <!-- Portal Izquierdo: Título, Icono, Badge y Contexto de la Pantalla Activa -->
     <div id="header-portal-left" class="flex items-center gap-3 min-w-0 flex-1 mr-4"></div>
 
     <!-- Menú Derecho: Acciones Dinámicas de la Pantalla + Sesión y Perfil -->
-    <div class="flex items-center gap-2.5 shrink-0">
+    <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
       <!-- Portal Derecho: Botones de Acción de la Pantalla Activa -->
       <div id="header-portal-right" class="flex items-center gap-2"></div>
 
@@ -81,7 +92,7 @@ const cerrarSesion = () => {
         type="button"
         @click="alternarTema"
         :title="themeService.tema.value === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
-        class="flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/80 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] transition shadow-sm"
+        class="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/80 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-white/[0.08] transition shadow-sm"
       >
         <Sun v-if="themeService.tema.value === 'dark'" class="w-4 h-4 text-amber-400 transition-transform rotate-0 hover:rotate-45" />
         <Moon v-else class="w-4 h-4 text-indigo-600 transition-transform -rotate-12 hover:rotate-0" />
@@ -121,6 +132,7 @@ const cerrarSesion = () => {
           </div>
 
           <router-link
+            v-if="authStore.tienePermiso('usuarios:ver')"
             to="/usuarios"
             @click="menuUsuarioAbierto = false"
             class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
@@ -129,18 +141,52 @@ const cerrarSesion = () => {
             <span>Usuarios y Permisos</span>
           </router-link>
 
-          <button
-            type="button"
-            @click="alternarTema"
-            class="w-full flex items-center justify-between px-3 py-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-left"
-          >
-            <span class="flex items-center gap-2">
-              <Sun v-if="themeService.tema.value === 'dark'" class="w-3.5 h-3.5 text-amber-400" />
-              <Moon v-else class="w-3.5 h-3.5 text-indigo-600" />
-              <span>Modo: {{ themeService.tema.value === 'dark' ? 'Oscuro' : 'Claro' }}</span>
-            </span>
-            <span class="text-[10px] text-zinc-400">Cambiar</span>
-          </button>
+          <div class="px-3 py-2 border-t border-zinc-100 dark:border-zinc-800">
+            <div class="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1.5">
+              Apariencia
+            </div>
+            <div class="grid grid-cols-3 gap-1">
+              <button
+                type="button"
+                @click="themeService.aplicarPreferencia('light')"
+                :class="[
+                  'flex flex-col items-center gap-1 px-1 py-1.5 rounded-lg border text-[10px] transition',
+                  themeService.preferencia.value === 'light'
+                    ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-semibold'
+                    : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                ]"
+              >
+                <Sun class="w-3.5 h-3.5" />
+                <span>Claro</span>
+              </button>
+              <button
+                type="button"
+                @click="themeService.aplicarPreferencia('dark')"
+                :class="[
+                  'flex flex-col items-center gap-1 px-1 py-1.5 rounded-lg border text-[10px] transition',
+                  themeService.preferencia.value === 'dark'
+                    ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-semibold'
+                    : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                ]"
+              >
+                <Moon class="w-3.5 h-3.5" />
+                <span>Oscuro</span>
+              </button>
+              <button
+                type="button"
+                @click="themeService.aplicarPreferencia('system')"
+                :class="[
+                  'flex flex-col items-center gap-1 px-1 py-1.5 rounded-lg border text-[10px] transition',
+                  themeService.preferencia.value === 'system'
+                    ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-semibold'
+                    : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                ]"
+              >
+                <Monitor class="w-3.5 h-3.5" />
+                <span>Sistema</span>
+              </button>
+            </div>
+          </div>
 
           <button
             @click="cerrarSesion"

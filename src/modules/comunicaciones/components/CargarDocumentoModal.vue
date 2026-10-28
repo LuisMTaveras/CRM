@@ -5,7 +5,7 @@ import { emailService } from '../services/email.service';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import { pdfGeneratorService } from '../services/pdf-generator.service';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
-import { formatDate, formatCurrency } from '@/core/formatters/formatters';
+import { formatDate, formatCurrency, formatFileSize, getCurrencySymbol } from '@/core/formatters/formatters';
 import type { PlantillaDocumento, CategoriaPlantilla, VariablesPlantilla } from '../types/comunicacion.types';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { 
@@ -94,7 +94,9 @@ const generandoPreview = ref(false);
 
 // --- ESTADO DEL COTIZADOR B2B CPQ ---
 const incluirCotizador = ref(true);
-const monedaCotizacion = ref<MonedaCotizacion>('DOP');
+const monedaCotizacion = ref<MonedaCotizacion>(
+  empresaService.obtenerDatos().monedaPrincipal === 'USD' ? 'USD' : 'DOP'
+);
 const catalogoDisponible = catalogoService.obtenerCatalogo();
 const servicioSeleccionadoId = ref('');
 
@@ -148,8 +150,8 @@ const listaVariables: VariableDef[] = [
   { clave: '{{ciudad}}', etiqueta: 'Ciudad de Sede', ejemplo: 'Santo Domingo', categoria: 'cliente' },
   { clave: '{{contacto_principal}}', etiqueta: 'Nombre del Contacto', ejemplo: 'Mercedes Gómez', categoria: 'contacto' },
   { clave: '{{cargo_contacto}}', etiqueta: 'Cargo Institucional', ejemplo: 'Directora de Compras', categoria: 'contacto' },
-  { clave: '{{monto}}', etiqueta: 'Monto Estimado', ejemplo: 'RD$ 4,500,000.00', categoria: 'comercial' },
-  { clave: '{{fecha}}', etiqueta: 'Fecha Actual', ejemplo: '08 oct 2026', categoria: 'comercial' },
+  { clave: '{{monto}}', etiqueta: 'Monto Estimado', ejemplo: formatCurrency(4500000), categoria: 'comercial' },
+  { clave: '{{fecha}}', etiqueta: 'Fecha Actual', ejemplo: formatDate(new Date()), categoria: 'comercial' },
   { clave: '{{empresa_remitente}}', etiqueta: 'Nuestra Empresa', ejemplo: 'Razón social configurada', categoria: 'remitente' },
   { clave: '{{correo_remitente}}', etiqueta: 'Correo Remitente', ejemplo: 'correo@empresa.do', categoria: 'remitente' },
 ];
@@ -557,7 +559,7 @@ const guardarPlantilla = (enviarInmediato = false) => {
                     </span>
                   </div>
                   <div class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    {{ (documentoCargado.tamanoBytes / 1024).toFixed(1) }} KB
+                    {{ formatFileSize(documentoCargado.tamanoBytes) }}
                     <span v-if="documentoCargado.variablesDetectadas.length" class="text-indigo-600 dark:text-indigo-400 ml-1">
                       • {{ documentoCargado.variablesDetectadas.length }} variables dinámicas detectadas
                     </span>
@@ -934,7 +936,7 @@ const guardarPlantilla = (enviarInmediato = false) => {
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
                     ]"
                   >
-                    DOP (RD$)
+                    DOP ({{ getCurrencySymbol('DOP') }})
                   </button>
                   <button
                     type="button"
@@ -971,7 +973,7 @@ const guardarPlantilla = (enviarInmediato = false) => {
                     :options="opcionesCatalogo"
                     full-width
                     size="sm"
-                    minWidthClass="min-w-[320px]"
+                    min-width-class="min-w-[320px]"
                   />
                 </div>
 

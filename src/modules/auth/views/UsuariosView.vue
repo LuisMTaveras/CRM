@@ -29,6 +29,10 @@ import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 
 const authStore = useAuthStore();
+const puedeCrearUsuario = computed(() => authStore.tienePermiso('usuarios:crear'));
+const puedeEditarUsuario = computed(() => authStore.tienePermiso('usuarios:editar') || authStore.tienePermiso('usuarios:permisos'));
+const puedeGestionarPermisos = computed(() => authStore.tienePermiso('usuarios:permisos'));
+const puedeAdministrarRoles = computed(() => authStore.tienePermiso('roles:administrar'));
 const usuarios = ref<Usuario[]>([]);
 const roles = ref<RolDefinicion[]>([]);
 const cargando = ref(true);
@@ -40,6 +44,7 @@ const modalUsuarioAbierto = ref(false);
 const modoEdicionUsuario = ref<'crear' | 'editar'>('editar');
 const guardandoUsuario = ref(false);
 const feedbackGuardado = ref(false);
+const errorContrasena = ref('');
 
 const usuarioForm = reactive<{
   id: string;
@@ -50,6 +55,7 @@ const usuarioForm = reactive<{
   telefonoFlota: string;
   rol: string;
   activo: boolean;
+  contrasena: string;
   permisosExtras: string[];
   permisosRevocados: string[];
 }>({
@@ -61,9 +67,17 @@ const usuarioForm = reactive<{
   telefonoFlota: '',
   rol: 'ejecutivo',
   activo: true,
+  contrasena: '',
   permisosExtras: [],
   permisosRevocados: [],
 });
+
+const generarContrasenaTemporal = () => {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes = new Uint32Array(14);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => alfabeto[byte % alfabeto.length]).join('');
+};
 
 // Estado del Modal de Roles (Crear / Editar)
 const modalRolAbierto = ref(false);
@@ -104,6 +118,7 @@ const recargarDatos = async () => {
 
 // --- GESTIÓN DE USUARIOS ---
 const abrirCrearUsuario = () => {
+  if (!puedeCrearUsuario.value) return;
   modoEdicionUsuario.value = 'crear';
   Object.assign(usuarioForm, {
     id: '',
@@ -114,14 +129,17 @@ const abrirCrearUsuario = () => {
     telefonoFlota: '',
     rol: 'ejecutivo',
     activo: true,
+    contrasena: generarContrasenaTemporal(),
     permisosExtras: [],
     permisosRevocados: [],
   });
+  errorContrasena.value = '';
   feedbackGuardado.value = false;
   modalUsuarioAbierto.value = true;
 };
 
 const abrirEditarUsuario = (user: Usuario) => {
+  if (!puedeEditarUsuario.value) return;
   modoEdicionUsuario.value = 'editar';
   Object.assign(usuarioForm, {
     id: user.id,
@@ -132,9 +150,11 @@ const abrirEditarUsuario = (user: Usuario) => {
     telefonoFlota: user.telefonoFlota || '',
     rol: user.rol,
     activo: user.activo,
+    contrasena: '',
     permisosExtras: [...(user.permisosExtras || [])],
     permisosRevocados: [...(user.permisosRevocados || [])],
   });
+  errorContrasena.value = '';
   feedbackGuardado.value = false;
   modalUsuarioAbierto.value = true;
 };
@@ -171,7 +191,16 @@ const setEstadoPermisoUsuario = (permisoId: string, modo: 'heredar' | 'conceder'
 };
 
 const guardarUsuario = async () => {
+  if (modoEdicionUsuario.value === 'crear' ? !puedeCrearUsuario.value : !puedeEditarUsuario.value) {
+    toastService.error('No tienes permiso para guardar usuarios.');
+    return;
+  }
   if (!usuarioForm.nombre || !usuarioForm.email) return;
+  if (modoEdicionUsuario.value === 'crear' && usuarioForm.contrasena.trim().length < 8) {
+    errorContrasena.value = 'La contraseña inicial debe tener al menos 8 caracteres.';
+    return;
+  }
+  errorContrasena.value = '';
   guardandoUsuario.value = true;
 
   const rolSeleccionado = roles.value.find((r) => r.id === usuarioForm.rol);
@@ -188,7 +217,7 @@ const guardarUsuario = async () => {
         rol: usuarioForm.rol,
         rolNombre,
         activo: usuarioForm.activo,
-        contrasena: 'crm123456',
+        contrasena: usuarioForm.contrasena.trim(),
         permisosExtras: usuarioForm.permisosExtras,
         permisosRevocados: usuarioForm.permisosRevocados,
       });
@@ -234,6 +263,7 @@ const guardarUsuario = async () => {
 
 // --- GESTIÓN DE ROLES ---
 const abrirCrearRol = () => {
+  if (!puedeAdministrarRoles.value) return;
   modoEdicionRol.value = 'crear';
   Object.assign(rolForm, {
     id: '',
@@ -252,6 +282,7 @@ const abrirCrearRol = () => {
 };
 
 const abrirEditarRol = (rol: RolDefinicion) => {
+  if (!puedeAdministrarRoles.value) return;
   modoEdicionRol.value = 'editar';
   Object.assign(rolForm, {
     id: rol.id,
@@ -283,6 +314,10 @@ const marcarTodosModuloRol = (modulo: ModuloPermiso, marcar: boolean) => {
 };
 
 const guardarRol = async () => {
+  if (!puedeAdministrarRoles.value) {
+    toastService.error('No tienes permiso para administrar roles.');
+    return;
+  }
   if (!rolForm.nombre.trim()) return;
   guardandoRol.value = true;
 
@@ -317,6 +352,7 @@ const guardarRol = async () => {
 };
 
 const eliminarRol = async (id: string) => {
+  if (!puedeAdministrarRoles.value) return;
   const rol = roles.value.find((r) => r.id === id);
   const nombreRol = rol?.nombre || id;
   const confirmado = await dialogService.confirmar({
@@ -449,7 +485,7 @@ onMounted(async () => {
           <!-- Botón de Acción según Pestaña -->
           <div>
             <button
-              v-if="pestanaActiva === 'usuarios'"
+              v-if="pestanaActiva === 'usuarios' && puedeCrearUsuario"
               type="button"
               @click="abrirCrearUsuario"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95"
@@ -459,7 +495,7 @@ onMounted(async () => {
             </button>
 
             <button
-              v-else
+              v-else-if="puedeAdministrarRoles"
               type="button"
               @click="abrirCrearRol"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95"
@@ -555,6 +591,7 @@ onMounted(async () => {
                   <!-- Acción: Editar Ficha & Permisos -->
                   <td class="py-2.5 px-3.5 text-right">
                     <button
+                      v-if="puedeEditarUsuario"
                       type="button"
                       @click="abrirEditarUsuario(user)"
                       class="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-xs font-medium transition"
@@ -586,6 +623,7 @@ onMounted(async () => {
 
                   <div class="flex items-center gap-1">
                     <button
+                      v-if="puedeAdministrarRoles"
                       type="button"
                       @click="abrirEditarRol(rol)"
                       title="Editar rol y permisos"
@@ -779,6 +817,26 @@ onMounted(async () => {
                 />
               </div>
 
+              <div v-if="modoEdicionUsuario === 'crear'" class="sm:col-span-2">
+                <label class="block text-zinc-700 dark:text-zinc-300 mb-1 font-medium">Contraseña Inicial</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    v-model="usuarioForm.contrasena"
+                    autocomplete="new-password"
+                    class="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-zinc-900 dark:text-zinc-200 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    @click="usuarioForm.contrasena = generarContrasenaTemporal()"
+                    class="px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
+                  >
+                    Generar
+                  </button>
+                </div>
+                <p v-if="errorContrasena" class="mt-1 text-rose-600 dark:text-rose-400 text-[11px]">{{ errorContrasena }}</p>
+              </div>
+
               <!-- SELECTOR DE ROL USANDO APPSELECT -->
               <div>
                 <label class="block text-zinc-700 dark:text-zinc-300 mb-1 font-medium">Rol Asignado (Base)</label>
@@ -805,7 +863,10 @@ onMounted(async () => {
           </div>
 
           <!-- SECCIÓN 2: PERSONALIZACIÓN GRANULAR DE PERMISOS -->
-          <div class="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+          <div
+            v-if="puedeGestionarPermisos"
+            class="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-800"
+          >
             <div class="flex items-start justify-between">
               <div>
                 <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider font-mono flex items-center gap-1.5">

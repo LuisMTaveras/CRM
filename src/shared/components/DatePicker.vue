@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -- chevrons SVG estáticos definidos como constantes en el script -->
   <div class="relative w-full">
     <button
       ref="triggerRef"
@@ -177,7 +178,17 @@ const props = withDefaults(
     disabled?: boolean;
     clearable?: boolean;
   }>(),
-  { modelValue: '', range: false, compact: false, disabled: false, clearable: true },
+  {
+    modelValue: '',
+    range: false,
+    compact: false,
+    disabled: false,
+    clearable: true,
+    label: '',
+    placeholder: '',
+    min: '',
+    max: '',
+  },
 );
 
 const emit = defineEmits<{

@@ -20,6 +20,9 @@ import GraficoTendenciaMensual from '../components/GraficoTendenciaMensual.vue';
 import GraficoEjecutivos from '../components/GraficoEjecutivos.vue';
 import DateRangeFilter from '@/shared/components/DateRangeFilter.vue';
 import { defaultRange, type DateRange } from '@/core/dates/date-range';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
+
+const authStore = useAuthStore();
 
 const periodoSeleccionado = ref<'mes' | 'trimestre' | 'anual'>('mes');
 const rangoFecha = ref<DateRange>(defaultRange('month'));
@@ -114,10 +117,12 @@ onMounted(() => {
       <DateRangeFilter
         v-model="rangoFecha"
         @change="alCambiarRangoFecha"
+        class="hidden md:inline-flex"
       />
 
       <!-- Botón Descargar Informe Ejecutivo PDF -->
       <button
+        v-if="authStore.tienePermiso('metricas:exportar')"
         type="button"
         @click="descargarReportePdf"
         :disabled="cargando || exportandoPdf"
@@ -150,8 +155,19 @@ onMounted(() => {
       class="w-full rounded-xl overflow-hidden"
     >
       <div class="space-y-4">
+        <div class="md:hidden flex items-center justify-start">
+          <DateRangeFilter
+            v-model="rangoFecha"
+            @change="alCambiarRangoFecha"
+            class="flex-wrap"
+          />
+        </div>
+
         <!-- Indicadores Generales (4 Tarjetas KPI) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+          v-if="authStore.tienePermiso('metricas:ver_kpis')"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        >
         <div class="saas-card saas-card-hover rounded-xl p-4 flex flex-col justify-between">
           <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-2 text-xs">
             <span class="font-medium text-zinc-500 dark:text-zinc-400">Tasa de Conversión B2B</span>
@@ -222,7 +238,7 @@ onMounted(() => {
       </div>
 
       <!-- Sección 2: Gráficos de Embudo & Donut de Sectores -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div v-if="authStore.tienePermiso('metricas:ver_kpis')" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Gráfico 1: Embudo de Conversión -->
         <GraficoEmbudoVentas
           :etapas="metricas.distribucionEtapas"
@@ -238,11 +254,13 @@ onMounted(() => {
 
       <!-- Sección 3: Gráfico de Evolución Mensual & Proyección (Barras SVG Interactivas) -->
       <GraficoTendenciaMensual
+        v-if="authStore.tienePermiso('metricas:ver_kpis')"
         :tendencia="metricas.tendenciaMensual"
       />
 
       <!-- Sección 4: Gráfico Comparativo de Rendimiento & Leaderboard por Ejecutivo -->
       <GraficoEjecutivos
+        v-if="authStore.tienePermiso('metricas:ver_ejecutivos')"
         :responsables="metricas.topResponsables"
       />
       </div>

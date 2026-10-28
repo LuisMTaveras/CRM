@@ -30,5 +30,15 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Datos sensibles del servidor local (credenciales de correo, sesión de WhatsApp,
+# empresa, correos sincronizados y adjuntos). Nunca deben versionarse.
+server/email-config.json
+server/empresa-config.json
+server/data/
+
 # TypeScript build info
 *.tsbuildinfo
+
+# Artefactos generados de la configuración de Vite (no deben sombrear vite.config.ts)
+vite.config.js
+vite.config.d.ts

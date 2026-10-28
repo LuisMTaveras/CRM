@@ -39,6 +39,9 @@ import {
   X
 } from 'lucide-vue-next';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
+
+const authStore = useAuthStore();
 
 const opcionesTipo: SelectOption<TipoActividad | ''>[] = [
   { value: '', label: 'Todos los tipos' },
@@ -89,7 +92,7 @@ const actividades = computed(() => {
 
 // Comprobar si la ruta trae accion=nueva
 onMounted(() => {
-  if (route.query.accion === 'nueva') {
+  if (route.query.accion === 'nueva' && authStore.tienePermiso('clientes:crear')) {
     modalNuevoAbierto.value = true;
   }
   // Sincronizar alertas con el centro de notificaciones
@@ -147,37 +150,44 @@ const resolverClasePrioridad = (prioridad: PrioridadActividad) => {
 
 // Acciones de gestión
 const abrirModalNueva = () => {
+  if (!authStore.tienePermiso('clientes:crear')) return;
   actividadEnEdicionId.value = undefined;
   fechaSeleccionadaParaNueva.value = '';
   modalNuevoAbierto.value = true;
 };
 
 const abrirModalNuevaConFecha = (fecha: string) => {
+  if (!authStore.tienePermiso('clientes:crear')) return;
   actividadEnEdicionId.value = undefined;
   fechaSeleccionadaParaNueva.value = fecha;
   modalNuevoAbierto.value = true;
 };
 
 const onCambiarEstado = (payload: { actividadId: string; nuevoEstado: EstadoActividad }) => {
+  if (!authStore.tienePermiso('clientes:editar')) return;
   actividadesService.actualizarActividad(payload.actividadId, { estado: payload.nuevoEstado });
 };
 
 const onMoverFecha = (payload: { actividadId: string; nuevaFecha: string }) => {
+  if (!authStore.tienePermiso('clientes:editar')) return;
   actividadesService.actualizarActividad(payload.actividadId, { fechaLimite: payload.nuevaFecha });
 };
 
 const editarActividad = (act: ActividadSeguimiento) => {
+  if (!authStore.tienePermiso('clientes:editar')) return;
   actividadEnEdicionId.value = act.id;
   modalNuevoAbierto.value = true;
 };
 
 const confirmarCompletar = (act: ActividadSeguimiento) => {
+  if (!authStore.tienePermiso('clientes:editar')) return;
   actividadACompletar.value = act;
   notasResultado.value = '';
   modalCompletarAbierto.value = true;
 };
 
 const guardarCompletada = () => {
+  if (!authStore.tienePermiso('clientes:editar')) return;
   if (actividadACompletar.value) {
     actividadesService.marcarCompletada(actividadACompletar.value.id, notasResultado.value);
     toastService.exito('Actividad marcada como completada.');
@@ -187,6 +197,7 @@ const guardarCompletada = () => {
 };
 
 const eliminarActividad = async (act: ActividadSeguimiento) => {
+  if (!authStore.tienePermiso('clientes:eliminar')) return;
   const confirmado = await dialogService.confirmar({
     titulo: '¿Eliminar actividad?',
     mensaje: `¿Confirma que desea eliminar la actividad "${act.titulo}"?`,
@@ -349,18 +360,18 @@ const esDeHoy = (act: ActividadSeguimiento) => {
         <AppSelect
           v-model="tipoSeleccionado"
           :options="opcionesTipo"
-          labelPrefix="Tipo:"
+          label-prefix="Tipo:"
           size="sm"
-          minWidthClass="min-w-[150px]"
+          min-width-class="min-w-[150px]"
         />
 
         <!-- 3. Filtro por Prioridad -->
         <AppSelect
           v-model="prioridadSeleccionada"
           :options="opcionesPrioridad"
-          labelPrefix="Prioridad:"
+          label-prefix="Prioridad:"
           size="sm"
-          minWidthClass="min-w-[160px]"
+          min-width-class="min-w-[160px]"
         />
 
         <!-- 4. Pestañas de Rango de Fecha -->
@@ -458,6 +469,7 @@ const esDeHoy = (act: ActividadSeguimiento) => {
 
         <!-- Botón Nueva Actividad -->
         <button
+          v-if="authStore.tienePermiso('clientes:crear')"
           @click="abrirModalNueva"
           class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition active:scale-95 shadow-indigo-950/20"
         >
@@ -486,6 +498,7 @@ const esDeHoy = (act: ActividadSeguimiento) => {
           </p>
         </div>
         <button
+          v-if="authStore.tienePermiso('clientes:crear')"
           @click="abrirModalNueva"
           class="mt-2 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition flex items-center gap-1.5"
         >
@@ -513,6 +526,7 @@ const esDeHoy = (act: ActividadSeguimiento) => {
         <div class="flex items-start gap-3.5 flex-1 min-w-0">
           <!-- Botón de Completar Rápido -->
           <button
+            v-if="authStore.tienePermiso('clientes:editar')"
             @click="act.estado === 'completada' ? null : confirmarCompletar(act)"
             :disabled="act.estado === 'completada'"
             class="mt-0.5 w-6 h-6 rounded-lg border flex items-center justify-center transition shrink-0"
@@ -617,7 +631,7 @@ const esDeHoy = (act: ActividadSeguimiento) => {
           <!-- Botones de Acción -->
           <div class="flex items-center gap-1">
             <button
-              v-if="act.estado !== 'completada'"
+              v-if="act.estado !== 'completada' && authStore.tienePermiso('clientes:editar')"
               @click="confirmarCompletar(act)"
               title="Marcar como realizada"
               class="p-1.5 text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition"
@@ -626,6 +640,7 @@ const esDeHoy = (act: ActividadSeguimiento) => {
             </button>
 
             <button
+              v-if="authStore.tienePermiso('clientes:editar')"
               @click="editarActividad(act)"
               title="Editar actividad"
               class="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
@@ -634,6 +649,7 @@ const esDeHoy = (act: ActividadSeguimiento) => {
             </button>
 
             <button
+              v-if="authStore.tienePermiso('clientes:eliminar')"
               @click="eliminarActividad(act)"
               title="Eliminar actividad"
               class="p-1.5 text-zinc-400 hover:text-rose-500 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"

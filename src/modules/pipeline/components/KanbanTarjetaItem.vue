@@ -18,7 +18,10 @@ import {
 import { formatCurrency, formatDate } from '@/core/formatters/formatters';
 import { actividadesService } from '@/modules/agenda';
 import SectorIcon from '@/shared/components/SectorIcon.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import type { TarjetaPipeline, ColumnaPipeline } from '../types/pipeline.types';
+
+const authStore = useAuthStore();
 
 const props = defineProps<{
   tarjeta: TarjetaPipeline;
@@ -128,7 +131,11 @@ const diagnosticoEstancado = computed(() => {
 
       <!-- Controles para reordenar ARRIBA / ABAJO dentro de la columna -->
       <div class="flex items-center gap-1">
-        <div class="flex items-center bg-zinc-100 dark:bg-zinc-950/80 rounded border border-zinc-200 dark:border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition" @click.stop>
+            <div
+              v-if="authStore.tienePermiso('pipeline:mover')"
+              class="flex items-center bg-zinc-100 dark:bg-zinc-950/80 rounded border border-zinc-200 dark:border-white/[0.05] p-0.5 opacity-60 group-hover:opacity-100 transition"
+              @click.stop
+            >
           <button
             :disabled="cardIndex === 0"
             @click.stop="emit('mover-vertical', 'arriba')"
@@ -252,6 +259,7 @@ const diagnosticoEstancado = computed(() => {
         <span class="truncate">Estancado (+{{ diagnosticoEstancado.diasSinContacto }}d)</span>
       </div>
       <button
+        v-if="authStore.tienePermiso('clientes:editar')"
         type="button"
         @click.stop="emit('programar-actividad')"
         class="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[10px] font-semibold text-amber-800 dark:text-amber-300 transition flex items-center gap-1 shrink-0"
@@ -265,10 +273,10 @@ const diagnosticoEstancado = computed(() => {
     <!-- Botones de Transición Rápida y Barra de Acciones Rápidas Directas -->
     <div class="mt-2.5 pt-2 border-t border-zinc-100 dark:border-white/[0.04] flex items-center justify-between text-[10px]">
       <!-- Desplazamiento entre etapas -->
-      <div class="flex items-center gap-1" @click.stop>
-        <button
-          v-if="colIndex > 0"
-          @click.stop="emit('retroceder')"
+          <div v-if="authStore.tienePermiso('pipeline:mover')" class="flex items-center gap-1" @click.stop>
+            <button
+              v-if="colIndex > 0"
+              @click.stop="emit('retroceder')"
           title="Mover a etapa previa"
           class="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
@@ -289,8 +297,9 @@ const diagnosticoEstancado = computed(() => {
       <!-- Barra de Acciones Rápidas -->
       <div class="flex items-center gap-0.5" @click.stop>
         <!-- Redactar Correo al Cliente -->
-        <button
-          @click.stop="emit('redactar-correo')"
+            <button
+              v-if="authStore.tienePermiso('comunicaciones:enviar')"
+              @click.stop="emit('redactar-correo')"
           title="Redactar correo al cliente"
           class="p-1 text-zinc-400 hover:text-sky-500 dark:hover:text-sky-400 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
@@ -299,6 +308,7 @@ const diagnosticoEstancado = computed(() => {
 
         <!-- Programar Actividad / Visita -->
         <button
+          v-if="authStore.tienePermiso('clientes:editar')"
           @click.stop="emit('programar-actividad')"
           title="Programar actividad / visita en Agenda"
           class="p-1 text-zinc-400 hover:text-amber-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
@@ -307,8 +317,9 @@ const diagnosticoEstancado = computed(() => {
         </button>
 
         <!-- Registrar Motivo de Pérdida / Pausa -->
-        <button
-          @click.stop="emit('motivo-cierre')"
+            <button
+              v-if="authStore.tienePermiso('pipeline:mover')"
+              @click.stop="emit('motivo-cierre')"
           title="Registrar motivo de cierre o descarte"
           class="p-1 text-zinc-400 hover:text-rose-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
@@ -316,18 +327,19 @@ const diagnosticoEstancado = computed(() => {
         </button>
 
         <!-- Inspeccionar y Editar -->
-        <button
-          @click.stop="emit('abrir-detalle')"
-          title="Inspeccionar y editar trato"
+            <button
+              @click.stop="emit('abrir-detalle')"
+              title="Inspeccionar trato"
           class="p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
           <Edit3 class="w-3.5 h-3.5" />
         </button>
 
         <!-- Eliminar -->
-        <button
-          @click.stop="emit('eliminar')"
-          title="Eliminar elemento del tablero"
+            <button
+              v-if="authStore.tienePermiso('pipeline:eliminar')"
+              @click.stop="emit('eliminar')"
+              title="Eliminar elemento del tablero"
           class="p-1 text-zinc-400 hover:text-rose-500 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
           <Trash2 class="w-3.5 h-3.5" />

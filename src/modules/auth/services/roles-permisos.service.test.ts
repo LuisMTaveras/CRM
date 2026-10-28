@@ -114,4 +114,55 @@ describe('RolesPermisosService - Gestión de Roles y Permisos Granulares', () =>
     expect(reglaMetricas).toBeDefined();
     expect(reglaMetricas?.action).toBe('read');
   });
+
+  it('filtra permisos inexistentes al crear un rol', () => {
+    const rol = rolesPermisosService.crearRol({
+      nombre: 'Rol con permisos inválidos',
+      descripcion: 'Debe descartar los IDs desconocidos',
+      permisos: ['clientes:ver', 'inventado:total', 'configuracion:seguridad'],
+    });
+
+    expect(rol.permisos).toEqual(['clientes:ver']);
+  });
+
+  it('concede al administrador todo el catálogo salvo revocaciones explícitas', () => {
+    const admin: Usuario = {
+      id: 'usr-admin',
+      nombre: 'Admin',
+      email: 'admin@alliance.do',
+      rol: 'admin',
+      rolNombre: 'Administrador',
+      cargo: 'Dirección',
+      activo: true,
+      avatar: 'AD',
+      ultimoAcceso: new Date().toISOString(),
+      contrasena: 'admin12345',
+      permisosRevocados: ['metricas:exportar'],
+    };
+
+    const efectivos = rolesPermisosService.calcularPermisosEfectivos(admin);
+
+    expect(efectivos).toContain('roles:administrar');
+    expect(efectivos).toContain('configuracion:editar');
+    expect(efectivos).not.toContain('metricas:exportar');
+  });
+
+  it('no hereda permisos para roles inexistentes', () => {
+    const permisos = rolesPermisosService.calcularPermisosEfectivos({ rol: 'rol-eliminado' });
+    expect(permisos).toEqual([]);
+  });
+
+  it('solo concede manage/all cuando el catálogo completo está presente', () => {
+    const reglasCompletas = rolesPermisosService.convertirPermisosAReglasCASL(
+      rolesPermisosService.obtenerRoles().find((r) => r.id === 'admin')?.permisos || []
+    );
+    expect(reglasCompletas).toEqual([{ action: 'manage', subject: 'all' }]);
+
+    const reglasGerente = rolesPermisosService.convertirPermisosAReglasCASL(
+      rolesPermisosService.obtenerRoles().find((r) => r.id === 'gerente')?.permisos || []
+    );
+    expect(reglasGerente).not.toEqual([{ action: 'manage', subject: 'all' }]);
+    expect(reglasGerente.some((r) => r.subject === 'Sector')).toBe(false);
+    expect(reglasGerente.some((r) => r.subject === 'Rol')).toBe(false);
+  });
 });

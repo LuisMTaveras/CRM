@@ -13,13 +13,15 @@ import type {
   RespuestaSincronizacion,
   RespuestaBusquedaRemota,
 } from '../types/webmail.types';
+import type { ResultadoPruebaImap } from '../types/smtp.types';
 import { smtpService } from './smtp.service';
 import { firmaPieService } from './firma-pie.service';
 import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
 import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
 import { toastService } from '@/core/notifications/toast.service';
+import { API_BASE_URL as API_CRM_URL } from '@/core/api/api-config';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email`;
+const API_BASE_URL = `${API_CRM_URL}/email`;
 
 class WebmailService {
   /** Conteo reactivo global de correos no leídos para badges de navegación */
@@ -104,13 +106,14 @@ class WebmailService {
         hayMas: false,
         error: errJson.error,
       };
-    } catch (err: any) {
+    } catch (err) {
+      const detalleError = err instanceof Error ? err.message : undefined;
       return {
         exito: false,
-        mensaje: `Error de sincronización: ${err.message || 'El servidor de correo no respondió a tiempo.'}`,
+        mensaje: `Error de sincronización: ${detalleError || 'El servidor de correo no respondió a tiempo.'}`,
         sincronizados: 0,
         hayMas: false,
-        error: err?.message,
+        error: detalleError,
       };
     }
   }
@@ -160,14 +163,15 @@ class WebmailService {
         mensajes: [],
         error: errJson.error,
       };
-    } catch (err: any) {
+    } catch (err) {
+      const detalleError = err instanceof Error ? err.message : undefined;
       return {
         exito: false,
-        mensaje: `Error de búsqueda remota: ${err.message || 'El servidor no respondió a tiempo.'}`,
+        mensaje: `Error de búsqueda remota: ${detalleError || 'El servidor no respondió a tiempo.'}`,
         totalServidor: 0,
         nuevosDescargados: 0,
         mensajes: [],
-        error: err?.message,
+        error: detalleError,
       };
     }
   }
@@ -439,19 +443,20 @@ class WebmailService {
     seguridadImap: string;
     usuarioImap: string;
     contrasenaImap: string;
-  }): Promise<any> {
+  }): Promise<ResultadoPruebaImap> {
     try {
       const resp = await fetch(`${API_BASE_URL}/probar-imap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
-      return await resp.json();
-    } catch (err: any) {
+      return (await resp.json()) as ResultadoPruebaImap;
+    } catch (err) {
+      const detalleError = err instanceof Error ? err.message : 'Error desconocido';
       return {
         exito: false,
-        mensaje: `Error al probar conexión IMAP: ${err.message}`,
-        detalles: { imapConectado: false },
+        mensaje: `Error al probar conexión IMAP: ${detalleError}`,
+        detalles: { imapConectado: false, autenticacionAceptada: false },
       };
     }
   }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { MesTendencia } from '../types/metricas.types';
-import { formatCurrency } from '@/core/formatters/formatters';
+import { formatCompactCurrency, formatCurrency } from '@/core/formatters/formatters';
 import { TrendingUp } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -36,9 +36,7 @@ const lineasGuiaY = computed(() => {
     const y = padTop + (chartH / pasos) * i;
     return {
       valor: val,
-      etiqueta: val >= 1_000_000_000 
-        ? `RD$ ${(val / 1_000_000_000).toFixed(1)}B` 
-        : `RD$ ${Math.round(val / 1_000_000)}M`,
+      etiqueta: formatCompactCurrency(val, { maximumFractionDigits: 1 }),
       y,
     };
   });

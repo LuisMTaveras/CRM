@@ -23,8 +23,9 @@ import {
   MessageCircle
 } from 'lucide-vue-next';
 import TimelineCliente from './TimelineCliente.vue';
-import { formatCurrency, formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
+import { formatCurrency, formatDate, formatPhoneNumber, getCurrencySymbol } from '@/core/formatters/formatters';
 import Can from '@/shared/components/Can.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import type { Cliente, Contacto, EstadoCliente, Oportunidad } from '../types/cliente.types';
 import { clienteService } from '../services/cliente.service';
 import EditarClienteModal from './EditarClienteModal.vue';
@@ -48,6 +49,8 @@ const opcionesEtapaDeal: Array<SelectOption<string>> = [
   { value: 'ganada', label: 'Cerrada Ganada', dotColor: 'bg-emerald-400' },
   { value: 'perdida', label: 'Cerrada Perdida', dotColor: 'bg-rose-400' },
 ];
+
+const authStore = useAuthStore();
 
 const props = defineProps<{
   abierto: boolean;
@@ -325,6 +328,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
             <!-- Botones de Acción Rápida y Cerrar -->
             <div class="flex items-center gap-1.5">
               <button
+                v-if="authStore.tienePermiso('clientes:editar')"
                 type="button"
                 @click="modalEditarClienteAbierto = true"
                 title="Editar Datos de la Empresa"
@@ -335,6 +339,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
               </button>
 
               <button
+                v-if="authStore.tienePermiso('comunicaciones:documentos')"
                 type="button"
                 @click="cliente && emit('enviarDocumento', cliente)"
                 title="Generar y Enviar Documento PDF Oficial por Correo"
@@ -345,6 +350,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
               </button>
 
               <button
+                v-if="authStore.tienePermiso('comunicaciones:enviar')"
                 type="button"
                 @click="cliente && emit('enviarWhatsApp', cliente)"
                 title="Enviar Mensaje o Documento vía WhatsApp"
@@ -483,6 +489,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                   <span>Ver Tratos</span>
                 </button>
                 <button
+                  v-if="authStore.tienePermiso('clientes:editar')"
                   @click="modalEditarClienteAbierto = true"
                   class="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition flex items-center gap-1.5"
                 >
@@ -581,7 +588,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 </span>
               </div>
               <button
-                v-if="!mostrarFormContacto"
+                v-if="!mostrarFormContacto && authStore.tienePermiso('clientes:editar')"
                 type="button"
                 @click="abrirFormularioContacto"
                 class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-medium transition shadow-sm"
@@ -708,7 +715,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
                     <div class="flex items-center gap-1">
                       <button
-                        v-if="!contacto.es_principal"
+                        v-if="!contacto.es_principal && authStore.tienePermiso('clientes:editar')"
                         type="button"
                         @click="marcarPrincipal(contacto.id)"
                         title="Establecer como contacto principal"
@@ -717,6 +724,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                         Hacer Principal
                       </button>
                       <button
+                        v-if="authStore.tienePermiso('clientes:editar')"
                         type="button"
                         @click="eliminarContacto(contacto.id)"
                         title="Eliminar este contacto"
@@ -741,6 +749,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                       <Phone class="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
                       <span class="font-mono">{{ formatPhoneNumber(contacto.telefono) }}</span>
                       <button
+                        v-if="authStore.tienePermiso('comunicaciones:enviar')"
                         type="button"
                         @click="cliente && emit('enviarWhatsApp', cliente, contacto)"
                         title="Enviar WhatsApp al contacto"
@@ -767,6 +776,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 Esta empresa aún no cuenta con interlocutores asociados.
               </p>
               <button
+                v-if="authStore.tienePermiso('clientes:editar')"
                 type="button"
                 @click="abrirFormularioContacto"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium transition shadow-sm"
@@ -788,7 +798,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                 </span>
               </div>
               <button
-                v-if="!mostrarFormOportunidad"
+                v-if="!mostrarFormOportunidad && authStore.tienePermiso('pipeline:crear')"
                 type="button"
                 @click="abrirFormularioOportunidad"
                 class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-medium transition shadow-sm"
@@ -830,7 +840,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
 
               <div class="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Monto Estimado (RD$) *</label>
+                  <label class="block text-zinc-600 dark:text-zinc-400 text-[10px] mb-1 font-medium">Monto Estimado ({{ getCurrencySymbol() }}) *</label>
                   <input
                     v-model.number="formularioOportunidad.monto"
                     type="number"
@@ -910,6 +920,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                         {{ formatCurrency(deal.monto) }}
                       </span>
                       <button
+                        v-if="authStore.tienePermiso('pipeline:eliminar')"
                         @click="eliminarOportunidad(deal.id)"
                         class="p-1 text-zinc-400 hover:text-rose-500 rounded transition"
                         title="Eliminar oportunidad"
@@ -922,6 +933,7 @@ const onClienteActualizado = (clienteActualizado: Cliente) => {
                   <div class="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-900">
                     <div class="flex items-center gap-1.5">
                       <AppSelect
+                        v-if="authStore.tienePermiso('pipeline:mover')"
                         :model-value="deal.etapa"
                         @update:model-value="(nuevo) => cambiarEtapaDeal(deal, nuevo as any)"
                         :options="opcionesEtapaDeal"

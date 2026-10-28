@@ -1,4 +1,14 @@
-export type Action = 'create' | 'read' | 'update' | 'delete' | 'manage';
+export type Action =
+  | 'create'
+  | 'read'
+  | 'update'
+  | 'delete'
+  | 'manage'
+  | 'export'
+  | 'send'
+  | 'generate'
+  | 'configure'
+  | 'assign';
 export type Subject = string | Record<string, unknown>;
 
 export interface Rule {

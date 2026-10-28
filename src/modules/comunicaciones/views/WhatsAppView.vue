@@ -10,16 +10,23 @@ import type {
   MensajeWhatsApp,
   MensajeCitado,
   RespuestaRapida,
-  DefinicionEtiqueta,
 } from '../types/whatsapp-chat.types';
+import FichaClienteWhatsApp from '../components/FichaClienteWhatsApp.vue';
+import ListaConversacionesWhatsApp from '../components/ListaConversacionesWhatsApp.vue';
 import ModalConexionWhatsApp from '../components/ModalConexionWhatsApp.vue';
 import ReproductorNotaVoz from '../components/ReproductorNotaVoz.vue';
 import GrabadorNotaVoz from '../components/GrabadorNotaVoz.vue';
 import ModalCrearTratoWhatsApp from '../components/ModalCrearTratoWhatsApp.vue';
 import ModalAgendarSeguimientoWhatsApp from '../components/ModalAgendarSeguimientoWhatsApp.vue';
 import { asistenteIaService, type IntencionComercial } from '../services/asistente-ia.service';
-import { empresaService } from '@/modules/configuracion/services/empresa.service';
+import {
+  CATALOGO_ETIQUETAS,
+  crearCatalogoRespuestasRapidas,
+} from '../services/whatsapp-catalogo';
 import { toastService } from '@/core/notifications/toast.service';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
+import { resolverUrlServidor } from '@/core/api/api-config';
+import { formatFileSize, formatPhoneNumber } from '@/core/formatters/formatters';
 import {
   MessageSquare,
   Search,
@@ -31,7 +38,6 @@ import {
   Building2,
   FileText,
   Sparkles,
-  ChevronRight,
   ShieldCheck,
   RefreshCw,
   X,
@@ -43,6 +49,7 @@ import {
   Copy,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
   Bot,
   Mic,
   Tag,
@@ -50,12 +57,10 @@ import {
   Calendar,
   Kanban,
 } from 'lucide-vue-next';
-import { formatRelativeTime } from '@/core/formatters/formatters';
-
 const route = useRoute();
-const busqueda = ref('');
-const filtroNoLeidos = ref(false);
-const etiquetaFiltroActiva = ref<string>('todas');
+const authStore = useAuthStore();
+const puedeEnviar = computed(() => authStore.tienePermiso('comunicaciones:enviar'));
+const puedeConfigurar = computed(() => authStore.tienePermiso('configuracion:editar'));
 const textoNuevoMensaje = ref('');
 const modalConexionAbierto = ref(false);
 const modalNuevoChatAbierto = ref(false);
@@ -110,54 +115,7 @@ const cargandoChats = computed(() => whatsAppChatService.cargandoChats.value);
 const enviando = computed(() => whatsAppChatService.enviando.value);
 const conectado = computed(() => whatsAppService.conectado.value);
 
-// Catálogo de etiquetas comerciales B2B
-const CATALOGO_ETIQUETAS: DefinicionEtiqueta[] = [
-  { id: 'vip', nombre: 'VIP', colorClase: 'text-amber-700 dark:text-amber-400', bgClase: 'bg-amber-500/10 border-amber-500/30' },
-  { id: 'cotizado', nombre: 'Cotizado', colorClase: 'text-sky-700 dark:text-sky-400', bgClase: 'bg-sky-500/10 border-sky-500/30' },
-  { id: 'negociacion', nombre: 'En Negociación', colorClase: 'text-indigo-700 dark:text-indigo-400', bgClase: 'bg-indigo-500/10 border-indigo-500/30' },
-  { id: 'pago_pendiente', nombre: 'Pago Pendiente', colorClase: 'text-rose-700 dark:text-rose-400', bgClase: 'bg-rose-500/10 border-rose-500/30' },
-  { id: 'cerrado', nombre: 'Cerrado Ganado', colorClase: 'text-emerald-700 dark:text-emerald-400', bgClase: 'bg-emerald-500/10 border-emerald-500/30' },
-];
-
-// Catálogo de respuestas rápidas con comando /
-const CATALOGO_RESPUESTAS_RAPIDAS: RespuestaRapida[] = [
-  {
-    comando: '/banco',
-    titulo: 'Datos Bancarios Oficiales',
-    texto: `Para recibir los datos bancarios oficiales de ${empresaService.obtenerDatos().razonSocial || empresaService.obtenerDatos().nombreComercial || 'nuestra empresa'}, comuníquese con nuestro equipo de facturación. RNC: ${empresaService.obtenerDatos().identificacionFiscal || '—'}.`,
-    categoria: 'operativa',
-  },
-  {
-    comando: '/horario',
-    titulo: 'Horario de Atención Comercial',
-    texto: 'Nuestro horario comercial es de Lunes a Viernes de 8:30 AM a 6:00 PM. Estamos a su completa disposición.',
-    categoria: 'operativa',
-  },
-  {
-    comando: '/cotizacion',
-    titulo: 'Envío de Cotización Formal',
-    texto: 'Estimado/a {{nombre}}, le comparto los términos comerciales de la cotización acordada. Quedo atento a su visto bueno para formalizar.',
-    categoria: 'comercial',
-  },
-  {
-    comando: '/gracias',
-    titulo: 'Agradecimiento por su Confianza',
-    texto: '¡Muchas gracias por su preferencia {{nombre}}! Ha sido un placer atenderle. Seguimos a sus órdenes para cualquier requerimiento.',
-    categoria: 'cierre',
-  },
-  {
-    comando: '/reunion',
-    titulo: 'Coordinar Videollamada / Reunión',
-    texto: 'Hola {{nombre}}, ¿le convendría una breve videollamada de 15 minutos hoy o mañana para revisar los detalles técnicos?',
-    categoria: 'comercial',
-  },
-  {
-    comando: '/factura',
-    titulo: 'Solicitud de Datos Fiscales B01',
-    texto: 'Para emitir su comprobante fiscal con valor (NCF B01), favor remitirnos su RNC o Cédula, Razón Social y dirección comercial.',
-    categoria: 'operativa',
-  },
-];
+const CATALOGO_RESPUESTAS_RAPIDAS: RespuestaRapida[] = crearCatalogoRespuestasRapidas();
 
 const mostrarMenuComandos = computed(() => {
   return textoNuevoMensaje.value.startsWith('/');
@@ -178,28 +136,6 @@ const seleccionarComando = (item: RespuestaRapida) => {
   textoNuevoMensaje.value = textoProcesado;
 };
 
-// Filtrar conversaciones por texto, estado no leído y etiquetas
-const chatsFiltrados = computed(() => {
-  let resultado = chats.value;
-  if (filtroNoLeidos.value) {
-    resultado = resultado.filter((c) => (c.noLeidos || 0) > 0);
-  }
-  if (etiquetaFiltroActiva.value !== 'todas') {
-    resultado = resultado.filter((c) => c.etiquetas?.includes(etiquetaFiltroActiva.value));
-  }
-  if (busqueda.value.trim()) {
-    const q = busqueda.value.toLowerCase().trim();
-    resultado = resultado.filter(
-      (c) =>
-        c.nombre.toLowerCase().includes(q) ||
-        c.telefono.includes(q) ||
-        (c.contacto && c.contacto.toLowerCase().includes(q)) ||
-        (c.ultimoMensaje && c.ultimoMensaje.toLowerCase().includes(q))
-    );
-  }
-  return resultado;
-});
-
 // Detectar si el chat activo corresponde a un cliente del CRM
 const clienteDelChat = computed<Cliente | null>(() => {
   if (!chatActivo.value) return null;
@@ -218,12 +154,19 @@ const clienteDelChat = computed<Cliente | null>(() => {
   );
 });
 
+const panelMovil = ref<'lista' | 'chat'>('lista');
+
 const seleccionarConversacion = async (chat: ChatWhatsApp) => {
   menuEtiquetasAbierto.value = false;
   grabadorAudioAbierto.value = false;
   modoNotaInterna.value = false;
+  panelMovil.value = 'chat';
   await whatsAppChatService.seleccionarChat(chat);
   hacerScrollAbajo();
+};
+
+const volverAListaConversaciones = () => {
+  panelMovil.value = 'lista';
 };
 
 const alternarEtiquetaChat = async (tagId: string) => {
@@ -236,10 +179,6 @@ const alternarEtiquetaChat = async (tagId: string) => {
     nuevas = [...actuales, tagId];
   }
   await whatsAppChatService.actualizarEtiquetas(chatActivo.value.jid, nuevas);
-};
-
-const obtenerEtiquetaDefinicion = (tagId: string): DefinicionEtiqueta | undefined => {
-  return CATALOGO_ETIQUETAS.find((t) => t.id === tagId);
 };
 
 const activarSelectorArchivos = () => {
@@ -288,21 +227,9 @@ const manejarAudioGrabado = async (archivo: File) => {
   }
 };
 
-const formatearTamanoArchivo = (bytes: number): string => {
-  if (bytes > 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-  return `${Math.round(bytes / 1024)} KB`;
-};
+const formatearTamanoArchivo = (bytes: number): string => formatFileSize(bytes, { maximumFractionDigits: 1 });
 
-const obtenerUrlMedia = (url?: string): string => {
-  if (!url) return '';
-  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-  const baseUrl = import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
-    : 'http://localhost:3002';
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-};
+const obtenerUrlMedia = (url?: string): string => resolverUrlServidor(url);
 
 const abrirImagenModal = (url: string) => {
   modalImagenVistaPrevia.value = url;
@@ -454,6 +381,7 @@ const irAMensajePorIndice = (idx: number) => {
 
 // Sugerencias con IA
 const generarSugerenciaIa = (tipo: 'seguimiento' | 'confirmacion' | 'cierre' | 'recordatorio') => {
+  if (!puedeEnviar.value) return;
   const nombre = chatActivo.value?.contacto || chatActivo.value?.nombre || 'Estimado cliente';
   const clienteNombre = clienteDelChat.value?.razon_social || chatActivo.value?.nombre || 'su empresa';
 
@@ -477,6 +405,10 @@ const generarSugerenciaIa = (tipo: 'seguimiento' | 'confirmacion' | 'cierre' | '
 
 const enviarMensaje = async () => {
   if (enviando.value) return;
+  if (!modoNotaInterna.value && !puedeEnviar.value) {
+    toastService.error('No tienes permiso para enviar mensajes por WhatsApp.');
+    return;
+  }
 
   // Si está en modo Nota Interna
   if (modoNotaInterna.value) {
@@ -558,7 +490,28 @@ const formatearHoraMensaje = (iso: string) => {
   }
 };
 
+const abrirModalNuevoChat = () => {
+  if (!puedeEnviar.value) return;
+  modalNuevoChatAbierto.value = true;
+};
+
+const abrirModalConexion = () => {
+  if (!puedeConfigurar.value) return;
+  modalConexionAbierto.value = true;
+};
+
+const abrirModalTrato = () => {
+  if (!authStore.tienePermiso('pipeline:crear')) return;
+  modalTratoAbierto.value = true;
+};
+
+const abrirModalSeguimiento = () => {
+  if (!authStore.tienePermiso('clientes:crear')) return;
+  modalSeguimientoAbierto.value = true;
+};
+
 const iniciarChatConClienteSeleccionado = async () => {
+  if (!puedeEnviar.value) return;
   let tel = telefonoManual.value.trim();
   let nom = nombreManual.value.trim();
   let con = '';
@@ -620,10 +573,10 @@ watch(
 </script>
 
 <template>
-  <div class="h-[calc(100vh-4rem)] flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans overflow-hidden">
+  <div class="h-[calc(100dvh-4rem)] flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans overflow-hidden">
     <!-- BARRA SUPERIOR DE ESTADO Y ACCIONES -->
-    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 px-4 flex items-center justify-between shrink-0 backdrop-blur-sm">
-      <div class="flex items-center gap-3">
+    <header class="min-h-14 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 px-3 sm:px-4 flex flex-wrap items-center justify-between gap-2 shrink-0 backdrop-blur-sm">
+      <div class="flex items-center gap-3 min-w-0">
         <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
           <MessageSquare class="w-5 h-5" />
         </div>
@@ -654,13 +607,13 @@ watch(
               Bridge en Espera de Vinculación
             </span>
           </div>
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <p class="text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:block">
             Canal directo para cotizaciones, seguimiento a clientes y acuerdos comerciales
           </p>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
           @click="sincronizarFotosPerfil"
@@ -673,8 +626,9 @@ watch(
         </button>
 
         <button
+          v-if="puedeEnviar"
           type="button"
-          @click="modalNuevoChatAbierto = true"
+          @click="abrirModalNuevoChat"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-xs font-medium shadow-sm transition"
         >
           <Plus class="w-3.5 h-3.5" />
@@ -682,8 +636,9 @@ watch(
         </button>
 
         <button
+          v-if="puedeConfigurar"
           type="button"
-          @click="modalConexionAbierto = true"
+          @click="abrirModalConexion"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition"
         >
           <QrCode class="w-3.5 h-3.5" />
@@ -694,185 +649,35 @@ watch(
 
     <!-- CUERPO PRINCIPAL: 3 COLUMNAS -->
     <div class="flex-1 flex overflow-hidden">
-      <!-- COLUMNA 1: LISTA DE CHATS -->
-      <aside class="w-80 md:w-88 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col shrink-0">
-        <!-- Buscador y Filtros -->
-        <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 space-y-2">
-          <div class="relative">
-            <Search class="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              v-model="busqueda"
-              type="text"
-              placeholder="Buscar por cliente o teléfono..."
-              class="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-emerald-500 transition"
-            />
-          </div>
-
-          <div class="flex items-center gap-1.5 text-[11px]">
-            <button
-              type="button"
-              @click="filtroNoLeidos = false"
-              :class="[
-                'px-2.5 py-1 rounded-md font-medium transition',
-                !filtroNoLeidos
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-              ]"
-            >
-              Todos ({{ chats.length }})
-            </button>
-            <button
-              type="button"
-              @click="filtroNoLeidos = true"
-              :class="[
-                'px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1',
-                filtroNoLeidos
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-              ]"
-            >
-              <span>No leídos</span>
-              <span
-                v-if="whatsAppChatService.totalNoLeidos.value > 0"
-                class="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500 text-white font-bold"
-              >
-                {{ whatsAppChatService.totalNoLeidos.value }}
-              </span>
-            </button>
-          </div>
-
-          <!-- Chips de Filtro por Etiqueta Comercial -->
-          <div class="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] scrollbar-none">
-            <button
-              type="button"
-              @click="etiquetaFiltroActiva = 'todas'"
-              :class="[
-                'px-2 py-0.5 rounded-full shrink-0 font-medium transition',
-                etiquetaFiltroActiva === 'todas'
-                  ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-              ]"
-            >
-              Todas
-            </button>
-            <button
-              v-for="tag in CATALOGO_ETIQUETAS"
-              :key="tag.id"
-              type="button"
-              @click="etiquetaFiltroActiva = tag.id"
-              :class="[
-                'px-2 py-0.5 rounded-full shrink-0 font-medium transition border',
-                etiquetaFiltroActiva === tag.id
-                  ? tag.bgClase + ' ' + tag.colorClase + ' font-bold'
-                  : 'border-transparent bg-zinc-100 dark:bg-zinc-800/60 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-              ]"
-            >
-              {{ tag.nombre }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Lista de Conversaciones -->
-        <div class="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
-          <div
-            v-if="cargandoChats && chats.length === 0"
-            class="p-8 text-center text-xs text-zinc-400"
-          >
-            <RefreshCw class="w-5 h-5 animate-spin mx-auto mb-2 text-zinc-400" />
-            Cargando conversaciones...
-          </div>
-
-          <div
-            v-else-if="chatsFiltrados.length === 0"
-            class="p-8 text-center text-xs text-zinc-500"
-          >
-            No se encontraron conversaciones.
-          </div>
-
-          <button
-            v-for="c in chatsFiltrados"
-            :key="c.jid"
-            type="button"
-            @click="seleccionarConversacion(c)"
-            :class="[
-              'w-full text-left p-3.5 flex items-start gap-3 transition relative border-l-2',
-              chatActivo?.jid === c.jid
-                ? 'bg-zinc-100 dark:bg-zinc-800/70 border-emerald-500'
-                : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
-            ]"
-          >
-            <!-- Avatar: Foto real de perfil de WhatsApp o iniciales como fallback -->
-            <div class="w-10 h-10 rounded-xl overflow-hidden shrink-0 relative bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
-              <img
-                v-if="c.fotoUrl"
-                :src="obtenerUrlMedia(c.fotoUrl)"
-                :alt="c.nombre"
-                class="w-full h-full object-cover"
-                loading="lazy"
-                @error="(e) => ((e.target as HTMLElement).style.display = 'none')"
-              />
-              <div
-                v-else
-                class="w-full h-full bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-700 dark:text-emerald-300"
-              >
-                {{ c.avatar || 'WA' }}
-              </div>
-            </div>
-
-            <!-- Detalles del chat -->
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-1 mb-0.5">
-                <span class="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                  {{ c.nombre }}
-                </span>
-                <span class="text-[10px] text-zinc-400 font-mono shrink-0">
-                  {{ formatRelativeTime(c.ultimoTimestamp) }}
-                </span>
-              </div>
-
-              <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mb-1">
-                {{ c.ultimoMensaje }}
-              </div>
-
-              <!-- Etiquetas del chat en miniatura -->
-              <div v-if="c.etiquetas && c.etiquetas.length > 0" class="flex flex-wrap gap-1 mb-1.5">
-                <span
-                  v-for="tid in c.etiquetas"
-                  :key="tid"
-                  class="px-1.5 py-0.2 rounded-full text-[9px] font-medium border"
-                  :class="obtenerEtiquetaDefinicion(tid)?.bgClase + ' ' + obtenerEtiquetaDefinicion(tid)?.colorClase"
-                >
-                  {{ obtenerEtiquetaDefinicion(tid)?.nombre || tid }}
-                </span>
-              </div>
-
-              <div class="flex items-center justify-between text-[10px]">
-                <span class="text-zinc-400 font-mono">
-                  {{ c.telefono }}
-                </span>
-                <span
-                  v-if="(c.noLeidos || 0) > 0"
-                  class="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-white font-bold shrink-0"
-                >
-                  {{ c.noLeidos }}
-                </span>
-              </div>
-            </div>
-          </button>
-
-        </div>
-      </aside>
+      <ListaConversacionesWhatsApp
+        :class="panelMovil === 'chat' ? 'hidden md:flex' : 'flex'"
+        :chats="chats"
+        :chat-activo="chatActivo"
+        :cargando="cargandoChats"
+        :total-no-leidos="whatsAppChatService.totalNoLeidos.value"
+        :etiquetas="CATALOGO_ETIQUETAS"
+        @seleccionar="seleccionarConversacion"
+      />
 
       <!-- COLUMNA 2: ÁREA DE CHAT ACTIVO -->
       <main
-        class="flex-1 flex flex-col bg-zinc-100/60 dark:bg-zinc-950/80 overflow-hidden"
+        :class="panelMovil === 'lista' ? 'hidden md:flex' : 'flex'"
+        class="flex-1 flex-col bg-zinc-100/60 dark:bg-zinc-950/80 overflow-hidden"
         @dragover.prevent
         @drop.prevent="manejarSoltarArchivo"
       >
         <template v-if="chatActivo">
           <!-- Cabecera del Chat Activo -->
-          <div class="h-14 px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between shrink-0 shadow-sm">
-            <div class="flex items-center gap-3">
+          <div class="min-h-14 py-2 px-2 sm:px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-wrap items-center justify-between gap-2 shrink-0 shadow-sm">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+              <button
+                type="button"
+                @click="volverAListaConversaciones"
+                class="md:hidden p-1.5 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shrink-0"
+                title="Volver a conversaciones"
+              >
+                <ChevronLeft class="w-4 h-4" />
+              </button>
               <!-- Avatar del chat activo: Foto real o iniciales como fallback -->
               <div class="w-9 h-9 rounded-xl overflow-hidden shrink-0 relative bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
                 <img
@@ -901,7 +706,7 @@ watch(
                   </span>
                 </div>
                 <div class="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-2 font-mono">
-                  <span>{{ chatActivo.telefono }}</span>
+                   <span>{{ formatPhoneNumber(chatActivo.telefono) }}</span>
                   <span v-if="chatActivo.contacto">• {{ chatActivo.contacto }}</span>
                 </div>
               </div>
@@ -969,8 +774,9 @@ watch(
 
               <!-- Crear Oportunidad / Trato en Pipeline -->
               <button
+                v-if="authStore.tienePermiso('pipeline:crear')"
                 type="button"
-                @click="modalTratoAbierto = true"
+                @click="abrirModalTrato"
                 class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium transition"
                 title="Convertir conversación en Oportunidad en el Pipeline Comercial"
               >
@@ -980,8 +786,9 @@ watch(
 
               <!-- Agendar Seguimiento en Calendario -->
               <button
+                v-if="authStore.tienePermiso('clientes:crear')"
                 type="button"
-                @click="modalSeguimientoAbierto = true"
+                @click="abrirModalSeguimiento"
                 class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400 hover:bg-sky-500/20 text-xs font-medium transition"
                 title="Agendar llamada, reunión o tarea de seguimiento en la agenda"
               >
@@ -1002,6 +809,7 @@ watch(
 
               <!-- Asistente IA -->
               <button
+                v-if="puedeEnviar"
                 type="button"
                 @click="menuIaAbierto = !menuIaAbierto"
                 class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-medium transition"
@@ -1158,6 +966,7 @@ watch(
                     </div>
                     <span class="font-mono text-[9px] text-zinc-500">{{ formatearHoraMensaje(m.timestamp) }}</span>
                   </div>
+                  <!-- eslint-disable-next-line vue/no-v-html -- formatearTextoWhatsApp escapa el HTML antes de aplicar formato -->
                   <div class="whitespace-pre-wrap leading-relaxed font-sans" v-html="formatearTextoWhatsApp(m.texto)"></div>
                 </div>
               </div>
@@ -1316,11 +1125,8 @@ watch(
                   </div>
 
                   <!-- Texto del mensaje formateado -->
-                  <div
-                    v-if="m.texto"
-                    class="whitespace-pre-wrap leading-relaxed select-text mt-1 text-xs"
-                    v-html="formatearTextoWhatsApp(m.texto)"
-                  ></div>
+                  <!-- eslint-disable-next-line vue/no-v-html -- formatearTextoWhatsApp escapa el HTML antes de aplicar formato -->
+                  <div v-if="m.texto" class="whitespace-pre-wrap leading-relaxed select-text mt-1 text-xs" v-html="formatearTextoWhatsApp(m.texto)"></div>
 
                   <!-- Pie de la burbuja: hora y estado -->
                   <div
@@ -1339,6 +1145,14 @@ watch(
                 </div>
               </div>
             </template>
+          </div>
+
+          <div
+            v-if="!puedeEnviar"
+            class="flex items-center gap-2 border-t border-amber-500/20 bg-amber-500/10 px-4 py-2 text-[11px] text-amber-700 dark:text-amber-300"
+          >
+            <ShieldCheck class="h-3.5 w-3.5 shrink-0" />
+            <span>Solo lectura: puedes consultar la conversación y registrar notas internas, pero no enviar mensajes.</span>
           </div>
 
           <!-- Pestaña de Selector de Modo: Mensaje WhatsApp vs Nota Interna -->
@@ -1491,6 +1305,7 @@ watch(
             <template v-else>
               <!-- Botón para adjuntar documento, imagen o audio -->
               <button
+                v-if="puedeEnviar"
                 type="button"
                 @click="activarSelectorArchivos"
                 :disabled="enviando"
@@ -1502,6 +1317,7 @@ watch(
 
               <!-- Botón Grabar Nota de Voz con Micrófono -->
               <button
+                v-if="puedeEnviar"
                 type="button"
                 @click="grabadorAudioAbierto = true"
                 :disabled="enviando"
@@ -1535,6 +1351,7 @@ watch(
 
               <!-- Botón Enviar o Registrar Nota -->
               <button
+                v-if="puedeEnviar || modoNotaInterna"
                 type="button"
                 @click="enviarMensaje"
                 :disabled="(!textoNuevoMensaje.trim() && !archivoAdjunto) || enviando"
@@ -1569,78 +1386,12 @@ watch(
       </main>
 
       <!-- COLUMNA 3: FICHA DE CLIENTE ASOCIADA (DRAWER LATERAL) -->
-      <aside
+      <FichaClienteWhatsApp
         v-if="chatActivo && clienteDelChat"
-        class="w-72 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 flex flex-col text-xs shrink-0 hidden lg:flex"
-      >
-        <div class="flex items-center gap-2 pb-3 border-b border-zinc-200 dark:border-zinc-800 mb-4">
-          <Building2 class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span class="font-bold text-zinc-900 dark:text-zinc-100">Ficha del Cliente</span>
-        </div>
-
-        <div class="space-y-4 flex-1 overflow-y-auto">
-          <div>
-            <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-              {{ clienteDelChat.nombre_comercial || clienteDelChat.razon_social }}
-            </div>
-            <div class="text-[11px] text-zinc-500 font-mono">{{ clienteDelChat.razon_social }}</div>
-          </div>
-
-          <div class="p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-2">
-            <div>
-              <span class="text-[10px] text-zinc-400 block">RNC / Identificación</span>
-              <span class="font-mono font-medium">{{ clienteDelChat.identificacion_fiscal || '—' }}</span>
-            </div>
-            <div>
-              <span class="text-[10px] text-zinc-400 block">Sector Económico</span>
-              <span class="font-medium capitalize">{{ clienteDelChat.sector || 'Comercio B2B' }}</span>
-            </div>
-            <div>
-              <span class="text-[10px] text-zinc-400 block">Contacto Registrado</span>
-              <span class="font-medium">{{ clienteDelChat.contactos?.[0]?.nombre || 'No especificado' }}</span>
-            </div>
-            <div>
-              <span class="text-[10px] text-zinc-400 block">Ejecutivo Asignado</span>
-              <span class="font-medium">{{ clienteDelChat.responsable || 'Luis M. Taveras' }}</span>
-            </div>
-          </div>
-
-          <!-- Acciones directas con el cliente -->
-          <div class="space-y-2 pt-2">
-            <button
-              type="button"
-              @click="modalTratoAbierto = true"
-              class="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 transition font-medium text-xs"
-            >
-              <div class="flex items-center gap-2">
-                <Kanban class="w-4 h-4" />
-                <span>Crear Oportunidad Kanban</span>
-              </div>
-              <ChevronRight class="w-4 h-4 opacity-75" />
-            </button>
-
-            <button
-              type="button"
-              @click="modalSeguimientoAbierto = true"
-              class="w-full flex items-center justify-between p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 hover:bg-sky-500/20 text-sky-700 dark:text-sky-400 transition font-medium text-xs"
-            >
-              <div class="flex items-center gap-2">
-                <Calendar class="w-4 h-4" />
-                <span>Agendar Reunión o Tarea</span>
-              </div>
-              <ChevronRight class="w-4 h-4 opacity-75" />
-            </button>
-
-            <router-link
-              :to="{ path: '/pipeline' }"
-              class="w-full flex items-center justify-between p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition font-medium text-zinc-700 dark:text-zinc-300 text-xs"
-            >
-              <span>Ver Tablero Kanban</span>
-              <ChevronRight class="w-4 h-4 text-zinc-400" />
-            </router-link>
-          </div>
-        </div>
-      </aside>
+        :cliente="clienteDelChat"
+        @crear-trato="abrirModalTrato"
+        @agendar-reunion="abrirModalSeguimiento"
+      />
     </div>
 
     <!-- MODAL NUEVO CHAT -->

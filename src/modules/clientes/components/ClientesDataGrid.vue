@@ -21,8 +21,9 @@ import {
 import { computed } from 'vue';
 import { FlickerlessSurface } from '@flickerless/vue';
 import Can from '@/shared/components/Can.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import { obtenerIniciales, obtenerEstiloAvatar } from '@/core/lib/utils';
-import { formatDate, formatPhoneNumber } from '@/core/formatters/formatters';
+import { formatCurrency, formatDate, formatPhoneNumber, getCurrencySymbol } from '@/core/formatters/formatters';
 import type { Cliente, EstadoCliente } from '../types/cliente.types';
 import type { ParametrosTabla } from '@/core/url-sync/url-state';
 import { exportToCSV } from '@/core/export/export-engine';
@@ -31,6 +32,8 @@ import { toastService } from '@/core/notifications/toast.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import SectorBadge from '@/shared/components/SectorBadge.vue';
 import { sectoresService } from '../services/sectores.service';
+
+const authStore = useAuthStore();
 
 const props = defineProps<{
   clientes: Cliente[];
@@ -250,7 +253,7 @@ const exportarClientes = async () => {
         { header: 'Teléfono', key: 'telefono', formatter: (_v, c) => formatPhoneNumber(c.telefono) },
         { header: 'Ciudad', key: 'ciudad', formatter: (_v, c) => c.ciudad || '—' },
         { header: 'Responsable Comercial', key: 'responsable' },
-        { header: 'Valor Estimado (RD$)', key: 'valor_estimado', formatter: (_v, c) => String(c.valor_estimado ?? 0) },
+        { header: `Valor Estimado (${getCurrencySymbol()})`, key: 'valor_estimado', formatter: (_v, c) => formatCurrency(c.valor_estimado) },
         { header: 'Fecha de Registro', key: 'creado_en', formatter: (_v, c) => formatDate(c.creado_en) },
       ],
       'cartera_clientes_crm.csv'
@@ -319,6 +322,7 @@ const exportarClientes = async () => {
       <!-- Acciones Principales -->
       <div class="flex items-center gap-2">
         <button
+          v-if="authStore.tienePermiso('clientes:exportar')"
           type="button"
           @click="exportarClientes"
           :disabled="exportando || cargando"
@@ -362,6 +366,7 @@ const exportarClientes = async () => {
         </button>
 
         <button
+          v-if="authStore.tienePermiso('clientes:exportar')"
           type="button"
           @click="exportarClientes"
           class="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium text-xs rounded-lg transition border border-zinc-200 dark:border-zinc-700 shadow-sm"
@@ -371,6 +376,7 @@ const exportarClientes = async () => {
         </button>
 
         <button
+          v-if="authStore.tienePermiso('comunicaciones:enviar')"
           type="button"
           @click="emit('enviarMasivo', clientesSeleccionadosObjetos)"
           class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-lg transition shadow-sm active:scale-[0.98]"
@@ -562,10 +568,10 @@ const exportarClientes = async () => {
               <!-- Acciones -->
               <td class="py-2.5 px-3.5 text-right whitespace-nowrap" @click.stop>
                 <div class="inline-flex items-center gap-1 justify-end">
-                  <button
-                    v-if="cliente.telefono"
-                    type="button"
-                    @click="emit('enviarWhatsApp', cliente)"
+          <button
+            v-if="cliente.telefono && authStore.tienePermiso('comunicaciones:enviar')"
+            type="button"
+            @click="emit('enviarWhatsApp', cliente)"
                     title="Enviar WhatsApp"
                     class="p-1.5 rounded-md text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10 transition"
                   >

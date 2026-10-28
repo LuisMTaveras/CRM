@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import type { Component } from 'vue';
 import { useRouter } from 'vue-router';
 import { busquedaService } from '@/core/busqueda/busqueda.service';
-import type { ItemBusqueda } from '@/core/busqueda/busqueda.types';
+import type { CategoriaBusqueda, ItemBusqueda } from '@/core/busqueda/busqueda.types';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 import { 
   Search, 
   X, 
@@ -34,12 +36,13 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const authStore = useAuthStore();
 const inputBusquedaRef = ref<HTMLInputElement | null>(null);
 const consulta = ref('');
 const indiceSeleccionado = ref(0);
 
 // Mapeo dinámico de iconos de Lucide
-const mapaIconos: Record<string, any> = {
+const mapaIconos: Record<string, Component> = {
   Building2,
   Kanban,
   Mail,
@@ -60,8 +63,23 @@ const resolverIcono = (nombre: string) => {
   return mapaIconos[nombre] || Sparkles;
 };
 
+const PERMISO_POR_CATEGORIA: Partial<Record<CategoriaBusqueda, string>> = {
+  clientes: 'clientes:ver',
+  pipeline: 'pipeline:ver',
+  comunicaciones: 'comunicaciones:ver',
+};
+
 const grupos = computed(() => {
-  return busquedaService.buscar(consulta.value);
+  return busquedaService
+    .buscar(consulta.value)
+    .map((grupo) => ({
+      ...grupo,
+      items: grupo.items.filter((item) => {
+        const permiso = item.permiso || PERMISO_POR_CATEGORIA[item.categoria];
+        return !permiso || authStore.tienePermiso(permiso);
+      }),
+    }))
+    .filter((grupo) => grupo.items.length > 0);
 });
 
 // Aplanar todos los ítems para facilitar la navegación con flechas de teclado

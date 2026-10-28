@@ -11,8 +11,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script>
       (function() {
-        var tema = localStorage.getItem('crm_tema_visual') || 'dark';
-        if (tema === 'dark') {
+        var preferencia = localStorage.getItem('crm_tema_preferencia');
+        if (!preferencia) {
+          preferencia = localStorage.getItem('crm_tema_visual') || 'system';
+        }
+        var esOscuro = preferencia === 'dark' ||
+          (preferencia === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (esOscuro) {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');

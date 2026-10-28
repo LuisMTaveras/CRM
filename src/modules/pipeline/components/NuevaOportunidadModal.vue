@@ -5,6 +5,7 @@ import type { EtapaOportunidad } from '../types/pipeline.types';
 import { toastService } from '@/core/notifications/toast.service';
 import { X, Briefcase, Plus, Loader2 } from 'lucide-vue-next';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { getCurrencySymbol } from '@/core/formatters/formatters';
 
 const props = defineProps<{
   abierto: boolean;
@@ -199,7 +200,7 @@ onMounted(() => {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
             <label class="block text-zinc-700 dark:text-zinc-400 font-medium mb-1">
-              Valor / Monto Estimado (RD$) <span class="text-rose-500">*</span>
+              Valor / Monto Estimado ({{ getCurrencySymbol() }}) <span class="text-rose-500">*</span>
             </label>
             <input
               v-model.number="formulario.monto"

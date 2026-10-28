@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm run test"
   },
   "dependencies": {
     "@flickerless/core": "file:../flickerless/packages/core",
@@ -22,6 +23,7 @@
     "@vueuse/core": "^12.5.0",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.17",
     "imapflow": "^2.2.11",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.2",
@@ -34,7 +36,7 @@
     "tailwind-merge": "^3.0.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
-    "zod": "^3.24.2"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -53,14 +55,14 @@
     "eslint-plugin-vue": "^10.11.1",
     "express": "^5.2.1",
     "globals": "^17.13.0",
-    "happy-dom": "^20.14.5",
+    "jsdom": "^26.1.0",
     "nodemailer": "^10.0.15",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.71.1",
     "vite": "^6.1.0",
-    "vitest": "^3.2.7",
+    "vitest": "^5.0.5",
     "vue-tsc": "^2.2.0"
   }
 }

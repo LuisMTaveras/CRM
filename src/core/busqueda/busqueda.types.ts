@@ -9,6 +9,7 @@ export interface ItemBusqueda {
   badgeColor?: string;
   icono: string;
   ruta?: string;
+  permiso?: string;
   atajo?: string;
   metadatos?: Record<string, unknown>;
   accion?: () => void;

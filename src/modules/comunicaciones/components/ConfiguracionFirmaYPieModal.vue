@@ -5,6 +5,8 @@ import { smtpService, PRESETS_PROVEEDORES } from '../services/smtp.service';
 import { webmailService } from '../services/webmail.service';
 import type { ConfiguracionFirma, ConfiguracionPiePagina } from '../types/webmail.types';
 import type { ConfiguracionSMTP, ProveedorPreset, ResultadoPruebaConexion, TipoSeguridadSmtp } from '../types/smtp.types';
+import { sanitizeHtml } from '@/core/security/html';
+import SafeHtml from '@/shared/components/SafeHtml.vue';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
 import { 
   X, 
@@ -76,8 +78,8 @@ watch(
 );
 
 // Generación de previews HTML
-const previewFirmaHtml = computed(() => firmaPieService.generarHtmlFirma(formFirma));
-const previewPieHtml = computed(() => firmaPieService.generarHtmlPie(formPie));
+const previewFirmaHtml = computed(() => sanitizeHtml(firmaPieService.generarHtmlFirma(formFirma)));
+const previewPieHtml = computed(() => sanitizeHtml(firmaPieService.generarHtmlPie(formPie)));
 
 const aplicarPresetProveedor = (preset: ProveedorPreset) => {
   const datosPreset = PRESETS_PROVEEDORES[preset];
@@ -385,7 +387,7 @@ const guardarTodo = () => {
               <span>Vista Previa en Vivo de tu Firma Oficial</span>
             </div>
             <div class="p-5 bg-white text-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-inner overflow-x-auto">
-              <div v-html="previewFirmaHtml || '<span class=\'text-zinc-400 italic\'>Firma deshabilitada</span>'"></div>
+              <SafeHtml :html="previewFirmaHtml || '<span class=\'text-zinc-400 italic\'>Firma deshabilitada</span>'" />
             </div>
           </div>
         </div>
@@ -475,7 +477,7 @@ const guardarTodo = () => {
               <span>Vista Previa en Vivo del Pie Institucional</span>
             </div>
             <div class="p-5 bg-white text-zinc-700 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-inner">
-              <div v-html="previewPieHtml || '<span class=\'text-zinc-400 italic\'>Pie de página deshabilitado</span>'"></div>
+              <SafeHtml :html="previewPieHtml || '<span class=\'text-zinc-400 italic\'>Pie de página deshabilitado</span>'" />
             </div>
           </div>
         </div>

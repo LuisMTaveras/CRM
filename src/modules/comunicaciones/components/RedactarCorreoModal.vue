@@ -2,6 +2,8 @@
 import { ref, reactive, watch, computed } from 'vue';
 import { webmailService } from '../services/webmail.service';
 import { firmaPieService } from '../services/firma-pie.service';
+import { sanitizeHtml } from '@/core/security/html';
+import SafeHtml from '@/shared/components/SafeHtml.vue';
 import { 
   X, 
   Send, 
@@ -58,7 +60,7 @@ const htmlVistaPrevia = computed(() => {
     html += `<div style="margin-top: 30px; padding-top: 12px; border-top: 1px dashed #d4d4d8; font-size: 11px; color: #71717a;">${firmaPieService.generarHtmlPie(pieActual.value)}</div>`;
   }
   html += `</div>`;
-  return html;
+  return sanitizeHtml(html);
 });
 
 watch(
@@ -103,8 +105,8 @@ const enviarCorreo = async () => {
     } else {
       errorEnvio.value = res.error || 'No se pudo despachar el correo electrónico.';
     }
-  } catch (err: any) {
-    errorEnvio.value = err?.message || 'Error de comunicación con el servidor de correo.';
+  } catch (err) {
+    errorEnvio.value = err instanceof Error ? err.message : 'Error de comunicación con el servidor de correo.';
   } finally {
     enviando.value = false;
   }
@@ -253,7 +255,7 @@ const enviarCorreo = async () => {
         </div>
 
         <div v-else class="p-5 bg-white text-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-inner max-h-80 overflow-y-auto">
-          <div v-html="htmlVistaPrevia"></div>
+          <SafeHtml :html="htmlVistaPrevia" />
         </div>
       </div>
 

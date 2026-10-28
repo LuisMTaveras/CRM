@@ -258,7 +258,7 @@ const guardar = async () => {
           <label class="block font-medium text-zinc-700 dark:text-zinc-300 mb-2">
             Color Identificador de la Etapa
           </label>
-          <div class="grid grid-cols-4 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               v-for="(opt, idx) in opcionesColor"
               :key="idx"

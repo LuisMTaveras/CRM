@@ -1,7 +1,8 @@
 import { ref, computed } from 'vue';
 import { toastService } from '@/core/notifications/toast.service';
+import { API_BASE_URL as API_CRM_URL } from '@/core/api/api-config';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/whatsapp`;
+const API_BASE_URL = `${API_CRM_URL}/whatsapp`;
 
 export type EstadoWhatsApp = 'desconectado' | 'escaneando_qr' | 'conectando' | 'conectado';
 

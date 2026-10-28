@@ -3,8 +3,10 @@ import type { ChatWhatsApp, MensajeWhatsApp, MensajeCitado } from '../types/what
 import { toastService } from '@/core/notifications/toast.service';
 import { centroNotificacionesService } from '@/core/notifications/centro-notificaciones.service';
 import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
+import { API_BASE_URL as API_CRM_URL } from '@/core/api/api-config';
+import { formatFileSize } from '@/core/formatters/formatters';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/whatsapp`;
+const API_BASE_URL = `${API_CRM_URL}/whatsapp`;
 
 async function parsearJsonSeguro(resp: Response) {
   try {
@@ -250,9 +252,7 @@ class WhatsAppChatService {
     } catch (err: unknown) {
       console.warn('[WhatsApp] Fallback de envío de archivo local aplicado:', err);
 
-      const tamanoMb = (archivo.size / (1024 * 1024)).toFixed(1);
-      const tamanoFormateado =
-        archivo.size > 1024 * 1024 ? `${tamanoMb} MB` : `${Math.round(archivo.size / 1024)} KB`;
+      const tamanoFormateado = formatFileSize(archivo.size);
 
       const msgLocal: MensajeWhatsApp = {
         id: `wa-file-local-${Date.now()}`,

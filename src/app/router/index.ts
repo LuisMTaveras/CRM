@@ -1,17 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { ClientesView } from '@/modules/clientes';
-import PipelineView from '@/modules/pipeline/views/PipelineView.vue';
-import PipelinesCatalogView from '@/modules/pipeline/views/PipelinesCatalogView.vue';
-import MetricasView from '@/modules/metricas/views/MetricasView.vue';
-import ConfiguracionView from '@/modules/configuracion/views/ConfiguracionView.vue';
-import LoginView from '@/modules/auth/views/LoginView.vue';
-import UsuariosView from '@/modules/auth/views/UsuariosView.vue';
-import ComunicacionesView from '@/modules/comunicaciones/views/ComunicacionesView.vue';
-import WhatsAppView from '@/modules/comunicaciones/views/WhatsAppView.vue';
-import { AgendaView } from '@/modules/agenda';
-import CatalogoView from '@/modules/catalogo/views/CatalogoView.vue';
-import PropuestaClienteView from '@/modules/catalogo/views/PropuestaClienteView.vue';
 import { useAuthStore } from '@/modules/auth/stores/auth.store';
+import { obtenerRutaInicial } from '@/core/permissions/permisos-rutas';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,91 +8,117 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView,
+      component: () => import('@/modules/auth/views/LoginView.vue'),
       meta: { publica: true },
     },
     {
       path: '/propuesta/:token',
       name: 'propuesta-cliente',
-      component: PropuestaClienteView,
+      component: () => import('@/modules/catalogo/views/PropuestaClienteView.vue'),
       meta: { publica: true },
+    },
+    {
+      path: '/sin-acceso',
+      name: 'sin-acceso',
+      component: () => import('@/modules/auth/views/SinAccesoView.vue'),
     },
     {
       path: '/',
       name: 'metricas',
-      component: MetricasView,
+      component: () => import('@/modules/metricas/views/MetricasView.vue'),
       alias: '/metricas',
+      meta: { permiso: 'metricas:ver_kpis', permisoAlternativo: 'metricas:ver_ejecutivos' },
     },
     {
       path: '/clientes',
       name: 'clientes',
-      component: ClientesView,
+      component: () => import('@/modules/clientes').then((m) => m.ClientesView),
+      meta: { permiso: 'clientes:ver' },
     },
     {
       path: '/pipeline',
       name: 'pipelines-catalogo',
-      component: PipelinesCatalogView,
+      component: () => import('@/modules/pipeline/views/PipelinesCatalogView.vue'),
+      meta: { permiso: 'pipeline:ver' },
     },
     {
       path: '/pipeline/:id',
       name: 'pipeline-detalle',
-      component: PipelineView,
+      component: () => import('@/modules/pipeline/views/PipelineView.vue'),
+      meta: { permiso: 'pipeline:ver' },
     },
     {
       path: '/catalogo',
       name: 'catalogo',
-      component: CatalogoView,
+      component: () => import('@/modules/catalogo/views/CatalogoView.vue'),
       alias: ['/cpq', '/cotizaciones'],
+      meta: { permiso: 'comunicaciones:documentos' },
     },
     {
       path: '/agenda',
       name: 'agenda',
-      component: AgendaView,
+      component: () => import('@/modules/agenda').then((m) => m.AgendaView),
+      meta: { permiso: 'clientes:ver' },
     },
     {
       path: '/whatsapp',
       name: 'whatsapp',
-      component: WhatsAppView,
+      component: () => import('@/modules/comunicaciones/views/WhatsAppView.vue'),
       alias: ['/whatsapp-web', '/chat-whatsapp'],
+      meta: { permiso: 'comunicaciones:ver' },
     },
     {
       path: '/comunicaciones',
       name: 'comunicaciones',
-      component: ComunicacionesView,
+      component: () => import('@/modules/comunicaciones/views/ComunicacionesView.vue'),
       alias: ['/correo', '/webmail'],
+      meta: { permiso: 'comunicaciones:ver' },
     },
     {
       path: '/despacho',
       name: 'despacho',
-      component: ComunicacionesView,
+      component: () => import('@/modules/comunicaciones/views/ComunicacionesView.vue'),
       alias: ['/despacho-masivo', '/comunicaciones/despacho'],
+      meta: { permiso: 'comunicaciones:enviar' },
     },
     {
       path: '/usuarios',
       name: 'usuarios',
-      component: UsuariosView,
+      component: () => import('@/modules/auth/views/UsuariosView.vue'),
+      meta: { permiso: 'usuarios:ver' },
     },
     {
       path: '/configuracion',
       name: 'configuracion',
-      component: ConfiguracionView,
+      component: () => import('@/modules/configuracion/views/ConfiguracionView.vue'),
+      meta: { permiso: 'configuracion:ver' },
     },
   ],
 });
 
-// Guard de Navegación de Autenticación
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to) => {
   const authStore = useAuthStore();
 
   if (!authStore.estaAutenticado && !to.meta.publica) {
-    return next({ name: 'login' });
+    return { name: 'login', query: { redirect: to.fullPath } };
   }
 
   if (authStore.estaAutenticado && to.name === 'login') {
-    return next({ name: 'metricas' });
+    const rutaInicial = obtenerRutaInicial(authStore.tienePermiso);
+    return rutaInicial ? { name: rutaInicial.nombre } : { name: 'sin-acceso' };
   }
 
-  next();
+  if (to.meta.permiso) {
+    const permitido =
+      authStore.tienePermiso(to.meta.permiso) ||
+      (!!to.meta.permisoAlternativo && authStore.tienePermiso(to.meta.permisoAlternativo));
+
+    if (!permitido) {
+      return { name: 'sin-acceso', query: { desde: to.fullPath } };
+    }
+  }
+
+  return true;
 });
 
 export default router;

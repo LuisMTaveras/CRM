@@ -6,6 +6,7 @@
 
 import { ImapFlow } from 'imapflow';
 import { notificarEscritorioWindows } from './whatsapp/notificador-windows.js';
+import { opcionesTls } from './tls-options.js';
 
 class ServicioEscuchaEmail {
   constructor() {
@@ -146,7 +147,7 @@ class ServicioEscuchaEmail {
             pass: config.contrasenaImap,
           },
           logger: false,
-          tls: { rejectUnauthorized: false },
+          tls: opcionesTls(),
           connectionTimeout: 10000,
           socketTimeout: 20000,
         });

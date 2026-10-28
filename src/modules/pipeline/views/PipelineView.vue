@@ -6,8 +6,6 @@ import {
   Calendar, 
   RefreshCw, 
   Plus, 
-  Search, 
-  Filter, 
   ChevronRight, 
   ChevronLeft, 
   ChevronDown,
@@ -19,8 +17,6 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
-  TrendingUp,
-  DollarSign,
   Clock,
   UserCheck,
   Briefcase
@@ -42,14 +38,18 @@ import GestionColumnaModal from '../components/GestionColumnaModal.vue';
 import NuevaTarjetaModal from '../components/NuevaTarjetaModal.vue';
 import DetalleTarjetaModal from '../components/DetalleTarjetaModal.vue';
 import KanbanTarjetaItem from '../components/KanbanTarjetaItem.vue';
+import PipelineResumenEjecutivo from '../components/PipelineResumenEjecutivo.vue';
+import PipelineFiltrosBar from '../components/PipelineFiltrosBar.vue';
 import ModalMotivoCierre from '../components/ModalMotivoCierre.vue';
 import PipelineCalendarioView from '../components/PipelineCalendarioView.vue';
 import { toastService } from '@/core/notifications/toast.service';
 import { dialogService } from '@/core/dialog/dialog.service';
 import AppSelect, { type SelectOption } from '@/shared/components/AppSelect.vue';
+import { useAuthStore } from '@/modules/auth/stores/auth.store';
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 
 const cargando = ref(true);
 const pipelines = ref<Pipeline[]>([]);
@@ -850,8 +850,9 @@ watch(
 
         <!-- Menú de Opciones del Tablero Activo -->
         <div class="relative shrink-0">
-          <button
-            @click="menuOpcionesPipelineAbierto = !menuOpcionesPipelineAbierto"
+                <button
+                  v-if="authStore.tienePermiso('pipeline:configurar')"
+                  @click="menuOpcionesPipelineAbierto = !menuOpcionesPipelineAbierto"
             title="Ajustes de este tablero"
             class="p-1.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition"
           >
@@ -894,23 +895,24 @@ watch(
     <Teleport to="#header-portal-right">
       <div class="flex items-center gap-2">
         <!-- Botón Programar Visitas / Nueva Tarjeta -->
-        <button
-          @click="abrirModalNuevaTarjeta()"
+                <button
+                  v-if="authStore.tienePermiso('pipeline:crear')"
+                  @click="abrirModalNuevaTarjeta()"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition active:scale-95 shadow-indigo-950/20"
         >
           <Plus class="w-3.5 h-3.5" />
-          <span>{{ pipelineActivo?.tipo === 'visitas' ? 'Programar Visitas' : 'Nueva Tarjeta' }}</span>
+          <span class="hidden sm:inline">{{ pipelineActivo?.tipo === 'visitas' ? 'Programar Visitas' : 'Nueva Tarjeta' }}</span>
         </button>
 
         <!-- Botón Añadir Columna Directo (exclusivo para vista Tablero) -->
-        <button
-          v-if="vistaActiva === 'tablero'"
-          @click="abrirModalNuevaColumna"
+                <button
+                  v-if="vistaActiva === 'tablero' && authStore.tienePermiso('pipeline:configurar')"
+                  @click="abrirModalNuevaColumna"
           :disabled="(pipelineActivo?.columnas?.length || 0) >= LIMITE_MAXIMO_COLUMNAS"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-xs font-medium transition shadow-sm disabled:opacity-40"
         >
           <Plus class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-          <span>Columna</span>
+          <span class="hidden sm:inline">Columna</span>
         </button>
 
         <!-- Actualizar -->
@@ -927,245 +929,28 @@ watch(
 
   <div class="w-full space-y-4">
     <!-- Resumen Ejecutivo del Pipeline (Métricas Clave & Forecast Ponderado) -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <!-- 1. Tratos en Tablero -->
-      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5">
-            {{ pipelineActivo?.tipo === 'visitas' ? 'Visitas Registradas' : 'Tratos Activos' }}
-          </span>
-          <div class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
-            {{ metricasProgreso.total }}
-          </div>
-          <span class="text-[10px] text-zinc-500 dark:text-zinc-400">
-            {{ metricasProgreso.completadas }} ganados / realizados
-          </span>
-        </div>
-        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-          <Kanban class="w-4 h-4" />
-        </div>
-      </div>
-
-      <!-- 2. Volumen Nominal Total -->
-      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
-        <div class="min-w-0">
-          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5 truncate">
-            Volumen Proyectado Bruto
-          </span>
-          <div class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums truncate" :title="formatCurrency(metricasProgreso.montoTotal)">
-            {{ formatCurrency(metricasProgreso.montoTotal) }}
-          </div>
-          <span class="text-[10px] text-zinc-500 dark:text-zinc-400">
-            100% valor de cartera
-          </span>
-        </div>
-        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-          <DollarSign class="w-4 h-4" />
-        </div>
-      </div>
-
-      <!-- 3. Forecast Ponderado (Monto Realista por Probabilidad) -->
-      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
-        <div class="min-w-0">
-          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5 truncate">
-            Forecast Ponderado Realista
-          </span>
-          <div class="text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400 tabular-nums truncate" :title="formatCurrency(metricasProgreso.montoPonderadoTotal)">
-            {{ formatCurrency(metricasProgreso.montoPonderadoTotal) }}
-          </div>
-          <span class="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 font-medium">
-            Ajustado por probabilidad
-          </span>
-        </div>
-        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-          <TrendingUp class="w-4 h-4" />
-        </div>
-      </div>
-
-      <!-- 4. Tasa de Éxito / Progreso -->
-      <div class="saas-card rounded-xl p-3 border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-zinc-900/60 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block mb-0.5">
-            Tasa de Cierre / Progreso
-          </span>
-          <div class="text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
-            {{ metricasProgreso.porcentaje }}%
-          </div>
-          <div class="flex items-center gap-1.5 mt-0.5">
-            <div class="w-16 h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div class="h-full bg-emerald-500 rounded-full" :style="{ width: metricasProgreso.porcentaje + '%' }"></div>
-            </div>
-          </div>
-        </div>
-        <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-          <CheckCircle2 class="w-4 h-4" />
-        </div>
-      </div>
-    </div>
+    <PipelineResumenEjecutivo
+      :tipo-pipeline="pipelineActivo?.tipo"
+      :metricas="metricasProgreso"
+    />
 
     <!-- Barra de Filtros en Tiempo Real -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-zinc-200 dark:border-white/[0.06] text-xs shadow-sm">
-      <div class="flex flex-wrap items-center gap-2.5 flex-1">
-        <!-- Conmutador de Vistas dentro de la barra -->
-        <div class="inline-flex items-center p-0.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-white/[0.08] shadow-xs shrink-0">
-          <button
-            type="button"
-            @click="vistaActiva = 'tablero'"
-            :class="[
-              vistaActiva === 'tablero'
-                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
-            ]"
-            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition"
-            title="Vista Tablero Kanban"
-          >
-            <Kanban class="w-3.5 h-3.5" />
-            <span>Tablero</span>
-          </button>
-
-          <button
-            type="button"
-            @click="vistaActiva = 'calendario'"
-            :class="[
-              vistaActiva === 'calendario'
-                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 font-semibold shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 font-medium'
-            ]"
-            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition"
-            title="Vista Calendario"
-          >
-            <Calendar class="w-3.5 h-3.5" />
-            <span>Calendario</span>
-          </button>
-        </div>
-
-        <!-- Búsqueda -->
-        <div class="relative min-w-[200px] flex-1 sm:flex-initial">
-          <Search class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 absolute left-3 top-2.5" />
-          <input
-            v-model="filtros.busqueda"
-            @input="cargarDatos"
-            type="text"
-            :placeholder="pipelineActivo?.tipo === 'visitas' ? 'Buscar cliente o motivo de visita...' : 'Buscar cliente o trato...'"
-            class="w-full pl-9 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 text-xs focus:outline-none focus:border-indigo-500 transition"
-          />
-        </div>
-
-        <!-- Filtro por Responsable -->
-        <div class="flex items-center gap-1.5">
-          <Filter class="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hidden sm:block" />
-          <AppSelect
-            :model-value="filtros.responsable || ''"
-            @update:model-value="(nuevo) => { filtros.responsable = nuevo as string; cargarDatos(); }"
-            :options="opcionesResponsables"
-            size="sm"
-            min-width-class="min-w-[200px]"
-          />
-        </div>
-
-        <!-- Filtro por Prioridad -->
-        <div class="flex items-center gap-1.5">
-          <AppSelect
-            :model-value="filtros.prioridad || ''"
-            @update:model-value="(nuevo) => { filtros.prioridad = nuevo as string; cargarDatos(); }"
-            :options="opcionesPrioridades"
-            size="sm"
-            min-width-class="min-w-[180px]"
-          />
-        </div>
-
-        <!-- Filtro Rápido: Clientes Estancados (> 10 días sin interacción) -->
-        <button
-          type="button"
-          @click="filtroSoloEstancados = !filtroSoloEstancados"
-          class="px-2.5 py-1.5 rounded-xl border text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
-          :class="[
-            filtroSoloEstancados
-              ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/20'
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-          ]"
-          :title="filtroSoloEstancados ? 'Mostrar todas las tarjetas' : 'Filtrar para ver solo oportunidades estancadas (> 10 días)'"
-        >
-          <AlertTriangle class="w-3.5 h-3.5 text-amber-500" />
-          <span>Estancados (> 10d)</span>
-          <span
-            v-if="totalTarjetasEstancadas > 0"
-            class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono font-semibold"
-          >
-            {{ totalTarjetasEstancadas }}
-          </span>
-        </button>
-
-        <!-- Filtro Rápido: Elementos para HOY -->
-        <button
-          type="button"
-          @click="filtroSoloHoy = !filtroSoloHoy"
-          class="px-2.5 py-1.5 rounded-xl border text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
-          :class="[
-            filtroSoloHoy
-              ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500/20 font-semibold'
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-          ]"
-          :title="filtroSoloHoy ? 'Mostrar todas las tarjetas' : 'Filtrar para ver solo elementos con fecha para hoy'"
-        >
-          <span
-            class="w-1.5 h-1.5 rounded-full shrink-0"
-            :class="[
-              filtroSoloHoy
-                ? 'bg-indigo-600 dark:bg-indigo-400 animate-pulse'
-                : totalTarjetasHoy > 0
-                ? 'bg-indigo-600 dark:bg-indigo-400 animate-pulse'
-                : 'bg-zinc-400'
-            ]"
-          ></span>
-          <span>Para Hoy</span>
-          <span
-            v-if="totalTarjetasHoy > 0"
-            class="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-mono font-semibold"
-          >
-            {{ totalTarjetasHoy }}
-          </span>
-        </button>
-
-        <!-- Agrupación por Carriles (Swimlanes) -->
-        <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/80 p-0.5 rounded-lg border border-zinc-200 dark:border-white/[0.08] text-xs">
-          <span class="text-[10px] text-zinc-500 font-medium px-1.5 hidden md:inline">Carriles:</span>
-          <button
-            @click="tipoAgrupacion = 'ninguna'"
-            class="px-2 py-1 rounded-md transition font-medium text-xs"
-            :class="tipoAgrupacion === 'ninguna' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            title="Vista estándar tradicional"
-          >
-            Estándar
-          </button>
-          <button
-            @click="tipoAgrupacion = 'responsable'"
-            class="px-2 py-1 rounded-md transition font-medium text-xs flex items-center gap-1"
-            :class="tipoAgrupacion === 'responsable' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            title="Agrupar filas por responsable"
-          >
-            <UserCheck class="w-3 h-3" />
-            <span>Por Responsable</span>
-          </button>
-          <button
-            @click="tipoAgrupacion = 'sector'"
-            class="px-2 py-1 rounded-md transition font-medium text-xs flex items-center gap-1"
-            :class="tipoAgrupacion === 'sector' ? 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-300 shadow-xs' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            title="Agrupar filas por sector económico"
-          >
-            <Briefcase class="w-3 h-3" />
-            <span>Por Sector</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between sm:justify-end gap-3 text-xs pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200 dark:border-white/[0.05]">
-        <span class="text-zinc-500 font-medium">Volumen Económico:</span>
-        <span class="font-mono font-semibold text-indigo-600 dark:text-indigo-400 text-sm">
-          {{ formatCurrency(metricasProgreso.montoCompletado + metricasProgreso.montoPendiente) }}
-        </span>
-      </div>
-    </div>
+    <PipelineFiltrosBar
+      v-model:vista-activa="vistaActiva"
+      v-model:busqueda="filtros.busqueda"
+      v-model:responsable="filtros.responsable"
+      v-model:prioridad="filtros.prioridad"
+      v-model:solo-estancados="filtroSoloEstancados"
+      v-model:solo-hoy="filtroSoloHoy"
+      v-model:tipo-agrupacion="tipoAgrupacion"
+      :tipo-pipeline="pipelineActivo?.tipo"
+      :opciones-responsables="opcionesResponsables"
+      :opciones-prioridades="opcionesPrioridades"
+      :total-tarjetas-estancadas="totalTarjetasEstancadas"
+      :total-tarjetas-hoy="totalTarjetasHoy"
+      :volumen-economico="metricasProgreso.montoCompletado + metricasProgreso.montoPendiente"
+      @recargar="cargarDatos"
+    />
 
     <!-- Tablero Kanban Dinámico protegido con FlickerlessSurface -->
     <FlickerlessSurface
@@ -1247,8 +1032,9 @@ watch(
               </span>
 
               <!-- Botón rápido para agregar tarjeta a esta columna -->
-              <button
-                @click="abrirModalNuevaTarjeta(col.id)"
+                  <button
+                    v-if="authStore.tienePermiso('pipeline:crear')"
+                    @click="abrirModalNuevaTarjeta(col.id)"
                 title="Agregar elemento en esta etapa"
                 class="w-5 h-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
               >
@@ -1257,8 +1043,9 @@ watch(
 
               <!-- Menú de opciones de la columna -->
               <div class="relative">
-                <button
-                  @click="columnaMenuAbiertoId = columnaMenuAbiertoId === col.id ? null : col.id"
+                  <button
+                    v-if="authStore.tienePermiso('pipeline:configurar')"
+                    @click="columnaMenuAbiertoId = columnaMenuAbiertoId === col.id ? null : col.id"
                   class="w-5 h-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition"
                   title="Opciones de columna"
                 >
@@ -1392,9 +1179,9 @@ watch(
 
         <!-- Tarjeta Especial: + Añadir Nueva Columna (Limitada a 10) -->
         <div class="w-72 shrink-0 self-start">
-          <button
-            v-if="(pipelineActivo?.columnas?.length || 0) < LIMITE_MAXIMO_COLUMNAS"
-            @click="abrirModalNuevaColumna"
+                <button
+                  v-if="authStore.tienePermiso('pipeline:configurar') && (pipelineActivo?.columnas?.length || 0) < LIMITE_MAXIMO_COLUMNAS"
+                  @click="abrirModalNuevaColumna"
             class="w-full py-8 border-2 border-dashed border-zinc-300 dark:border-zinc-800 hover:border-indigo-500/50 rounded-xl bg-zinc-50/50 dark:bg-zinc-950/40 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex flex-col items-center justify-center gap-2 transition group"
           >
             <div class="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 group-hover:bg-indigo-500/10 flex items-center justify-center text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition shadow-sm">

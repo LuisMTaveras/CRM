@@ -65,6 +65,28 @@ describe('AuthService - Autenticación y WhatsApp OTP', () => {
     expect(sesion.reglas).toBeDefined();
   });
 
+  it('rechaza solicitar OTP para un teléfono sin usuario asociado', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(authService.solicitarOtpWhatsApp('+1 (000) 000-0000')).rejects.toThrow(
+      'No se encontró un usuario comercial'
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('no inicia sesión con OTP si el teléfono no pertenece a un usuario', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, valido: true }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(authService.loginConOtp('+1 (000) 000-0000', '123456')).rejects.toThrow(
+      'no está activa'
+    );
+  });
+
   it('rechaza inicio de sesión cuando el OTP es incorrecto', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

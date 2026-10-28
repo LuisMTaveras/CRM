@@ -5,10 +5,11 @@ import type {
   CarpetaPersonalizada,
   ResumenEjecucionReglas,
 } from '../types/reglas-correo.types';
+import { API_BASE_URL as API_CRM_URL } from '@/core/api/api-config';
 
 const STORAGE_KEY_REGLAS = 'crm_reglas_correo_v2';
 const STORAGE_KEY_CARPETAS = 'crm_carpetas_personalizadas_v2';
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email`;
+const API_BASE_URL = `${API_CRM_URL}/email`;
 
 // Carpetas personalizadas predeterminadas
 const CARPETAS_DEFAULT: CarpetaPersonalizada[] = [

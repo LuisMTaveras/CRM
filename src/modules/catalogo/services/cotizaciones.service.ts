@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import type { Cotizacion, EstadoCotizacion } from '../types/catalogo.types';
 import { timelineService } from '@/modules/clientes/services/timeline.service';
 import { toastService } from '@/core/notifications/toast.service';
+import { formatCurrency } from '@/core/formatters/formatters';
 
 const CLAVE_STORAGE = 'crm_cotizaciones_v1';
 
@@ -173,7 +174,7 @@ class CotizacionesService {
       clienteId: nueva.cliente_id,
       tipo: 'propuesta',
       titulo: `Propuesta Comercial emitida (${nueva.numero_cotizacion})`,
-      descripcion: `Monto cotizado: RD$ ${nueva.total.toLocaleString()} para ${nueva.cliente_nombre}. Token de portal: ${nueva.token_aprobacion}`,
+      descripcion: `Monto cotizado: ${formatCurrency(nueva.total, { currency: nueva.moneda })} para ${nueva.cliente_nombre}. Token de portal: ${nueva.token_aprobacion}`,
       autor: 'Equipo Comercial',
     });
 
@@ -209,7 +210,7 @@ class CotizacionesService {
       clienteId: cot.cliente_id,
       tipo: 'cambio_etapa',
       titulo: `¡Propuesta APROBADA por el Cliente! (${cot.numero_cotizacion})`,
-      descripcion: `Aprobada digitalmente por ${cot.aprobado_por_nombre} (${cot.aprobado_por_cargo}). Monto cerrado: RD$ ${cot.total.toLocaleString()}.`,
+      descripcion: `Aprobada digitalmente por ${cot.aprobado_por_nombre} (${cot.aprobado_por_cargo}). Monto cerrado: ${formatCurrency(cot.total, { currency: cot.moneda })}.`,
       autor: 'Portal de Aprobación Web',
     });
 

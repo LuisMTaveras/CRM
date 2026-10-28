@@ -1,11 +1,23 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { notificacionesNativasService } from './notificaciones-nativas.service';
+
+class AudioFalso {
+  volume = 1;
+  play(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 describe('NotificacionesNativasService - Sonidos Chime Web Audio y Push de Escritorio', () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.stubGlobal('Audio', AudioFalso);
     notificacionesNativasService.sonidoHabilitado.value = true;
     notificacionesNativasService.escritorioHabilitado.value = true;
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
   });
 
   it('inicializa el estado de sonido y escritorio con valores predeterminados seguros', () => {

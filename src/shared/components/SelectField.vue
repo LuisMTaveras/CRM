@@ -144,7 +144,7 @@ const props = withDefaults(
     disabled?: boolean;
     borderless?: boolean;
   }>(),
-  { placeholder: 'Seleccionar…', compact: false, disabled: false, borderless: false },
+  { label: '', placeholder: 'Seleccionar…', compact: false, disabled: false, borderless: false },
 );
 
 const emit = defineEmits<{

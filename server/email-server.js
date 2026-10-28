@@ -1,22 +1,22 @@
 /**
- * CRM Email API Server — Nodemailer & ImapFlow Bridge
+ * CRM Email API Server â€” Nodemailer & ImapFlow Bridge
  * Puerto: 3002 (o PORT / EMAIL_PORT de entorno)
  * 
  * Rutas:
- *   GET    /api/email/estado              → Health check
- *   POST   /api/email/configuracion       → Guardar configuración persistente
- *   GET    /api/email/configuracion       → Obtener configuración activa
- *   POST   /api/email/probar-conexion     → Test SMTP handshake
- *   POST   /api/email/probar-imap         → Test IMAP handshake
- *   POST   /api/email/sincronizar         → Sincronizar correos reales vía IMAP
- *   GET/POST /api/email/carpetas          → Lista de carpetas con contadores reales
- *   GET/POST /api/email/mensajes          → Lista de correos paginados por carpeta
- *   GET    /api/email/mensajes/:id        → Detalle completo de un correo
- *   PATCH  /api/email/mensajes/:id        → Actualizar leido/destacado/mover carpeta
- *   POST   /api/email/responder           → Responder correo citando original y firma
- *   POST   /api/email/redactar            → Redactar nuevo correo con firma y pie
- *   POST   /api/email/enviar              → Enviar correo individual con adjunto PDF
- *   POST   /api/email/enviar-masivo       → Envío masivo a lista de clientes
+ *   GET    /api/email/estado              â†’ Health check
+ *   POST   /api/email/configuracion       â†’ Guardar configuraciÃ³n persistente
+ *   GET    /api/email/configuracion       â†’ Obtener configuraciÃ³n activa
+ *   POST   /api/email/probar-conexion     â†’ Test SMTP handshake
+ *   POST   /api/email/probar-imap         â†’ Test IMAP handshake
+ *   POST   /api/email/sincronizar         â†’ Sincronizar correos reales vÃ­a IMAP
+ *   GET/POST /api/email/carpetas          â†’ Lista de carpetas con contadores reales
+ *   GET/POST /api/email/mensajes          â†’ Lista de correos paginados por carpeta
+ *   GET    /api/email/mensajes/:id        â†’ Detalle completo de un correo
+ *   PATCH  /api/email/mensajes/:id        â†’ Actualizar leido/destacado/mover carpeta
+ *   POST   /api/email/responder           â†’ Responder correo citando original y firma
+ *   POST   /api/email/redactar            â†’ Redactar nuevo correo con firma y pie
+ *   POST   /api/email/enviar              â†’ Enviar correo individual con adjunto PDF
+ *   POST   /api/email/enviar-masivo       â†’ EnvÃ­o masivo a lista de clientes
  */
 
 import express from 'express';
@@ -42,18 +42,38 @@ const CARPETAS_DB_FILE = path.join(DATA_DIR, 'carpetas-db.json');
 import whatsappRoutes from './whatsapp/whatsapp-routes.js';
 import { whatsAppService } from './whatsapp/whatsapp-service.js';
 import { servicioEscuchaEmail } from './email-listener.js';
+import { opcionesTls } from './tls-options.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
+const HOST = process.env.HOST || '127.0.0.1';
+const ORIGENES_PERMITIDOS = (
+  process.env.CRM_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
+)
+  .split(',')
+  .map((origen) => origen.trim())
+  .filter(Boolean);
 
-app.use(cors({ origin: true, credentials: true }));
+app.disable('x-powered-by');
+app.use(
+  cors({
+    origin(origen, callback) {
+      // Sin cabecera Origin (curl, proxies locales) o explÃ­citamente permitido.
+      if (!origen || ORIGENES_PERMITIDOS.includes(origen)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Montar Rutas de WhatsApp Bridge
 app.use('/api/whatsapp', whatsappRoutes);
 
-// ─── PERSISTENCIA DE EMPRESA (BASE DE DATOS SERVIDOR) ──────────────────────
+// â”€â”€â”€ PERSISTENCIA DE EMPRESA (BASE DE DATOS SERVIDOR) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let datosEmpresaActiva = null;
 
 function cargarEmpresaServidor() {
@@ -80,10 +100,10 @@ function sanitizarConfiguracionConEmpresa(config) {
 
   // La firma institucional siempre se deriva del perfil de empresa persistido.
   if (nombreEmp) {
-    config.firmaTexto = `Atentamente,\nDepartamento Comercial & Facturación B2B\n${nombreEmp}${rnc ? ' • ' + rnc : ''}\n${dir}\n${tel}${web ? ' | ' + web : ''}`.trim();
+    config.firmaTexto = `Atentamente,\nDepartamento Comercial & FacturaciÃ³n B2B\n${nombreEmp}${rnc ? ' â€¢ ' + rnc : ''}\n${dir}\n${tel}${web ? ' | ' + web : ''}`.trim();
   }
   if (emp.nombreComercial || emp.razonSocial) {
-    config.nombreRemitente = `${emp.nombreComercial || emp.razonSocial} — Departamento Comercial`;
+    config.nombreRemitente = `${emp.nombreComercial || emp.razonSocial} â€” Departamento Comercial`;
   }
   config.correoRemitente = config.correoRemitente || config.usuarioSmtp || emp.correo || '';
   config.correoRespuesta = config.correoRespuesta || config.correoRemitente || emp.correo || '';
@@ -99,7 +119,7 @@ function resolverIdentidadRemitente(config) {
   };
 }
 
-// ─── PERSISTENCIA DE CONFIGURACIÓN ──────────────────────────────────────────
+// â”€â”€â”€ PERSISTENCIA DE CONFIGURACIÃ“N â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let configuracionActiva = null;
 
 function cargarConfiguracionServidor() {
@@ -107,7 +127,7 @@ function cargarConfiguracionServidor() {
     if (fs.existsSync(CONFIG_FILE)) {
       const data = fs.readFileSync(CONFIG_FILE, 'utf8');
       configuracionActiva = sanitizarConfiguracionConEmpresa(JSON.parse(data));
-      console.log(`[CONFIG] Configuración cargada desde email-config.json para: ${configuracionActiva.usuarioSmtp || configuracionActiva.usuarioImap}`);
+      console.log(`[CONFIG] ConfiguraciÃ³n cargada desde email-config.json para: ${configuracionActiva.usuarioSmtp || configuracionActiva.usuarioImap}`);
     }
   } catch (err) {
     console.warn('[CONFIG] No se pudo leer email-config.json:', err.message);
@@ -144,7 +164,7 @@ function guardarEmpresaServidor(datos) {
   }
 }
 
-// ─── HEALTH CHECK ────────────────────────────────────────────────────────────
+// â”€â”€â”€ HEALTH CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/estado', (_req, res) => {
   res.json({
     ok: true,
@@ -156,7 +176,7 @@ app.get('/api/email/estado', (_req, res) => {
   });
 });
 
-// ─── SSE: EVENTOS DE CORREO EN TIEMPO REAL ────────────────────────────────────
+// â”€â”€â”€ SSE: EVENTOS DE CORREO EN TIEMPO REAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/eventos', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -172,7 +192,7 @@ app.get('/api/email/eventos', (req, res) => {
   });
 });
 
-// ─── ESTADO Y CONTROL DEL SERVICIO DE ESCUCHA EN SEGUNDO PLANO ─────────────────
+// â”€â”€â”€ ESTADO Y CONTROL DEL SERVICIO DE ESCUCHA EN SEGUNDO PLANO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/servicio-escucha/estado', (_req, res) => {
   res.json({
     ok: true,
@@ -199,11 +219,11 @@ app.post('/api/email/servicio-escucha/alternar', async (req, res) => {
   });
 });
 
-// ─── GUARDAR / OBTENER CONFIGURACIÓN CORREO ──────────────────────────────────
+// â”€â”€â”€ GUARDAR / OBTENER CONFIGURACIÃ“N CORREO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/configuracion', (req, res) => {
   const config = req.body;
   if (!config) {
-    return res.status(400).json({ ok: false, error: 'Configuración vacía.' });
+    return res.status(400).json({ ok: false, error: 'ConfiguraciÃ³n vacÃ­a.' });
   }
   guardarConfiguracionServidor(config);
 
@@ -222,7 +242,7 @@ app.post('/api/email/configuracion', (req, res) => {
 
   res.json({
     ok: true,
-    mensaje: 'Configuración de correo guardada en el servidor exitosamente.',
+    mensaje: 'ConfiguraciÃ³n de correo guardada en el servidor exitosamente.',
   });
 });
 
@@ -232,14 +252,14 @@ app.get('/api/email/configuracion', (_req, res) => {
     configuracion: configuracionActiva
       ? {
           ...configuracionActiva,
-          contrasenaSmtp: configuracionActiva.contrasenaSmtp ? '••••••••••••' : '',
-          contrasenaImap: configuracionActiva.contrasenaImap ? '••••••••••••' : '',
+          contrasenaSmtp: configuracionActiva.contrasenaSmtp ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' : '',
+          contrasenaImap: configuracionActiva.contrasenaImap ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' : '',
         }
       : null,
   });
 });
 
-// ─── OBTENER / ACTUALIZAR PERFIL DE EMPRESA (DB) ──────────────────────────────
+// â”€â”€â”€ OBTENER / ACTUALIZAR PERFIL DE EMPRESA (DB) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get(['/api/empresa', '/api/email/empresa'], (_req, res) => {
   if (!datosEmpresaActiva) cargarEmpresaServidor();
   res.json({
@@ -251,7 +271,7 @@ app.get(['/api/empresa', '/api/email/empresa'], (_req, res) => {
 app.post(['/api/empresa', '/api/email/empresa'], (req, res) => {
   const datos = req.body;
   if (!datos || typeof datos !== 'object') {
-    return res.status(400).json({ ok: false, error: 'Datos de empresa inválidos.' });
+    return res.status(400).json({ ok: false, error: 'Datos de empresa invÃ¡lidos.' });
   }
   const exito = guardarEmpresaServidor(datos);
   res.json({
@@ -261,7 +281,7 @@ app.post(['/api/empresa', '/api/email/empresa'], (req, res) => {
   });
 });
 
-// ─── COMPROBACIÓN DE CONFIGURACIÓN DEMO / VACÍA ──────────────────────────────
+// â”€â”€â”€ COMPROBACIÃ“N DE CONFIGURACIÃ“N DEMO / VACÃA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function esConfiguracionDemo(config) {
   if (!config) return true;
   const s = (config.servidorSmtp || config.servidorImap || '').toLowerCase();
@@ -270,9 +290,9 @@ function esConfiguracionDemo(config) {
     s === 'simulacion' ||
     s.includes('empresa.com.do') ||
     c === '' ||
-    c.includes('••') ||
+    c.includes('â€¢â€¢') ||
     c.includes('\u2022') ||
-    /^[\*\•\?\s]+$/.test(c)
+    /^[\*\â€¢\?\s]+$/.test(c)
   );
 }
 
@@ -317,14 +337,14 @@ function resolverConfigSmtp(req) {
   return null;
 }
 
-// ─── PERSISTENCIA DE BASE DE DATOS DE CORREOS Y CARPETAS ─────────────────────
+// â”€â”€â”€ PERSISTENCIA DE BASE DE DATOS DE CORREOS Y CARPETAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let correosEnMemoria = [];
 let carpetasPersonalizadasDb = [];
 
 const CARPETAS_PREDETERMINADAS = [
-  { id: 'facturacion', nombre: 'Facturación y Pagos', color: 'emerald', creadaEn: new Date().toISOString() },
+  { id: 'facturacion', nombre: 'FacturaciÃ³n y Pagos', color: 'emerald', creadaEn: new Date().toISOString() },
   { id: 'verafeca', nombre: 'Verafeca SRL', color: 'indigo', creadaEn: new Date().toISOString() },
-  { id: 'licitaciones', nombre: 'Licitaciones Públicas', color: 'amber', creadaEn: new Date().toISOString() },
+  { id: 'licitaciones', nombre: 'Licitaciones PÃºblicas', color: 'amber', creadaEn: new Date().toISOString() },
   { id: 'proveedores', nombre: 'Proveedores', color: 'sky', creadaEn: new Date().toISOString() },
 ];
 
@@ -444,7 +464,7 @@ function obtenerListaCarpetas() {
   return carpetas;
 }
 
-// ─── BÚSQUEDA DE MAILBOX SEGÚN CARPETA ───────────────────────────────────────
+// â”€â”€â”€ BÃšSQUEDA DE MAILBOX SEGÃšN CARPETA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function mapearMailbox(list, carpetaId) {
   if (carpetaId === 'inbox') {
     const b = list.find((m) => m.path.toUpperCase() === 'INBOX' || m.name.toUpperCase() === 'INBOX');
@@ -489,7 +509,7 @@ function mapearMailbox(list, carpetaId) {
   return 'INBOX';
 }
 
-// ─── PARSEO REUTILIZABLE DE MENSAJES IMAP ─────────────────────────────────────
+// â”€â”€â”€ PARSEO REUTILIZABLE DE MENSAJES IMAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function parsearMensajeImap(msg, config, carpetaEfectiva, esCoincidenciaServidor = false) {
   let parsed = null;
   if (msg.source) {
@@ -560,12 +580,12 @@ async function parsearMensajeImap(msg, config, carpetaEfectiva, esCoincidenciaSe
   };
 }
 
-// ─── LÓGICA DE SINCRONIZACIÓN IMAP INCREMENTAL (DELTA & SCROLL LAZY-LOAD SYNC) ──
+// â”€â”€â”€ LÃ“GICA DE SINCRONIZACIÃ“N IMAP INCREMENTAL (DELTA & SCROLL LAZY-LOAD SYNC) â”€â”€
 async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limite = 35, offset = 0) {
   if (!config || esConfiguracionDemo(config)) {
     return {
       exito: false,
-      mensaje: 'La cuenta no tiene credenciales IMAP válidas o está en modo simulación.',
+      mensaje: 'La cuenta no tiene credenciales IMAP vÃ¡lidas o estÃ¡ en modo simulaciÃ³n.',
       sincronizados: 0,
       hayMas: false,
       modo: 'demo',
@@ -585,7 +605,7 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
       pass: config.contrasenaImap,
     },
     logger: false,
-    tls: { rejectUnauthorized: false },
+    tls: opcionesTls(),
     connectionTimeout: 12000,
     socketTimeout: 20000,
   });
@@ -605,7 +625,7 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
       await client.logout();
       return {
         exito: true,
-        mensaje: `No se encontró carpeta remota para "${carpetaEfectiva}" en el servidor.`,
+        mensaje: `No se encontrÃ³ carpeta remota para "${carpetaEfectiva}" en el servidor.`,
         sincronizados: 0,
         hayMas: false,
       };
@@ -632,7 +652,7 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
             // Comprobar si ya existe en la base de datos local
             const yaGuardado = correosEnMemoria.find((c) => c.uid === msg.uid || c.id === `msg-imap-${msg.uid}`);
             if (yaGuardado) {
-              // Actualizar solo banderas (leído, destacado) en milisegundos
+              // Actualizar solo banderas (leÃ­do, destacado) en milisegundos
               if (msg.flags) {
                 const nuevoLeido = msg.flags.has('\\Seen');
                 const nuevoDestacado = msg.flags.has('\\Flagged');
@@ -668,7 +688,7 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
       correosEnMemoria.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
       guardarCorreosDb(true);
 
-      // Actualizar último UID conocido en el servicio de escucha
+      // Actualizar Ãºltimo UID conocido en el servicio de escucha
       const maxUid = Math.max(...mensajesNuevos.map((m) => m.uid || 0));
       if (maxUid > servicioEscuchaEmail.ultimoUidConocido) {
         servicioEscuchaEmail.ultimoUidConocido = maxUid;
@@ -683,7 +703,7 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
       exito: true,
       mensaje: mensajesNuevos.length > 0
         ? `Se guardaron ${mensajesNuevos.length} correos en la base de datos.`
-        : 'Historial al día: no hay más correos en este rango.',
+        : 'Historial al dÃ­a: no hay mÃ¡s correos en este rango.',
       sincronizados: mensajesNuevos.length,
       totalExistentes,
       hayMas,
@@ -695,7 +715,7 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
     console.error('[IMAP SYNC ERROR]', err.message);
     return {
       exito: false,
-      mensaje: `Error al sincronizar vía IMAP: ${err.message}`,
+      mensaje: `Error al sincronizar vÃ­a IMAP: ${err.message}`,
       error: err.message,
       sincronizados: 0,
       hayMas: false,
@@ -704,12 +724,12 @@ async function sincronizarCorreosImap(config, carpetaSolicitada = 'inbox', limit
   }
 }
 
-// ─── BÚSQUEDA REMOTA EN SERVIDOR IMAP (ON-DEMAND REMOTE SEARCH) ───────────────
+// â”€â”€â”€ BÃšSQUEDA REMOTA EN SERVIDOR IMAP (ON-DEMAND REMOTE SEARCH) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'inbox', limite = 25) {
   if (!config || esConfiguracionDemo(config)) {
     return {
       exito: true,
-      mensaje: 'Búsqueda remota completada en simulación.',
+      mensaje: 'BÃºsqueda remota completada en simulaciÃ³n.',
       totalServidor: 0,
       nuevosDescargados: 0,
       mensajes: [],
@@ -729,7 +749,7 @@ async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'in
       pass: config.contrasenaImap,
     },
     logger: false,
-    tls: { rejectUnauthorized: false },
+    tls: opcionesTls(),
     connectionTimeout: 12000,
     socketTimeout: 20000,
   });
@@ -744,7 +764,7 @@ async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'in
       await client.logout();
       return {
         exito: true,
-        mensaje: `No se encontró carpeta remota para "${carpetaEfectiva}".`,
+        mensaje: `No se encontrÃ³ carpeta remota para "${carpetaEfectiva}".`,
         totalServidor: 0,
         nuevosDescargados: 0,
         mensajes: [],
@@ -789,12 +809,12 @@ async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'in
 
       totalCoincidencias = (uids || []).length;
 
-      // Filtrar los que no están en nuestra base de datos local
+      // Filtrar los que no estÃ¡n en nuestra base de datos local
       const uidsExistentes = new Set(correosEnMemoria.filter((c) => c.uid).map((c) => c.uid));
       const uidsFaltantes = (uids || []).filter((uid) => !uidsExistentes.has(uid));
 
       if (uidsFaltantes.length > 0) {
-        // Tomamos los más recientes (últimos N)
+        // Tomamos los mÃ¡s recientes (Ãºltimos N)
         const uidsATraer = uidsFaltantes.slice(-limite);
         for await (let msg of client.fetch(uidsATraer, {
           uid: true,
@@ -826,7 +846,7 @@ async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'in
 
     return {
       exito: true,
-      mensaje: `Búsqueda remota completada. ${totalCoincidencias} coincidencia(s) en servidor (${mensajesDescargados.length} nuevos indexados).`,
+      mensaje: `BÃºsqueda remota completada. ${totalCoincidencias} coincidencia(s) en servidor (${mensajesDescargados.length} nuevos indexados).`,
       totalServidor: totalCoincidencias,
       nuevosDescargados: mensajesDescargados.length,
       mensajes: mensajesDescargados,
@@ -845,7 +865,7 @@ async function buscarCorreosRemotoImap(config, busqueda, carpetaSolicitada = 'in
   }
 }
 
-// ─── ENDPOINT SINCRONIZAR (Con soporte de scroll/offset) ──────────────────────
+// â”€â”€â”€ ENDPOINT SINCRONIZAR (Con soporte de scroll/offset) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/sincronizar', async (req, res) => {
   const config = resolverConfigImap(req);
   const carpeta = (req.body?.carpeta || 'inbox').toLowerCase();
@@ -855,7 +875,7 @@ app.post('/api/email/sincronizar', async (req, res) => {
   if (!config) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'Faltan parámetros de configuración IMAP (servidorImap, usuarioImap, contrasenaImap).',
+      mensaje: 'Faltan parÃ¡metros de configuraciÃ³n IMAP (servidorImap, usuarioImap, contrasenaImap).',
       sincronizados: 0,
       hayMas: false,
     });
@@ -876,7 +896,7 @@ app.post('/api/email/sincronizar', async (req, res) => {
   });
 });
 
-// ─── ENDPOINT BÚSQUEDA REMOTA EN SERVIDOR IMAP ──────────────────────────────
+// â”€â”€â”€ ENDPOINT BÃšSQUEDA REMOTA EN SERVIDOR IMAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/buscar-remoto', async (req, res) => {
   const config = resolverConfigImap(req);
   const busqueda = (req.body?.busqueda || '').trim();
@@ -886,7 +906,7 @@ app.post('/api/email/buscar-remoto', async (req, res) => {
   if (!busqueda) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'El parámetro "busqueda" es obligatorio.',
+      mensaje: 'El parÃ¡metro "busqueda" es obligatorio.',
       totalServidor: 0,
       nuevosDescargados: 0,
       mensajes: [],
@@ -896,7 +916,7 @@ app.post('/api/email/buscar-remoto', async (req, res) => {
   if (!config) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'Faltan parámetros de configuración IMAP para realizar la búsqueda remota.',
+      mensaje: 'Faltan parÃ¡metros de configuraciÃ³n IMAP para realizar la bÃºsqueda remota.',
       totalServidor: 0,
       nuevosDescargados: 0,
       mensajes: [],
@@ -910,21 +930,21 @@ app.post('/api/email/buscar-remoto', async (req, res) => {
   });
 });
 
-// ─── PROBAR CONEXIÓN SMTP ────────────────────────────────────────────────────
+// â”€â”€â”€ PROBAR CONEXIÃ“N SMTP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/probar-conexion', async (req, res) => {
   const { servidorSmtp, puertoSmtp, seguridadSmtp, usuarioSmtp, contrasenaSmtp } = req.body;
 
   if (!servidorSmtp || !usuarioSmtp) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'Faltan parámetros obligatorios: servidorSmtp y usuarioSmtp.',
+      mensaje: 'Faltan parÃ¡metros obligatorios: servidorSmtp y usuarioSmtp.',
     });
   }
 
   if (esConfiguracionDemo({ servidorSmtp, contrasenaSmtp })) {
     return res.json({
       exito: true,
-      mensaje: `Conexión SMTP simulada exitosa en puerto ${PORT}. Servidor listo en modo simulación.`,
+      mensaje: `ConexiÃ³n SMTP simulada exitosa en puerto ${PORT}. Servidor listo en modo simulaciÃ³n.`,
       latenciaMs: 15,
       detalles: {
         smtpConectado: true,
@@ -946,7 +966,7 @@ app.post('/api/email/probar-conexion', async (req, res) => {
       connectionTimeout: 10000,
       greetingTimeout: 5000,
       socketTimeout: 10000,
-      tls: { rejectUnauthorized: false },
+      tls: opcionesTls(),
     });
 
     await transporter.verify();
@@ -956,7 +976,7 @@ app.post('/api/email/probar-conexion', async (req, res) => {
 
     return res.json({
       exito: true,
-      mensaje: `Conexión SMTP exitosa con ${servidorSmtp}:${puertoSmtp} en ${latencia}ms. Autenticación aceptada para ${usuarioSmtp}.`,
+      mensaje: `ConexiÃ³n SMTP exitosa con ${servidorSmtp}:${puertoSmtp} en ${latencia}ms. AutenticaciÃ³n aceptada para ${usuarioSmtp}.`,
       latenciaMs: latencia,
       detalles: {
         smtpConectado: true,
@@ -977,21 +997,21 @@ app.post('/api/email/probar-conexion', async (req, res) => {
   }
 });
 
-// ─── PROBAR CONEXIÓN IMAP ────────────────────────────────────────────────────
+// â”€â”€â”€ PROBAR CONEXIÃ“N IMAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/probar-imap', async (req, res) => {
   const { servidorImap, puertoImap, seguridadImap, usuarioImap, contrasenaImap } = req.body;
 
   if (!servidorImap || !usuarioImap) {
     return res.status(400).json({
       exito: false,
-      mensaje: 'Faltan parámetros obligatorios: servidorImap y usuarioImap.',
+      mensaje: 'Faltan parÃ¡metros obligatorios: servidorImap y usuarioImap.',
     });
   }
 
   if (esConfiguracionDemo({ servidorImap, contrasenaImap })) {
     return res.json({
       exito: true,
-      mensaje: `Conexión IMAP simulada exitosa. Bandeja activa en modo simulación.`,
+      mensaje: `ConexiÃ³n IMAP simulada exitosa. Bandeja activa en modo simulaciÃ³n.`,
       latenciaMs: 18,
       detalles: {
         imapConectado: true,
@@ -1008,7 +1028,7 @@ app.post('/api/email/probar-imap', async (req, res) => {
     secure: seguridadImap === 'ssl' || parseInt(puertoImap) === 993,
     auth: { user: usuarioImap, pass: contrasenaImap || '' },
     logger: false,
-    tls: { rejectUnauthorized: false },
+    tls: opcionesTls(),
   });
 
   try {
@@ -1021,7 +1041,7 @@ app.post('/api/email/probar-imap', async (req, res) => {
 
     return res.json({
       exito: true,
-      mensaje: `Conexión IMAP exitosa con ${servidorImap}:${puertoImap} en ${latencia}ms. ${mailboxes.length} carpetas detectadas en la cuenta ${usuarioImap}.`,
+      mensaje: `ConexiÃ³n IMAP exitosa con ${servidorImap}:${puertoImap} en ${latencia}ms. ${mailboxes.length} carpetas detectadas en la cuenta ${usuarioImap}.`,
       latenciaMs: latencia,
       detalles: {
         imapConectado: true,
@@ -1036,17 +1056,17 @@ app.post('/api/email/probar-imap', async (req, res) => {
     try { await client.logout(); } catch {}
     return res.json({
       exito: false,
-      mensaje: `Error de conexión IMAP: ${err.message || 'Verifique servidor, puerto y contraseña de aplicación.'}`,
+      mensaje: `Error de conexiÃ³n IMAP: ${err.message || 'Verifique servidor, puerto y contraseÃ±a de aplicaciÃ³n.'}`,
       latenciaMs: latencia,
       detalles: { imapConectado: false, autenticacionAceptada: false },
     });
   }
 });
 
-// ─── CARPETAS Y CONTADORES ───────────────────────────────────────────────────
-// ─── CARPETAS Y CONTADORES ───────────────────────────────────────────────────
+// â”€â”€â”€ CARPETAS Y CONTADORES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ CARPETAS Y CONTADORES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.all(['/api/email/carpetas'], async (req, res) => {
-  // Si envían POST con { nombre }, crear carpeta personalizada
+  // Si envÃ­an POST con { nombre }, crear carpeta personalizada
   if (req.method === 'POST' && req.body?.nombre && typeof req.body.nombre === 'string') {
     const { nombre, color } = req.body;
     const nombreLimpio = nombre.trim();
@@ -1091,7 +1111,7 @@ app.all(['/api/email/carpetas'], async (req, res) => {
   });
 });
 
-// ─── CREAR CARPETA PERSONALIZADA DIRECTAMENTE ────────────────────────────────
+// â”€â”€â”€ CREAR CARPETA PERSONALIZADA DIRECTAMENTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post(['/api/email/carpetas/crear'], (req, res) => {
   const { nombre, color } = req.body || {};
   const nombreLimpio = (nombre || '').trim();
@@ -1127,7 +1147,7 @@ app.post(['/api/email/carpetas/crear'], (req, res) => {
   });
 });
 
-// ─── ELIMINAR CARPETA PERSONALIZADA (REUBICANDO CORREOS A BANDEJA) ───────────
+// â”€â”€â”€ ELIMINAR CARPETA PERSONALIZADA (REUBICANDO CORREOS A BANDEJA) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.delete('/api/email/carpetas/:id', (req, res) => {
   const { id } = req.params;
   const standardIds = ['inbox', 'enviados', 'borradores', 'archivados', 'papelera'];
@@ -1141,7 +1161,7 @@ app.delete('/api/email/carpetas/:id', (req, res) => {
 
   const idx = carpetasPersonalizadasDb.findIndex((c) => c.id === id);
   if (idx === -1) {
-    // Si no está en la lista de carpetas pero hay correos con esa carpeta, aún así reubicar
+    // Si no estÃ¡ en la lista de carpetas pero hay correos con esa carpeta, aÃºn asÃ­ reubicar
     let reubicados = 0;
     for (const c of correosEnMemoria) {
       if (c.carpeta === id) {
@@ -1161,7 +1181,7 @@ app.delete('/api/email/carpetas/:id', (req, res) => {
   const [eliminada] = carpetasPersonalizadasDb.splice(idx, 1);
   guardarCarpetasDb();
 
-  // Reubicar todos los correos que pertenecían a esta carpeta a la Bandeja de entrada
+  // Reubicar todos los correos que pertenecÃ­an a esta carpeta a la Bandeja de entrada
   let reubicados = 0;
   for (const c of correosEnMemoria) {
     if (c.carpeta === id) {
@@ -1185,7 +1205,7 @@ app.delete('/api/email/carpetas/:id', (req, res) => {
   });
 });
 
-// ─── ELIMINAR MENSAJE (O MOVER A PAPELERA) ───────────────────────────────────
+// â”€â”€â”€ ELIMINAR MENSAJE (O MOVER A PAPELERA) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.delete('/api/email/mensajes/:id', (req, res) => {
   const { id } = req.params;
   const idx = correosEnMemoria.findIndex((c) => c.id === id || String(c.uid) === id);
@@ -1195,7 +1215,7 @@ app.delete('/api/email/mensajes/:id', (req, res) => {
   }
 
   const msg = correosEnMemoria[idx];
-  // Si ya está en la papelera, eliminación definitiva
+  // Si ya estÃ¡ en la papelera, eliminaciÃ³n definitiva
   if (msg.carpeta === 'papelera') {
     correosEnMemoria.splice(idx, 1);
     guardarCorreosDb(true);
@@ -1207,7 +1227,7 @@ app.delete('/api/email/mensajes/:id', (req, res) => {
     });
   }
 
-  // Si no está en papelera, mover a papelera
+  // Si no estÃ¡ en papelera, mover a papelera
   msg.carpeta = 'papelera';
   guardarCorreosDb(true);
 
@@ -1220,7 +1240,7 @@ app.delete('/api/email/mensajes/:id', (req, res) => {
   });
 });
 
-// ─── UTILIDAD: NORMALIZAR RAÍZ DE ASUNTO PARA HILOS ─────────────────────────
+// â”€â”€â”€ UTILIDAD: NORMALIZAR RAÃZ DE ASUNTO PARA HILOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function normalizarRaizAsunto(asunto) {
   if (!asunto) return '';
   return asunto
@@ -1228,7 +1248,7 @@ function normalizarRaizAsunto(asunto) {
     .trim();
 }
 
-// ─── NOVEDADES RÁPIDAS (Polling Ligero en Segundo Plano) ─────────────────────
+// â”€â”€â”€ NOVEDADES RÃPIDAS (Polling Ligero en Segundo Plano) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/novedades', (req, res) => {
   const carpeta = (req.query.carpeta || 'inbox').toLowerCase();
   const enCarpeta = correosEnMemoria.filter((c) => c.carpeta === carpeta);
@@ -1245,7 +1265,7 @@ app.get('/api/email/novedades', (req, res) => {
   });
 });
 
-// ─── OBTENER HILO COMPLETO DE CONVERSACIÓN ──────────────────────────────────
+// â”€â”€â”€ OBTENER HILO COMPLETO DE CONVERSACIÃ“N â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/hilo/:id', (req, res) => {
   const { id } = req.params;
   const msgOriginal = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
@@ -1260,7 +1280,7 @@ app.get('/api/email/hilo/:id', (req, res) => {
     ...(msgOriginal.para || []).map((p) => p.correo?.toLowerCase()),
   ].filter(Boolean);
 
-  // Encontrar todos los mensajes con la misma raíz de asunto y al menos 1 participante en común
+  // Encontrar todos los mensajes con la misma raÃ­z de asunto y al menos 1 participante en comÃºn
   const mensajesHilo = correosEnMemoria.filter((c) => {
     const raizC = normalizarRaizAsunto(c.asunto).toLowerCase();
     if (raizC !== raiz) return false;
@@ -1273,7 +1293,7 @@ app.get('/api/email/hilo/:id', (req, res) => {
     return participantes.some((p) => partC.includes(p));
   });
 
-  // Orden cronológico para lectura natural de conversación
+  // Orden cronolÃ³gico para lectura natural de conversaciÃ³n
   mensajesHilo.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
   res.json({
@@ -1284,7 +1304,7 @@ app.get('/api/email/hilo/:id', (req, res) => {
   });
 });
 
-// ─── LISTAR MENSAJES PAGINADOS (Bandeja / Carpetas / Búsqueda Global) ───────
+// â”€â”€â”€ LISTAR MENSAJES PAGINADOS (Bandeja / Carpetas / BÃºsqueda Global) â”€â”€â”€â”€â”€â”€â”€
 app.all(['/api/email/mensajes'], async (req, res) => {
   const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
   const carpeta = (params.carpeta || 'inbox').toLowerCase();
@@ -1294,7 +1314,7 @@ app.all(['/api/email/mensajes'], async (req, res) => {
   const esBusquedaGlobal = params.global === 'true' || carpeta === 'todas';
   const filtro = params.filtro || 'todos'; // todos | noLeidos | destacados | conAdjuntos
 
-  // Si se solicita sincronización explícita
+  // Si se solicita sincronizaciÃ³n explÃ­cita
   const config = resolverConfigImap(req);
   if (params.sincronizar === 'true' && config && !esConfiguracionDemo(config)) {
     try {
@@ -1318,7 +1338,7 @@ app.all(['/api/email/mensajes'], async (req, res) => {
     filtrados = filtrados.filter((c) => c.tieneAdjuntos || (c.adjuntos && c.adjuntos.length > 0));
   }
 
-  // Búsqueda profunda en asunto, remitente, destinatarios, extracto y cuerpo
+  // BÃºsqueda profunda en asunto, remitente, destinatarios, extracto y cuerpo
   if (busqueda) {
     filtrados = filtrados.filter((c) => {
       const enAsunto = (c.asunto || '').toLowerCase().includes(busqueda);
@@ -1336,7 +1356,7 @@ app.all(['/api/email/mensajes'], async (req, res) => {
 
   filtrados.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-  // Añadir metadatos de hilo calculados
+  // AÃ±adir metadatos de hilo calculados
   const enriquecidos = filtrados.map((c) => {
     const raiz = normalizarRaizAsunto(c.asunto);
     const totalEnHilo = correosEnMemoria.filter(
@@ -1368,7 +1388,7 @@ app.all(['/api/email/mensajes'], async (req, res) => {
   });
 });
 
-// ─── OBTENER DETALLE DE MENSAJE ──────────────────────────────────────────────
+// â”€â”€â”€ OBTENER DETALLE DE MENSAJE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/mensajes/:id', (req, res) => {
   const { id } = req.params;
   const mensaje = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
@@ -1388,7 +1408,7 @@ app.get('/api/email/mensajes/:id', (req, res) => {
   });
 });
 
-// ─── DESCARGAR ADJUNTO ESPECÍFICO ──────────────────────────────────────────
+// â”€â”€â”€ DESCARGAR ADJUNTO ESPECÃFICO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/email/mensajes/:id/adjuntos/:attId', (req, res) => {
   const { id, attId } = req.params;
   const mensaje = correosEnMemoria.find((c) => c.id === id || String(c.uid) === id);
@@ -1425,7 +1445,7 @@ app.get('/api/email/mensajes/:id/adjuntos/:attId', (req, res) => {
   return res.send(fallback);
 });
 
-// ─── ACTUALIZAR ESTADO DE MENSAJE (Leído, Destacado, Mover carpeta) ──────────
+// â”€â”€â”€ ACTUALIZAR ESTADO DE MENSAJE (LeÃ­do, Destacado, Mover carpeta) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.patch('/api/email/mensajes/:id', async (req, res) => {
   const { id } = req.params;
   const { leido, destacado, carpeta } = req.body;
@@ -1443,7 +1463,7 @@ app.patch('/api/email/mensajes/:id', async (req, res) => {
 
   guardarCorreosDb(true);
 
-  // Si tiene UID y configuración IMAP real, sincronizar flag al servidor remoto
+  // Si tiene UID y configuraciÃ³n IMAP real, sincronizar flag al servidor remoto
   if (mensaje.uid && configuracionActiva && !esConfiguracionDemo(configuracionActiva)) {
     try {
       const client = new ImapFlow({
@@ -1452,7 +1472,7 @@ app.patch('/api/email/mensajes/:id', async (req, res) => {
         secure: configuracionActiva.seguridadImap === 'ssl' || parseInt(configuracionActiva.puertoImap) === 993,
         auth: { user: configuracionActiva.usuarioImap, pass: configuracionActiva.contrasenaImap },
         logger: false,
-        tls: { rejectUnauthorized: false },
+        tls: opcionesTls(),
       });
       await client.connect();
       const lock = await client.getMailboxLock('INBOX');
@@ -1480,11 +1500,11 @@ app.patch('/api/email/mensajes/:id', async (req, res) => {
   });
 });
 
-// ─── MOVER MENSAJES EN LOTE (REGLAS AUTOMÁTICAS O SELECCIÓN) ──────────────────
+// â”€â”€â”€ MOVER MENSAJES EN LOTE (REGLAS AUTOMÃTICAS O SELECCIÃ“N) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/mensajes/lote/mover', (req, res) => {
   const { ids, carpeta } = req.body;
   if (!Array.isArray(ids) || !carpeta) {
-    return res.status(400).json({ ok: false, error: 'Parámetros requeridos: ids (array) y carpeta (string).' });
+    return res.status(400).json({ ok: false, error: 'ParÃ¡metros requeridos: ids (array) y carpeta (string).' });
   }
 
   const carpetaNormalizada = carpeta.toLowerCase().trim();
@@ -1509,7 +1529,7 @@ app.post('/api/email/mensajes/lote/mover', (req, res) => {
   });
 });
 
-// ─── LIMPIAR MEMORIA DE CORREOS (REINICIO DESDE CERO) ─────────────────────────
+// â”€â”€â”€ LIMPIAR MEMORIA DE CORREOS (REINICIO DESDE CERO) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post(['/api/email/limpiar-memoria', '/api/email/vaciar'], (_req, res) => {
   correosEnMemoria = [];
   guardarCorreosDb(true);
@@ -1520,7 +1540,7 @@ app.post(['/api/email/limpiar-memoria', '/api/email/vaciar'], (_req, res) => {
   });
 });
 
-// ─── RESPONDER CORREO CON FIRMA, PIE INSTITUCIONAL Y CITA ────────────────────
+// â”€â”€â”€ RESPONDER CORREO CON FIRMA, PIE INSTITUCIONAL Y CITA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/responder', async (req, res) => {
   const {
     smtpConfig,
@@ -1559,7 +1579,7 @@ app.post('/api/email/responder', async (req, res) => {
     const fechaTexto = mensajeOriginal.fecha ? new Date(mensajeOriginal.fecha).toLocaleString('es-DO') : 'anteriormente';
     const remitenteTexto = mensajeOriginal.de?.nombre || mensajeOriginal.de?.correo || 'el remitente';
     htmlFinal += `<br><div style="margin-top: 24px; padding-left: 12px; border-left: 3px solid #cbd5e1; color: #64748b; font-size: 12px;">
-      <p style="margin: 0 0 8px 0; color: #475569; font-weight: bold;">El ${fechaTexto}, ${remitenteTexto} escribió:</p>
+      <p style="margin: 0 0 8px 0; color: #475569; font-weight: bold;">El ${fechaTexto}, ${remitenteTexto} escribiÃ³:</p>
       <div>${mensajeOriginal.cuerpoHtml || mensajeOriginal.cuerpoTexto || mensajeOriginal.extracto || ''}</div>
     </div>`;
   }
@@ -1583,7 +1603,7 @@ app.post('/api/email/responder', async (req, res) => {
         to: destinatario,
         cc: cc || undefined,
         bcc: cco || undefined,
-        subject: asunto || 'Re: Comunicación',
+        subject: asunto || 'Re: ComunicaciÃ³n',
         text: cuerpo,
         html: htmlFinal,
       });
@@ -1594,7 +1614,7 @@ app.post('/api/email/responder', async (req, res) => {
       return res.status(500).json({ exito: false, error: traducirErrorSmtp(err.code, err.message) });
     }
   } else {
-    console.log(`[SIMULACIÓN RESPUESTA] Enviada a ${destinatario} | Asunto: "${asunto}"`);
+    console.log(`[SIMULACIÃ“N RESPUESTA] Enviada a ${destinatario} | Asunto: "${asunto}"`);
   }
 
   const mensajeEnviado = {
@@ -1605,7 +1625,7 @@ app.post('/api/email/responder', async (req, res) => {
     de: { nombre: remitenteNombre, correo: remitenteCorreo },
     para: [{ nombre: destinatario, correo: destinatario }],
     cc: cc ? [{ nombre: cc, correo: cc }] : undefined,
-    asunto: asunto || 'Re: Comunicación',
+    asunto: asunto || 'Re: ComunicaciÃ³n',
     extracto: cuerpo.substring(0, 120) + '...',
     cuerpoTexto: cuerpo,
     cuerpoHtml: htmlFinal,
@@ -1626,7 +1646,7 @@ app.post('/api/email/responder', async (req, res) => {
   });
 });
 
-// ─── REDACTAR NUEVO CORREO ───────────────────────────────────────────────────
+// â”€â”€â”€ REDACTAR NUEVO CORREO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/redactar', async (req, res) => {
   const {
     smtpConfig,
@@ -1709,11 +1729,11 @@ app.post('/api/email/redactar', async (req, res) => {
     exito: true,
     mensajeId: nuevoId,
     mensajeEnviado,
-    mensaje: 'Correo enviado y registrado en Enviados con éxito.',
+    mensaje: 'Correo enviado y registrado en Enviados con Ã©xito.',
   });
 });
 
-// ─── ENVIAR CORREO INDIVIDUAL CON ADJUNTO PDF ────────────────────────────────
+// â”€â”€â”€ ENVIAR CORREO INDIVIDUAL CON ADJUNTO PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/enviar', async (req, res) => {
   const { smtpConfig, destinatario, asunto, cuerpo, adjuntoNombre, adjuntoBase64 } = req.body;
   const config = smtpConfig || resolverConfigSmtp(req);
@@ -1723,12 +1743,12 @@ app.post('/api/email/enviar', async (req, res) => {
   }
 
   if (esConfiguracionDemo(config)) {
-    console.log(`[SMTP SIMULACIÓN] Despacho a: ${destinatario} | Asunto: "${asunto}" | Adjunto: "${adjuntoNombre}"`);
+    console.log(`[SMTP SIMULACIÃ“N] Despacho a: ${destinatario} | Asunto: "${asunto}" | Adjunto: "${adjuntoNombre}"`);
     return res.json({
       exito: true,
       messageId: `<sim-${Date.now()}@crm-local>`,
       modo: 'demo',
-      mensaje: 'Envío registrado exitosamente en modo simulación.',
+      mensaje: 'EnvÃ­o registrado exitosamente en modo simulaciÃ³n.',
     });
   }
 
@@ -1762,7 +1782,7 @@ app.post('/api/email/enviar', async (req, res) => {
   }
 });
 
-// ─── ENVÍO MASIVO ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ ENVÃO MASIVO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/email/enviar-masivo', async (req, res) => {
   const { smtpConfig, correos } = req.body;
   const config = smtpConfig || resolverConfigSmtp(req);
@@ -1772,7 +1792,7 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
   }
 
   if (esConfiguracionDemo(config)) {
-    console.log(`[SMTP MASIVO SIMULACIÓN] Despacho de ${correos.length} correos en modo simulación`);
+    console.log(`[SMTP MASIVO SIMULACIÃ“N] Despacho de ${correos.length} correos en modo simulaciÃ³n`);
     const resultados = correos.map((c) => ({
       destinatario: c.destinatario,
       exito: true,
@@ -1822,7 +1842,7 @@ app.post('/api/email/enviar-masivo', async (req, res) => {
   return res.json({ exito: fallidos === 0, total: correos.length, exitosos, fallidos, resultados, modo: 'real' });
 });
 
-// ─── UTILIDADES ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ UTILIDADES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function crearTransporter(config) {
   return nodemailer.createTransport({
     host: config.servidorSmtp,
@@ -1835,7 +1855,7 @@ function crearTransporter(config) {
     socketTimeout: 15000,
     pool: true,
     maxConnections: 3,
-    tls: { rejectUnauthorized: false },
+    tls: opcionesTls(),
   });
 }
 
@@ -1874,7 +1894,7 @@ function convertirTextoAHtml(texto, nombreAdjunto = null) {
     <div style="margin-bottom: 20px; padding: 10px 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
       <table cellpadding="0" cellspacing="0" border="0" style="font-size: 12px; color: #334155;">
         <tr>
-          <td style="padding-right: 8px; font-size: 14px;">📎</td>
+          <td style="padding-right: 8px; font-size: 14px;">ðŸ“Ž</td>
           <td style="font-weight: 600; color: #0f172a; padding-right: 6px;">Documento Adjunto:</td>
           <td style="color: #4f46e5; font-weight: 600;">${nombreAdjunto}</td>
           <td style="padding-left: 8px; font-size: 11px; color: #64748b;">(PDF Oficial B2B Verificado)</td>
@@ -1894,7 +1914,7 @@ function convertirTextoAHtml(texto, nombreAdjunto = null) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comunicación Oficial</title>
+  <title>ComunicaciÃ³n Oficial</title>
 </head>
 <body style="margin: 0; padding: 24px 12px; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
   <div style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
@@ -1905,8 +1925,8 @@ function convertirTextoAHtml(texto, nombreAdjunto = null) {
       ${bloqueFirma}
     </div>
     <div style="padding: 14px 26px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 10.5px; color: #94a3b8; text-align: center; line-height: 1.4;">
-      Este mensaje y sus documentos adjuntos son de carácter confidencial y para uso exclusivo del destinatario.<br>
-      Conforme a la Ley No. 126-02 y Ley No. 172-13 sobre Protección de Datos de la República Dominicana.
+      Este mensaje y sus documentos adjuntos son de carÃ¡cter confidencial y para uso exclusivo del destinatario.<br>
+      Conforme a la Ley No. 126-02 y Ley No. 172-13 sobre ProtecciÃ³n de Datos de la RepÃºblica Dominicana.
     </div>
   </div>
 </body>
@@ -1915,35 +1935,35 @@ function convertirTextoAHtml(texto, nombreAdjunto = null) {
 
 function traducirErrorSmtp(code, mensaje) {
   const t = {
-    ECONNREFUSED: 'Conexión rechazada — verifique el host y el puerto SMTP.',
-    ENOTFOUND: 'Servidor no encontrado — revise el nombre del host SMTP.',
-    ETIMEDOUT: 'Tiempo de espera agotado — el servidor no respondió.',
-    EAUTH: 'Credenciales incorrectas — revise usuario y contraseña SMTP.',
-    ESOCKET: 'Error SSL/TLS — pruebe cambiar el tipo de cifrado.',
+    ECONNREFUSED: 'ConexiÃ³n rechazada â€” verifique el host y el puerto SMTP.',
+    ENOTFOUND: 'Servidor no encontrado â€” revise el nombre del host SMTP.',
+    ETIMEDOUT: 'Tiempo de espera agotado â€” el servidor no respondiÃ³.',
+    EAUTH: 'Credenciales incorrectas â€” revise usuario y contraseÃ±a SMTP.',
+    ESOCKET: 'Error SSL/TLS â€” pruebe cambiar el tipo de cifrado.',
     EMESSAGE: 'Error en el formato del mensaje.',
-    EENVELOPE: 'Dirección de remitente o destinatario inválida.',
+    EENVELOPE: 'DirecciÃ³n de remitente o destinatario invÃ¡lida.',
   };
   return t[code] || mensaje || 'Error SMTP desconocido.';
 }
 
-// ─── START ─────────────────────────────────────────────────────────────────────
-const server = app.listen(PORT, () => {
-  console.log(`\n🚀 CRM Unified Server (Email & WhatsApp) activo en http://localhost:${PORT}`);
-  console.log(`   GET   /api/email/estado          → Health check Email`);
-  console.log(`   GET   /api/whatsapp/estado       → Health check & QR WhatsApp`);
-  console.log(`   POST  /api/whatsapp/conectar     → Iniciar conexión WhatsApp Web`);
-  console.log(`   POST  /api/whatsapp/enviar-mensaje → Enviar WhatsApp texto`);
-  console.log(`   POST  /api/whatsapp/enviar-documento → Enviar PDF por WhatsApp\n`);
+// â”€â”€â”€ START â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const server = app.listen(PORT, HOST, () => {
+  console.log(`\nðŸš€ CRM Unified Server (Email & WhatsApp) activo en http://${HOST}:${PORT}`);
+  console.log(`   GET   /api/email/estado          â†’ Health check Email`);
+  console.log(`   GET   /api/whatsapp/estado       â†’ Health check & QR WhatsApp`);
+  console.log(`   POST  /api/whatsapp/conectar     â†’ Iniciar conexiÃ³n WhatsApp Web`);
+  console.log(`   POST  /api/whatsapp/enviar-mensaje â†’ Enviar WhatsApp texto`);
+  console.log(`   POST  /api/whatsapp/enviar-documento â†’ Enviar PDF por WhatsApp\n`);
 
-  // Auto-reconexión persistente de WhatsApp Web si ya fue vinculado previamente
+  // Auto-reconexiÃ³n persistente de WhatsApp Web si ya fue vinculado previamente
   if (typeof whatsAppService.tieneSesionGuardada === 'function' && whatsAppService.tieneSesionGuardada()) {
-    console.log('🔄 [WhatsApp] Sesión previa detectada en disco. Restaurando conexión de WhatsApp Web...');
+    console.log('ðŸ”„ [WhatsApp] SesiÃ³n previa detectada en disco. Restaurando conexiÃ³n de WhatsApp Web...');
     whatsAppService.iniciarConexion().catch((err) => {
-      console.warn('[WhatsApp] Aviso al restaurar conexión automática:', err.message);
+      console.warn('[WhatsApp] Aviso al restaurar conexiÃ³n automÃ¡tica:', err.message);
     });
   }
 
-  // Inicio automático del servicio de escucha de correos en segundo plano
+  // Inicio automÃ¡tico del servicio de escucha de correos en segundo plano
   if (configuracionActiva && configuracionActiva.habilitarImap) {
     servicioEscuchaEmail.iniciar({
       configGetter: () => configuracionActiva,
@@ -1959,15 +1979,15 @@ const server = app.listen(PORT, () => {
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.warn(`⚠️  [EMAIL SERVER] El puerto ${PORT} ya está en uso. Otra instancia ya se encuentra activa.`);
+    console.warn(`âš ï¸  [EMAIL SERVER] El puerto ${PORT} ya estÃ¡ en uso. Otra instancia ya se encuentra activa.`);
   } else {
-    console.error('❌ [EMAIL SERVER] Error inesperado en el servidor:', err);
+    console.error('âŒ [EMAIL SERVER] Error inesperado en el servidor:', err);
   }
 });
 
-// Cierre ordenado para no corromper la sesión de WhatsApp ni el socket
+// Cierre ordenado para no corromper la sesiÃ³n de WhatsApp ni el socket
 const cerrarGracefully = () => {
-  console.log('\n🛑 Cerrando servidor unificado de forma limpia...');
+  console.log('\nðŸ›‘ Cerrando servidor unificado de forma limpia...');
   if (servicioEscuchaEmail) {
     try {
       servicioEscuchaEmail.detener();

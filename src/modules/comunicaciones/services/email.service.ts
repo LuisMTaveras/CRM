@@ -6,6 +6,7 @@ import { PLANTILLAS_PREDEFINIDAS } from './plantillas.mock';
 import { pdfGeneratorService } from './pdf-generator.service';
 import { smtpService } from './smtp.service';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
+import { API_BASE_URL } from '@/core/api/api-config';
 import type {
   PlantillaDocumento,
   VariablesPlantilla,
@@ -16,7 +17,7 @@ const CLAVE_STORAGE_PLANTILLAS = 'crm_plantillas_personalizadas';
 const CLAVE_STORAGE_HISTORIAL = 'crm_historial_envios';
 
 /** URL del servidor SMTP proxy (Node/Express con Nodemailer) */
-const API_EMAIL_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/email`;
+const API_EMAIL_URL = `${API_BASE_URL}/email`;
 
 /** Verifica si el servidor de email está disponible */
 async function servidorEmailDisponible(): Promise<boolean> {
