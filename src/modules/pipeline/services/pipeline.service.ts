@@ -1,9 +1,11 @@
 import { ref, computed, type ComputedRef } from 'vue';
 import { clienteService } from '@/modules/clientes/services/cliente.service';
+import type { Oportunidad } from '@/modules/clientes/types/cliente.types';
 import { actividadesService } from '@/modules/agenda/services/actividades.service';
 import { timelineService } from '@/modules/clientes/services/timeline.service';
 import { toastService } from '@/core/notifications/toast.service';
 import { formatCurrency } from '@/core/formatters/formatters';
+import { API_BASE_URL } from '@/core/api/api-config';
 import type {
   Pipeline,
   ColumnaPipeline,
@@ -26,6 +28,15 @@ import { LIMITE_MAXIMO_COLUMNAS } from '../types/pipeline.types';
 
 const CLAVE_STORAGE_PIPELINES = 'crm_pipelines_catalogo';
 const CLAVE_STORAGE_TARJETAS = 'crm_pipelines_tarjetas';
+const ETAPAS_OPORTUNIDAD: EtapaOportunidad[] = [
+  'calificacion',
+  'propuesta',
+  'negociacion',
+  'ganada',
+  'perdida',
+];
+const USAR_BACKEND =
+  import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
 
 const PIPELINES_INICIALES: Pipeline[] = [
   {
@@ -147,7 +158,165 @@ const PIPELINES_INICIALES: Pipeline[] = [
 class PipelineService {
   private memoriaPipelines: Pipeline[] = this.cargarPipelinesIniciales();
   private memoriaTarjetas: TarjetaPipeline[] = this.cargarTarjetasIniciales();
-  private tarjetasRef = ref<TarjetaPipeline[]>(this.cargarTarjetasIniciales());
+  private tarjetasRef = ref<TarjetaPipeline[]>(USAR_BACKEND ? [] : this.memoriaTarjetas);
+  private hidratacionEnCurso: Promise<void> | null = null;
+
+  constructor() {
+    if (USAR_BACKEND) void this.recargar();
+  }
+
+  private async solicitar<T>(ruta: string, init?: RequestInit): Promise<T> {
+    const respuesta = await fetch(`${API_BASE_URL}/pipelines${ruta}`, init);
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+      throw new Error(
+        (data && typeof data.error === 'string' && data.error) ||
+          `No se pudo sincronizar el pipeline (${respuesta.status}).`
+      );
+    }
+
+    return data as T;
+  }
+
+  private opcionesJson(method: string, body?: unknown): RequestInit {
+    return {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+  }
+
+  /**
+   * Hidrata el catalogo de tableros y las tarjetas desde el backend para que
+   * los consumidores sincronicos (buscador global, contadores) tengan datos reales.
+   */
+  async recargar(): Promise<void> {
+    if (!USAR_BACKEND) return;
+    if (this.hidratacionEnCurso) return this.hidratacionEnCurso;
+
+    this.hidratacionEnCurso = (async () => {
+      try {
+        const [catalogo, tarjetas] = await Promise.all([
+          this.solicitar<{ pipelines: Pipeline[] }>('?pagina=1&tamanoPagina=100'),
+          this.solicitar<{ datos: TarjetaPipeline[] }>('/tarjetas?paginar=false'),
+        ]);
+        this.memoriaPipelines = Array.isArray(catalogo.pipelines) ? catalogo.pipelines : [];
+        this.memoriaTarjetas = Array.isArray(tarjetas.datos) ? tarjetas.datos : [];
+        this.tarjetasRef.value = [...this.memoriaTarjetas];
+      } catch {
+        // Sin conexion: se conserva la ultima copia disponible.
+      } finally {
+        this.hidratacionEnCurso = null;
+      }
+    })();
+
+    return this.hidratacionEnCurso;
+  }
+
+  private async refrescarPipeline(pipelineId: string): Promise<Pipeline | null> {
+    try {
+      const pipeline = await this.solicitar<Pipeline>(`/${encodeURIComponent(pipelineId)}`);
+      const indice = this.memoriaPipelines.findIndex((item) => item.id === pipeline.id);
+      if (indice === -1) this.memoriaPipelines.push(pipeline);
+      else this.memoriaPipelines[indice] = pipeline;
+      return pipeline;
+    } catch {
+      return null;
+    }
+  }
+
+  private async recargarTarjetasDePipeline(pipelineId: string): Promise<void> {
+    try {
+      const data = await this.solicitar<{ datos: TarjetaPipeline[] }>(
+        `/${encodeURIComponent(pipelineId)}/tarjetas?paginar=false`
+      );
+      this.memoriaTarjetas = [
+        ...this.memoriaTarjetas.filter((tarjeta) => tarjeta.pipeline_id !== pipelineId),
+        ...(Array.isArray(data.datos) ? data.datos : []),
+      ];
+      this.tarjetasRef.value = [...this.memoriaTarjetas];
+    } catch {
+      // conservar cache
+    }
+  }
+
+  /**
+   * Refleja en la oportunidad del cliente los cambios hechos sobre la tarjeta
+   * del pipeline comercial. La tarjeta y la oportunidad comparten id.
+   */
+  private async sincronizarOportunidadComercial(
+    tarjeta: TarjetaPipeline,
+    cambios: ActualizarTarjetaInput
+  ): Promise<void> {
+    if (tarjeta.pipeline_id !== 'pipeline-comercial' || !tarjeta.cliente_id) return;
+
+    const actualizacion: Partial<Oportunidad> = {};
+    if (cambios.titulo !== undefined) actualizacion.titulo = tarjeta.titulo;
+    if (cambios.monto !== undefined) actualizacion.monto = tarjeta.monto || 0;
+    if (cambios.probabilidad !== undefined) actualizacion.probabilidad = tarjeta.probabilidad ?? 50;
+    if (cambios.fecha_objetivo !== undefined) {
+      actualizacion.fecha_cierre_estimada = tarjeta.fecha_objetivo;
+    }
+    if (cambios.columna_id !== undefined && ETAPAS_OPORTUNIDAD.includes(cambios.columna_id as EtapaOportunidad)) {
+      actualizacion.etapa = cambios.columna_id as EtapaOportunidad;
+    }
+    if (Object.keys(actualizacion).length === 0) return;
+
+    try {
+      await clienteService.actualizarOportunidad(tarjeta.cliente_id, tarjeta.id, actualizacion);
+    } catch {
+      // La oportunidad puede no existir aun; el tablero conserva el cambio.
+    }
+  }
+
+  /**
+   * Automatizaciones de valor sobre oportunidades: tarea de seguimiento al
+   * enviar propuesta y registro en bitacora al ganar el trato.
+   */
+  private async ejecutarAutomatizacionesDeEtapa(
+    tarjeta: TarjetaPipeline,
+    columnaId: string
+  ): Promise<void> {
+    if (tarjeta.pipeline_id !== 'pipeline-comercial') return;
+    if (columnaId !== 'propuesta' && columnaId !== 'ganada') return;
+
+    if (columnaId === 'propuesta' && tarjeta.cliente_id) {
+      actividadesService.crearActividad({
+        clienteId: tarjeta.cliente_id,
+        clienteNombre: tarjeta.cliente_nombre || 'Cliente',
+        titulo: `Seguimiento de Propuesta: ${tarjeta.titulo}`,
+        descripcion: `Llamar a ${tarjeta.cliente_nombre} para validar recepción de la propuesta comercial formal.`,
+        fechaLimite: new Date(Date.now() + 86400000 * 2).toISOString(),
+        prioridad: 'alta',
+        tipo: 'llamada',
+        responsable: tarjeta.responsable || 'Equipo Comercial',
+      });
+    }
+
+    if (columnaId === 'ganada' && tarjeta.cliente_id) {
+      timelineService.registrarEvento({
+        clienteId: tarjeta.cliente_id,
+        tipo: 'cambio_etapa',
+        titulo: `¡Trato Ganado con Éxito! (${tarjeta.titulo})`,
+        descripcion: `Oportunidad cerrada formalmente por un monto de ${formatCurrency(tarjeta.monto || 0)}.`,
+        autor: tarjeta.responsable || 'Equipo Comercial',
+      });
+      toastService.exito(`¡Felicidades! Trato ganado con ${tarjeta.cliente_nombre}.`);
+    }
+  }
+
+  private actualizarTarjetaMemoria(tarjeta: TarjetaPipeline): void {
+    const indice = this.memoriaTarjetas.findIndex((item) => item.id === tarjeta.id);
+    if (indice === -1) this.memoriaTarjetas.push(tarjeta);
+    else this.memoriaTarjetas[indice] = tarjeta;
+    this.tarjetasRef.value = [...this.memoriaTarjetas];
+  }
+
+  private quitarTarjetaMemoria(tarjetaId: string): void {
+    this.memoriaTarjetas = this.memoriaTarjetas.filter((item) => item.id !== tarjetaId);
+    this.tarjetasRef.value = [...this.memoriaTarjetas];
+  }
 
   private generarId(prefijo: string = 'id'): string {
     return `${prefijo}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -172,6 +341,8 @@ class PipelineService {
   }
 
   private cargarPipelinesIniciales(): Pipeline[] {
+    if (USAR_BACKEND) return [];
+
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE_PIPELINES);
       if (guardado) {
@@ -213,6 +384,8 @@ class PipelineService {
   }
 
   private cargarTarjetasIniciales(): TarjetaPipeline[] {
+    if (USAR_BACKEND) return [];
+
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE_TARJETAS);
       if (guardado) {
@@ -231,6 +404,8 @@ class PipelineService {
   }
 
   private guardarPipelines(): void {
+    if (USAR_BACKEND) return;
+
     try {
       localStorage.setItem(CLAVE_STORAGE_PIPELINES, JSON.stringify(this.memoriaPipelines));
     } catch {
@@ -239,10 +414,12 @@ class PipelineService {
   }
 
   private guardarTarjetas(): void {
-    try {
-      localStorage.setItem(CLAVE_STORAGE_TARJETAS, JSON.stringify(this.memoriaTarjetas));
-    } catch {
-      // fallback
+    if (!USAR_BACKEND) {
+      try {
+        localStorage.setItem(CLAVE_STORAGE_TARJETAS, JSON.stringify(this.memoriaTarjetas));
+      } catch {
+        // fallback
+      }
     }
     this.tarjetasRef.value = [...this.memoriaTarjetas];
   }
@@ -272,15 +449,27 @@ class PipelineService {
   // --- GESTIÓN DE PIPELINES / CANVASES ---
 
   async obtenerPipelines(): Promise<Pipeline[]> {
+    if (USAR_BACKEND) {
+      const data = await this.solicitar<{ pipelines: Pipeline[] }>('?pagina=1&tamanoPagina=100');
+      this.memoriaPipelines = Array.isArray(data.pipelines) ? data.pipelines : [];
+      return JSON.parse(JSON.stringify(this.memoriaPipelines));
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 80));
     return JSON.parse(JSON.stringify(this.memoriaPipelines));
   }
 
   obtenerPipelinesSincrono(): Pipeline[] {
+    if (USAR_BACKEND && this.memoriaPipelines.length === 0 && !this.hidratacionEnCurso) {
+      void this.recargar();
+    }
     return JSON.parse(JSON.stringify(this.memoriaPipelines));
   }
 
   obtenerTarjetasSincrono(): TarjetaPipeline[] {
+    if (USAR_BACKEND && this.memoriaTarjetas.length === 0 && !this.hidratacionEnCurso) {
+      void this.recargar();
+    }
     return JSON.parse(JSON.stringify(this.memoriaTarjetas));
   }
 
@@ -290,17 +479,44 @@ class PipelineService {
 
   vaciarTarjetas(): void {
     this.memoriaTarjetas = [];
-    this.guardarTarjetas();
     this.tarjetasRef.value = [];
+
+    if (USAR_BACKEND) {
+      void this.solicitar('/tarjetas', { method: 'DELETE' }).catch((error: unknown) => {
+        toastService.error(error instanceof Error ? error.message : 'No se pudo vaciar el tablero.');
+        void this.recargar();
+      });
+      return;
+    }
+
+    this.guardarTarjetas();
   }
 
   async obtenerPipelinePorId(id: string): Promise<Pipeline | null> {
+    if (USAR_BACKEND) {
+      try {
+        const pipeline = await this.solicitar<Pipeline>(`/${encodeURIComponent(id)}`);
+        const indice = this.memoriaPipelines.findIndex((item) => item.id === pipeline.id);
+        if (indice === -1) this.memoriaPipelines.push(pipeline);
+        else this.memoriaPipelines[indice] = pipeline;
+        return pipeline;
+      } catch {
+        return null;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 50));
     const p = this.memoriaPipelines.find((item) => item.id === id);
     return p ? JSON.parse(JSON.stringify(p)) : null;
   }
 
   async crearPipeline(input: CrearPipelineInput): Promise<Pipeline> {
+    if (USAR_BACKEND) {
+      const pipeline = await this.solicitar<Pipeline>('', this.opcionesJson('POST', input));
+      this.memoriaPipelines.push(pipeline);
+      return pipeline;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const nuevoId = `pipeline-${input.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || this.generarId('pipe')}`;
 
@@ -347,6 +563,16 @@ class PipelineService {
   }
 
   async actualizarPipeline(id: string, input: EditarPipelineInput): Promise<Pipeline> {
+    if (USAR_BACKEND) {
+      const pipeline = await this.solicitar<Pipeline>(
+        `/${encodeURIComponent(id)}`,
+        this.opcionesJson('PATCH', input)
+      );
+      const indice = this.memoriaPipelines.findIndex((item) => item.id === pipeline.id);
+      if (indice !== -1) this.memoriaPipelines[indice] = pipeline;
+      return pipeline;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 120));
     const idx = this.memoriaPipelines.findIndex((p) => p.id === id);
     if (idx === -1) throw new Error('Pipeline no encontrado');
@@ -359,6 +585,14 @@ class PipelineService {
   }
 
   async eliminarPipeline(id: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      await this.solicitar(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      this.memoriaPipelines = this.memoriaPipelines.filter((pipeline) => pipeline.id !== id);
+      this.memoriaTarjetas = this.memoriaTarjetas.filter((tarjeta) => tarjeta.pipeline_id !== id);
+      this.tarjetasRef.value = [...this.memoriaTarjetas];
+      return true;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const pipe = this.memoriaPipelines.find((p) => p.id === id);
     if (!pipe) return false;
@@ -377,6 +611,15 @@ class PipelineService {
   // --- GESTIÓN DE COLUMNAS / ETAPAS (MÁXIMO 6 Y ÚNICO ESTADO COMPLETADO) ---
 
   async agregarColumna(pipelineId: string, input: CrearColumnaInput): Promise<ColumnaPipeline> {
+    if (USAR_BACKEND) {
+      const columna = await this.solicitar<ColumnaPipeline>(
+        `/${encodeURIComponent(pipelineId)}/columnas`,
+        this.opcionesJson('POST', input)
+      );
+      await this.refrescarPipeline(pipelineId);
+      return columna;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 120));
     const pipeline = this.memoriaPipelines.find((p) => p.id === pipelineId);
     if (!pipeline) throw new Error('Pipeline no encontrado');
@@ -420,6 +663,19 @@ class PipelineService {
     columnaId: string,
     datos: EditarColumnaInput
   ): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/${encodeURIComponent(pipelineId)}/columnas/${encodeURIComponent(columnaId)}`,
+          this.opcionesJson('PATCH', datos)
+        );
+        await this.refrescarPipeline(pipelineId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 100));
     const pipeline = this.memoriaPipelines.find((p) => p.id === pipelineId);
     if (!pipeline) return false;
@@ -449,6 +705,15 @@ class PipelineService {
   }
 
   async eliminarColumna(pipelineId: string, columnaId: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      await this.solicitar(
+        `/${encodeURIComponent(pipelineId)}/columnas/${encodeURIComponent(columnaId)}`,
+        { method: 'DELETE' }
+      );
+      await Promise.all([this.refrescarPipeline(pipelineId), this.recargarTarjetasDePipeline(pipelineId)]);
+      return true;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 120));
     const pipeline = this.memoriaPipelines.find((p) => p.id === pipelineId);
     if (!pipeline) return false;
@@ -481,6 +746,19 @@ class PipelineService {
     columnaId: string,
     direccion: 'izquierda' | 'derecha'
   ): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/${encodeURIComponent(pipelineId)}/columnas/${encodeURIComponent(columnaId)}/mover`,
+          this.opcionesJson('POST', { direccion })
+        );
+        await this.refrescarPipeline(pipelineId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 80));
     const pipeline = this.memoriaPipelines.find((p) => p.id === pipelineId);
     if (!pipeline) return false;
@@ -591,6 +869,14 @@ class PipelineService {
   }
 
   async obtenerResumenPipelines(): Promise<ResumenPipelineItem[]> {
+    if (USAR_BACKEND) {
+      const data = await this.solicitar<{ pipelines: Pipeline[]; resumen: ResumenPipelineItem[] }>(
+        '?pagina=1&tamanoPagina=100'
+      );
+      this.memoriaPipelines = Array.isArray(data.pipelines) ? data.pipelines : [];
+      return Array.isArray(data.resumen) ? data.resumen : [];
+    }
+
     const pipelines = await this.obtenerPipelines();
     const resumen: ResumenPipelineItem[] = [];
 
@@ -619,6 +905,78 @@ class PipelineService {
   // --- GESTIÓN Y ORDENAMIENTO VERTICAL DE TARJETAS ---
 
   async obtenerTarjetas(pipelineId: string, filtros?: FiltrosPipeline): Promise<TarjetaPipeline[]> {
+    if (USAR_BACKEND) {
+      const data = await this.solicitar<{ datos: TarjetaPipeline[] }>(
+        `/${encodeURIComponent(pipelineId)}/tarjetas?paginar=false`
+      );
+      let tarjetas = Array.isArray(data.datos) ? data.datos : [];
+
+      if (pipelineId === 'pipeline-comercial') {
+        const oportunidadesOriginales = await clienteService.obtenerTodasLasOportunidades();
+        const existentes = new Set(tarjetas.map((tarjeta) => tarjeta.id));
+        const nuevas: TarjetaPipeline[] = [];
+
+        for (let idx = 0; idx < oportunidadesOriginales.length; idx++) {
+          const op = oportunidadesOriginales[idx];
+          if (existentes.has(op.id)) continue;
+
+          try {
+            const creada = await this.solicitar<TarjetaPipeline>(
+              '/pipeline-comercial/tarjetas',
+              this.opcionesJson('POST', {
+                id: op.id,
+                columna_id: op.etapa,
+                cliente_id: op.cliente_id,
+                cliente_nombre: op.cliente_nombre,
+                cliente_sector: op.cliente_sector,
+                responsable: op.responsable,
+                titulo: op.titulo,
+                monto: op.monto,
+                fecha_objetivo: op.fecha_cierre_estimada,
+                probabilidad: op.probabilidad,
+                prioridad: op.probabilidad >= 70 ? 'alta' : op.probabilidad >= 40 ? 'media' : 'baja',
+                orden: idx + 1,
+                creado_en: op.creado_en,
+              })
+            );
+            nuevas.push(creada);
+          } catch {
+            // La tarjeta ya existia en el backend; se omite el duplicado.
+          }
+        }
+
+        tarjetas = [...tarjetas, ...nuevas];
+      }
+
+      let visibles = [...tarjetas];
+      if (filtros?.responsable && filtros.responsable !== '') {
+        visibles = visibles.filter((t) => t.responsable === filtros.responsable);
+      }
+      if (filtros?.sector && filtros.sector !== '') {
+        visibles = visibles.filter((t) => t.cliente_sector === filtros.sector);
+      }
+      if (filtros?.prioridad && filtros.prioridad !== '') {
+        visibles = visibles.filter((t) => t.prioridad === filtros.prioridad);
+      }
+      if (filtros?.busqueda && filtros.busqueda.trim() !== '') {
+        const q = filtros.busqueda.toLowerCase().trim();
+        visibles = visibles.filter(
+          (t) =>
+            t.titulo.toLowerCase().includes(q) ||
+            t.cliente_nombre.toLowerCase().includes(q) ||
+            (t.notas && t.notas.toLowerCase().includes(q))
+        );
+      }
+
+      visibles.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+      this.memoriaTarjetas = [
+        ...this.memoriaTarjetas.filter((tarjeta) => tarjeta.pipeline_id !== pipelineId),
+        ...tarjetas,
+      ];
+      this.tarjetasRef.value = [...this.memoriaTarjetas];
+      return JSON.parse(JSON.stringify(visibles));
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     let resultado: TarjetaPipeline[] = [];
@@ -796,6 +1154,44 @@ class PipelineService {
   }
 
   async crearTarjeta(input: CrearTarjetaInput): Promise<TarjetaPipeline> {
+    if (USAR_BACKEND) {
+      const cliente = await clienteService.obtenerClientePorId(input.cliente_id);
+      if (!cliente) throw new Error('Cliente seleccionado no encontrado.');
+
+      let idOportunidad: string | undefined;
+      if (
+        input.pipeline_id === 'pipeline-comercial' &&
+        ['calificacion', 'propuesta', 'negociacion', 'ganada', 'perdida'].includes(input.columna_id)
+      ) {
+        try {
+          const oportunidad = await clienteService.agregarOportunidad(input.cliente_id, {
+            titulo: input.titulo,
+            monto: input.monto || 0,
+            etapa: input.columna_id as EtapaOportunidad,
+            probabilidad: input.probabilidad || 50,
+            fecha_cierre_estimada: input.fecha_objetivo,
+          });
+          idOportunidad = oportunidad.id;
+        } catch {
+          // La tarjeta se crea igualmente en el tablero.
+        }
+      }
+
+      const tarjeta = await this.solicitar<TarjetaPipeline>(
+        `/${encodeURIComponent(input.pipeline_id)}/tarjetas`,
+        this.opcionesJson('POST', {
+          ...input,
+          id: idOportunidad,
+          cliente_nombre: cliente.nombre_comercial || cliente.razon_social,
+          cliente_sector: cliente.sector,
+          responsable: cliente.responsable || 'Equipo Comercial',
+        })
+      );
+
+      this.actualizarTarjetaMemoria(tarjeta);
+      return tarjeta;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 120));
     const cliente = await clienteService.obtenerClientePorId(input.cliente_id);
     if (!cliente) throw new Error('Cliente seleccionado no encontrado.');
@@ -875,6 +1271,15 @@ class PipelineService {
   }
 
   async obtenerTarjetaPorId(pipelineId: string, tarjetaId: string): Promise<TarjetaPipeline | null> {
+    if (USAR_BACKEND) {
+      let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId && t.pipeline_id === pipelineId);
+      if (!tarjeta) {
+        const tarjetas = await this.obtenerTarjetas(pipelineId);
+        tarjeta = tarjetas.find((t) => t.id === tarjetaId);
+      }
+      return tarjeta ? JSON.parse(JSON.stringify(tarjeta)) : null;
+    }
+
     let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId && t.pipeline_id === pipelineId);
     if (!tarjeta) {
       await this.obtenerTarjetas(pipelineId);
@@ -888,6 +1293,24 @@ class PipelineService {
     tarjetaId: string,
     input: ActualizarTarjetaInput
   ): Promise<TarjetaPipeline> {
+    if (USAR_BACKEND) {
+      const tarjeta = await this.solicitar<TarjetaPipeline>(
+        `/${encodeURIComponent(pipelineId)}/tarjetas/${encodeURIComponent(tarjetaId)}`,
+        this.opcionesJson('PATCH', input)
+      );
+      this.actualizarTarjetaMemoria(tarjeta);
+      await this.sincronizarOportunidadComercial(tarjeta, input);
+
+      if (input.columna_id !== undefined) {
+        await Promise.all([
+          this.refrescarPipeline(pipelineId),
+          this.recargarTarjetasDePipeline(pipelineId),
+        ]);
+      }
+
+      return JSON.parse(JSON.stringify(tarjeta));
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
@@ -947,6 +1370,49 @@ class PipelineService {
     nuevaColumnaId: string,
     nuevoIndice?: number
   ): Promise<boolean> {
+    if (USAR_BACKEND) {
+      let tarjeta = this.memoriaTarjetas.find(
+        (item) => item.id === tarjetaId && item.pipeline_id === pipelineId
+      );
+
+      if (!tarjeta) {
+        await this.recargarTarjetasDePipeline(pipelineId);
+        tarjeta = this.memoriaTarjetas.find(
+          (item) => item.id === tarjetaId && item.pipeline_id === pipelineId
+        );
+      }
+
+      await this.solicitar(
+        `/${encodeURIComponent(pipelineId)}/tarjetas/${encodeURIComponent(tarjetaId)}/mover`,
+        this.opcionesJson('POST', { columna_id: nuevaColumnaId, indice: nuevoIndice })
+      );
+
+      if (tarjeta) {
+        this.actualizarTarjetaMemoria({ ...tarjeta, columna_id: nuevaColumnaId });
+      }
+
+      if (
+        pipelineId === 'pipeline-comercial' &&
+        ETAPAS_OPORTUNIDAD.includes(nuevaColumnaId as EtapaOportunidad)
+      ) {
+        try {
+          await clienteService.moverEtapaOportunidad(tarjetaId, nuevaColumnaId as EtapaOportunidad);
+        } catch {
+          // La oportunidad puede no existir aun para esta tarjeta.
+        }
+
+        if (tarjeta) {
+          await this.ejecutarAutomatizacionesDeEtapa(
+            { ...tarjeta, columna_id: nuevaColumnaId },
+            nuevaColumnaId
+          );
+        }
+      }
+
+      await this.recargarTarjetasDePipeline(pipelineId);
+      return true;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     // 1. Si no existe en memoria, aseguramos la carga inicial del pipeline
@@ -1045,6 +1511,19 @@ class PipelineService {
     tarjetaId: string,
     direccion: 'arriba' | 'abajo'
   ): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/${encodeURIComponent(pipelineId)}/tarjetas/${encodeURIComponent(tarjetaId)}/posicion`,
+          this.opcionesJson('POST', { direccion })
+        );
+        await this.recargarTarjetasDePipeline(pipelineId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     let tarjeta = this.memoriaTarjetas.find((t) => t.id === tarjetaId);
@@ -1081,6 +1560,24 @@ class PipelineService {
   }
 
   async eliminarTarjeta(pipelineId: string, clienteId: string, tarjetaId: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      await this.solicitar(
+        `/${encodeURIComponent(pipelineId)}/tarjetas/${encodeURIComponent(tarjetaId)}`,
+        { method: 'DELETE' }
+      );
+
+      if (pipelineId === 'pipeline-comercial' && clienteId) {
+        try {
+          await clienteService.eliminarOportunidad(clienteId, tarjetaId);
+        } catch {
+          // La oportunidad pudo haber sido eliminada antes.
+        }
+      }
+
+      this.quitarTarjetaMemoria(tarjetaId);
+      return true;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     if (pipelineId === 'pipeline-comercial') {
