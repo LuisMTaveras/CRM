@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { cotizacionesService } from '../services/cotizaciones.service';
+import { cotizacionesService, COTIZACIONES_USAN_BACKEND } from '../services/cotizaciones.service';
 import { empresaService } from '@/modules/configuracion/services/empresa.service';
 import type { Cotizacion } from '../types/catalogo.types';
 import { formatCurrency, formatDate, getCurrencyLabel } from '@/core/formatters/formatters';
@@ -35,14 +35,16 @@ const procesandoAprobacion = ref(false);
 const aprobacionExitosa = ref(false);
 
 onMounted(() => {
-  cargarCotizacion();
+  void cargarCotizacion();
 });
 
-const cargarCotizacion = () => {
+const cargarCotizacion = async () => {
   cargando.value = true;
   error.value = '';
   try {
-    const data = cotizacionesService.obtenerPorToken(token.value);
+    const data = COTIZACIONES_USAN_BACKEND
+      ? await cotizacionesService.obtenerPorTokenRemoto(token.value)
+      : cotizacionesService.obtenerPorToken(token.value) || null;
     if (!data) {
       error.value = 'La propuesta comercial solicitada no existe o el enlace ha caducado.';
     } else {
@@ -74,10 +76,15 @@ const confirmarAprobacion = async () => {
   try {
     // Simular firma digital y actualizar estado en CRM
     await new Promise((resolve) => setTimeout(resolve, 800));
-    const actualizada = cotizacionesService.aprobarPropuestaPorCliente(token.value, {
-      nombre: nombreFirmante.value,
-      cargo: cargoFirmante.value,
-    });
+    const actualizada = COTIZACIONES_USAN_BACKEND
+      ? await cotizacionesService.aprobarPropuestaRemota(token.value, {
+          nombre: nombreFirmante.value,
+          cargo: cargoFirmante.value,
+        })
+      : cotizacionesService.aprobarPropuestaPorCliente(token.value, {
+          nombre: nombreFirmante.value,
+          cargo: cargoFirmante.value,
+        });
     cotizacion.value = actualizada;
     aprobacionExitosa.value = true;
     toastService.exito('¡Propuesta aprobada y confirmada con éxito!');

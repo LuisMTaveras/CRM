@@ -56,6 +56,9 @@ import { crearRutasClientes } from './clientes/cliente-routes.js';
 import { crearAlmacenClientesDesdeEntorno } from './clientes/cliente-store.js';
 import { crearRutasActividades } from './agenda/actividad-routes.js';
 import { crearAlmacenActividadesDesdeEntorno } from './agenda/actividad-store.js';
+import { crearRutasCatalogo, crearRutasCotizaciones } from './catalogo/cotizacion-routes.js';
+import { crearAlmacenCatalogoDesdeEntorno } from './catalogo/catalogo-store.js';
+import { crearAlmacenCotizacionesDesdeEntorno } from './catalogo/cotizacion-store.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -71,6 +74,8 @@ const USUARIOS = crearAlmacenUsuariosDesdeEntorno(process.env);
 const AUDITORIA = crearRegistroAuditoriaDesdeEntorno(process.env);
 const CLIENTES = crearAlmacenClientesDesdeEntorno(process.env);
 const ACTIVIDADES = crearAlmacenActividadesDesdeEntorno(process.env);
+const CATALOGO = crearAlmacenCatalogoDesdeEntorno(process.env);
+const COTIZACIONES = crearAlmacenCotizacionesDesdeEntorno(process.env);
 const PERMITIR_HOSTS_PRIVADOS = process.env.EMAIL_ALLOW_PRIVATE_HOSTS === 'true';
 
 app.locals.autenticacion = AUTENTICACION;
@@ -78,6 +83,8 @@ app.locals.usuarios = USUARIOS;
 app.locals.auditoria = AUDITORIA;
 app.locals.clientes = CLIENTES;
 app.locals.actividades = ACTIVIDADES;
+app.locals.catalogo = CATALOGO;
+app.locals.cotizaciones = COTIZACIONES;
 
 const limitarLogin = crearMiddlewareRateLimit({
   maximo: 10,
@@ -123,7 +130,13 @@ app.use('/api', crearMiddlewareAuth({
   apiKey: AUTENTICACION.apiKey,
   secreto: AUTENTICACION.secreto,
   usuarios: USUARIOS,
-  rutasPublicas: ['/health', '/auth/login', '/whatsapp/auth/solicitar-otp', '/whatsapp/auth/verificar-otp'],
+  rutasPublicas: [
+    '/health',
+    '/auth/login',
+    '/whatsapp/auth/solicitar-otp',
+    '/whatsapp/auth/verificar-otp',
+    '/cotizaciones/publicas/*',
+  ],
 }));
 app.use('/api', crearMiddlewareAuditoria(AUDITORIA));
 app.use('/api/whatsapp/auth', limitarOtp);
@@ -233,6 +246,8 @@ app.use('/api/usuarios', crearRutasUsuarios());
 app.use('/api/auditoria', crearRutasAuditoria());
 app.use('/api/clientes', crearRutasClientes());
 app.use('/api/actividades', crearRutasActividades());
+app.use('/api/catalogo', crearRutasCatalogo());
+app.use('/api/cotizaciones', crearRutasCotizaciones());
 
 async function validarDestinosCorreo(req, res, next) {
   const hosts = extraerHostsCorreo(req.body);

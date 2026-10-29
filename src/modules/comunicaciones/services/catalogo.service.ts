@@ -1,10 +1,15 @@
 import { reactive } from 'vue';
+import { API_BASE_URL } from '@/core/api/api-config';
+import { toastService } from '@/core/notifications/toast.service';
 import type {
   ItemCatalogo,
   LineaCotizacion,
   ResumenCotizacion,
   MonedaCotizacion,
 } from '../types/catalogo.types';
+
+const USAR_BACKEND =
+  import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
 
 const SERVICIOS_INICIALES: ItemCatalogo[] = [
   {
@@ -94,7 +99,39 @@ const SERVICIOS_INICIALES: ItemCatalogo[] = [
 ];
 
 class CatalogoService {
-  private catalogo = reactive<ItemCatalogo[]>([...SERVICIOS_INICIALES]);
+  private catalogo = reactive<ItemCatalogo[]>(USAR_BACKEND ? [] : [...SERVICIOS_INICIALES]);
+  private hidratacionSolicitada = false;
+
+  constructor() {
+    if (USAR_BACKEND) void this.recargar();
+  }
+
+  private async solicitar<T>(ruta: string, init?: RequestInit): Promise<T> {
+    const respuesta = await fetch(`${API_BASE_URL}/catalogo${ruta}`, init);
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+      throw new Error(
+        (data && typeof data.error === 'string' && data.error) ||
+          `No se pudo sincronizar el catalogo (${respuesta.status}).`
+      );
+    }
+
+    return data as T;
+  }
+
+  async recargar(): Promise<void> {
+    if (!USAR_BACKEND || this.hidratacionSolicitada) return;
+
+    try {
+      const data = await this.solicitar<{ ok: boolean; items: ItemCatalogo[] }>('');
+      this.catalogo.splice(0, this.catalogo.length, ...(Array.isArray(data.items) ? data.items : []));
+    } catch {
+      // Sin conexion: se conserva la copia actual.
+    } finally {
+      this.hidratacionSolicitada = true;
+    }
+  }
 
   obtenerCatalogo(): ItemCatalogo[] {
     return this.catalogo;
@@ -114,6 +151,24 @@ class CatalogoService {
       id: `cat-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     };
     this.catalogo.push(item);
+
+    if (USAR_BACKEND) {
+      void this.solicitar<ItemCatalogo>('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      })
+        .then((guardado) => {
+          const indice = this.catalogo.findIndex((registro) => registro.id === item.id);
+          if (indice !== -1) this.catalogo[indice] = guardado;
+        })
+        .catch((error: unknown) => {
+          const indice = this.catalogo.findIndex((registro) => registro.id === item.id);
+          if (indice !== -1) this.catalogo.splice(indice, 1);
+          toastService.error(error instanceof Error ? error.message : 'No se pudo guardar el item de catalogo.');
+        });
+    }
+
     return item;
   }
 

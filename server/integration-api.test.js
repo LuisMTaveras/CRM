@@ -552,3 +552,145 @@ describe('API de agenda y actividades', () => {
     expect(listado.datos.total).toBe(0);
   });
 });
+
+describe('API de catalogo y cotizaciones', () => {
+  let cotizacionCreada;
+  let itemCatalogoId;
+
+  it('expone el catalogo inicial y permite crear items', async () => {
+    const listado = await solicitar('/api/catalogo', { token: tokenAdmin });
+    expect(listado.respuesta.status).toBe(200);
+    expect(listado.datos.total).toBeGreaterThanOrEqual(7);
+
+    const creado = await solicitar('/api/catalogo', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        codigo: 'TEST-CAT-01',
+        nombre: 'Servicio de prueba',
+        descripcion: 'Item creado por la suite de integracion.',
+        categoria: 'consultoria',
+        precioBase: 1000,
+        moneda: 'DOP',
+        aplicaItbis: true,
+        tasaItbis: 0.18,
+        unidadMedida: 'Hora',
+      },
+    });
+    expect(creado.respuesta.status).toBe(201);
+    expect(creado.datos.codigo).toBe('TEST-CAT-01');
+    itemCatalogoId = creado.datos.id;
+
+    const duplicado = await solicitar('/api/catalogo', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        codigo: 'TEST-CAT-01',
+        nombre: 'Duplicado',
+        categoria: 'consultoria',
+        precioBase: 10,
+        moneda: 'DOP',
+      },
+    });
+    expect(duplicado.respuesta.status).toBe(409);
+
+    const actualizado = await solicitar(`/api/catalogo/${itemCatalogoId}`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { precioBase: 1500 },
+    });
+    expect(actualizado.respuesta.status).toBe(200);
+    expect(actualizado.datos.precioBase).toBe(1500);
+  });
+
+  it('guarda una cotizacion con totales calculados en el servidor', async () => {
+    const { respuesta, datos } = await solicitar('/api/cotizaciones', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        cliente_id: 'cli-demo',
+        cliente_nombre: 'Comercializadora Caribe SRL',
+        cliente_rnc: '1-01-12345-6',
+        fecha_emision: '2026-10-29',
+        fecha_vencimiento: '2026-11-29',
+        estado: 'enviada',
+        moneda: 'DOP',
+        items: [
+          {
+            sku: 'TEST-CAT-01',
+            descripcion: 'Servicio de prueba',
+            cantidad: 2,
+            precio_unitario: 1000,
+            descuento_porcentaje: 10,
+            itbis_aplica: true,
+          },
+        ],
+      },
+    });
+
+    expect(respuesta.status).toBe(201);
+    expect(datos.numero_cotizacion).toMatch(/^COT-\d{4}-\d{4}$/);
+    expect(datos.items[0].total_linea).toBe(2124);
+    expect(datos.subtotal).toBe(2000);
+    expect(datos.descuento_monto).toBe(200);
+    expect(datos.itbis_total).toBe(324);
+    expect(datos.total).toBe(2124);
+    expect(datos.token_aprobacion).toMatch(/^tok_/);
+    cotizacionCreada = datos;
+  });
+
+  it('permite consultar y aprobar una propuesta publica sin sesion', async () => {
+    const publica = await solicitar(`/api/cotizaciones/publicas/${cotizacionCreada.token_aprobacion}`);
+    expect(publica.respuesta.status).toBe(200);
+    expect(publica.datos.cliente_nombre).toBe('Comercializadora Caribe SRL');
+
+    const aprobada = await solicitar(`/api/cotizaciones/publicas/${cotizacionCreada.token_aprobacion}/aprobar`, {
+      method: 'POST',
+      body: { nombre: 'Ana Perez', cargo: 'Gerente General' },
+    });
+    expect(aprobada.respuesta.status).toBe(200);
+    expect(aprobada.datos.estado).toBe('aprobada');
+    expect(aprobada.datos.aprobado_por_nombre).toBe('Ana Perez');
+    expect(aprobada.datos.aprobado_en).toBeTruthy();
+  });
+
+  it('solo permite escritura a roles autorizados', async () => {
+    const { datos: creado } = await solicitar('/api/usuarios', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Auditor de Cotizaciones',
+        email: 'auditor.cotizaciones@crm.test',
+        contrasena: USUARIO_PASSWORD,
+        rol: 'auditor',
+      },
+    });
+    expect(creado.usuario.id).toBeTruthy();
+    const tokenAuditor = await iniciarSesion('auditor.cotizaciones@crm.test', USUARIO_PASSWORD);
+
+    const lectura = await solicitar('/api/cotizaciones', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+    expect(lectura.datos.total).toBe(1);
+
+    const escritura = await solicitar('/api/cotizaciones', {
+      token: tokenAuditor,
+      method: 'POST',
+      body: { cliente_nombre: 'Sin permiso', items: [] },
+    });
+    expect(escritura.respuesta.status).toBe(403);
+  });
+
+  it('elimina cotizacion e item de catalogo', async () => {
+    const cotizacion = await solicitar(`/api/cotizaciones/${cotizacionCreada.id}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(cotizacion.respuesta.status).toBe(200);
+
+    const item = await solicitar(`/api/catalogo/${itemCatalogoId}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(item.respuesta.status).toBe(200);
+  });
+});

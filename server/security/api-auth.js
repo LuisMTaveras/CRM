@@ -111,13 +111,21 @@ export function crearMiddlewareAuth({
   usuarios = null,
   rutasPublicas = RUTAS_PUBLICAS_PREDETERMINADAS,
 } = {}) {
-  const publicas = new Set(rutasPublicas.map(normalizarRuta));
+  const publicas = new Set(
+    rutasPublicas.filter((ruta) => !String(ruta).endsWith('*')).map(normalizarRuta)
+  );
+  const prefijosPublicos = rutasPublicas
+    .filter((ruta) => String(ruta).endsWith('*'))
+    .map((ruta) => normalizarRuta(String(ruta).slice(0, -1)));
 
   return (req, res, next) => {
     if (!requerir) return next();
 
     const ruta = normalizarRuta(req.path);
     if (publicas.has(ruta)) return next();
+    if (prefijosPublicos.some((prefijo) => ruta === prefijo || ruta.startsWith(`${prefijo}/`))) {
+      return next();
+    }
 
     const credencial = extraerCredencial(req);
     if (credencial.apiKey && apiKey && compararSeguro(credencial.apiKey, apiKey)) {

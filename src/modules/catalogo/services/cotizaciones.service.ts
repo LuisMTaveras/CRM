@@ -3,8 +3,13 @@ import type { Cotizacion, EstadoCotizacion } from '../types/catalogo.types';
 import { timelineService } from '@/modules/clientes/services/timeline.service';
 import { toastService } from '@/core/notifications/toast.service';
 import { formatCurrency } from '@/core/formatters/formatters';
+import { API_BASE_URL } from '@/core/api/api-config';
 
 const CLAVE_STORAGE = 'crm_cotizaciones_v1';
+const USAR_BACKEND =
+  import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
+
+export const COTIZACIONES_USAN_BACKEND = USAR_BACKEND;
 
 const COTIZACIONES_SEMILLA: Cotizacion[] = [
   {
@@ -97,8 +102,63 @@ const COTIZACIONES_SEMILLA: Cotizacion[] = [
 
 class CotizacionesService {
   private memoria = ref<Cotizacion[]>(this.cargarInicial());
+  private hidratacionEnCurso: Promise<void> | null = null;
+  private hidratacionSolicitada = false;
+
+  constructor() {
+    if (USAR_BACKEND) void this.recargar();
+  }
+
+  private async solicitar<T>(ruta: string, init?: RequestInit): Promise<T> {
+    const respuesta = await fetch(`${API_BASE_URL}/cotizaciones${ruta}`, init);
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+      throw new Error(
+        (data && typeof data.error === 'string' && data.error) ||
+          `No se pudo sincronizar la cotizacion (${respuesta.status}).`
+      );
+    }
+
+    return data as T;
+  }
+
+  private opcionesJson(method: string, body?: unknown): RequestInit {
+    return {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+  }
+
+  private asegurarHidratacion(): void {
+    if (!USAR_BACKEND || this.hidratacionSolicitada) return;
+    this.hidratacionSolicitada = true;
+    void this.recargar();
+  }
+
+  async recargar(): Promise<void> {
+    if (!USAR_BACKEND) return;
+    if (this.hidratacionEnCurso) return this.hidratacionEnCurso;
+
+    this.hidratacionEnCurso = (async () => {
+      try {
+        const data = await this.solicitar<{ ok: boolean; datos: Cotizacion[] }>('');
+        this.memoria.value = Array.isArray(data.datos) ? data.datos : [];
+      } catch {
+        // Sin conexion: conservamos la ultima copia disponible.
+      } finally {
+        this.hidratacionEnCurso = null;
+        this.hidratacionSolicitada = true;
+      }
+    })();
+
+    return this.hidratacionEnCurso;
+  }
 
   private cargarInicial(): Cotizacion[] {
+    if (USAR_BACKEND) return [];
+
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE);
       if (guardado) {
@@ -112,6 +172,7 @@ class CotizacionesService {
   }
 
   private persistir(): void {
+    if (USAR_BACKEND) return;
     try {
       localStorage.setItem(CLAVE_STORAGE, JSON.stringify(this.memoria.value));
     } catch {
@@ -120,6 +181,7 @@ class CotizacionesService {
   }
 
   obtenerTodas(): Cotizacion[] {
+    this.asegurarHidratacion();
     return this.memoria.value;
   }
 
@@ -131,18 +193,53 @@ class CotizacionesService {
     return this.memoria.value.find((c) => c.token_aprobacion === token);
   }
 
+  async obtenerPorTokenRemoto(token: string): Promise<Cotizacion | null> {
+    if (!USAR_BACKEND) return this.obtenerPorToken(token) || null;
+
+    try {
+      const cotizacion = await this.solicitar<Cotizacion>(`/publicas/${encodeURIComponent(token)}`);
+      const indice = this.memoria.value.findIndex((item) => item.id === cotizacion.id);
+      if (indice !== -1) this.memoria.value[indice] = cotizacion;
+      else this.memoria.value.push(cotizacion);
+      return cotizacion;
+    } catch {
+      return null;
+    }
+  }
+
   obtenerPorCliente(clienteId: string): Cotizacion[] {
     return this.memoria.value.filter((c) => c.cliente_id === clienteId);
   }
 
   generarToken(): string {
-    return `tok_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+    const uuid = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '')
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+    return `tok_${uuid.slice(0, 20)}`;
   }
 
   generarNumero(): string {
-    const año = new Date().getFullYear();
-    const count = this.memoria.value.length + 43;
-    return `COT-${año}-${count.toString().padStart(4, '0')}`;
+    const anio = new Date().getFullYear();
+    const maximo = this.memoria.value.reduce((mayor, cotizacion) => {
+      const coincidencia = new RegExp(`^COT-${anio}-(\\d+)$`, 'i').exec(cotizacion.numero_cotizacion || '');
+      if (!coincidencia) return mayor;
+      return Math.max(mayor, Number.parseInt(coincidencia[1], 10) || 0);
+    }, 42);
+    return `COT-${anio}-${String(maximo + 1).padStart(4, '0')}`;
+  }
+
+  private sincronizarGuardado(cotizacion: Cotizacion): void {
+    if (!USAR_BACKEND) return;
+
+    void this.solicitar<Cotizacion>('', this.opcionesJson('POST', cotizacion))
+      .then((guardada) => {
+        const indice = this.memoria.value.findIndex((item) => item.id === cotizacion.id);
+        if (indice !== -1) this.memoria.value[indice] = guardada;
+      })
+      .catch((error: unknown) => {
+        toastService.error(error instanceof Error ? error.message : 'No se pudo guardar la cotizacion.');
+        void this.recargar();
+      });
   }
 
   guardar(cotizacion: Omit<Cotizacion, 'id' | 'numero_cotizacion' | 'token_aprobacion' | 'creado_en'> & { id?: string }): Cotizacion {
@@ -154,6 +251,7 @@ class CotizacionesService {
           ...cotizacion,
         } as Cotizacion;
         this.persistir();
+        this.sincronizarGuardado(this.memoria.value[idx]);
         return this.memoria.value[idx];
       }
     }
@@ -168,6 +266,7 @@ class CotizacionesService {
 
     this.memoria.value.unshift(nueva);
     this.persistir();
+    this.sincronizarGuardado(nueva);
 
     // Registrar en el timeline del cliente
     timelineService.registrarEvento({
@@ -186,7 +285,47 @@ class CotizacionesService {
     if (!cot) return false;
     cot.estado = nuevoEstado;
     this.persistir();
+
+    if (USAR_BACKEND) {
+      void this.solicitar<Cotizacion>(
+        `/${encodeURIComponent(id)}/estado`,
+        this.opcionesJson('PATCH', { estado: nuevoEstado })
+      )
+        .then((actualizada) => {
+          const indice = this.memoria.value.findIndex((item) => item.id === id);
+          if (indice !== -1) this.memoria.value[indice] = actualizada;
+        })
+        .catch((error: unknown) => {
+          toastService.error(error instanceof Error ? error.message : 'No se pudo actualizar la cotizacion.');
+          void this.recargar();
+        });
+    }
+
     return true;
+  }
+
+  async aprobarPropuestaRemota(
+    token: string,
+    firmante: { nombre: string; cargo: string }
+  ): Promise<Cotizacion> {
+    if (!USAR_BACKEND) return this.aprobarPropuestaPorCliente(token, firmante);
+
+    const actualizada = await this.solicitar<Cotizacion>(
+      `/publicas/${encodeURIComponent(token)}/aprobar`,
+      this.opcionesJson('POST', firmante)
+    );
+    const indice = this.memoria.value.findIndex((item) => item.id === actualizada.id);
+    if (indice !== -1) this.memoria.value[indice] = actualizada;
+    else this.memoria.value.unshift(actualizada);
+
+    timelineService.registrarEvento({
+      clienteId: actualizada.cliente_id,
+      tipo: 'cambio_etapa',
+      titulo: `Propuesta APROBADA por el Cliente (${actualizada.numero_cotizacion})`,
+      descripcion: `Aprobada digitalmente por ${actualizada.aprobado_por_nombre} (${actualizada.aprobado_por_cargo}).`,
+      autor: 'Portal de Aprobacion Web',
+    });
+    return actualizada;
   }
 
   aprobarPropuestaPorCliente(token: string, firmante: { nombre: string; cargo: string }): Cotizacion {
