@@ -96,6 +96,7 @@ class AuthService {
 
   async login(credenciales: CredencialesLogin): Promise<SesionAuth> {
     if (USAR_BACKEND) {
+      await rolesPermisosService.recargar(true);
       const resp = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,6 +139,7 @@ class AuthService {
     if (!USAR_BACKEND) return undefined;
 
     try {
+      await rolesPermisosService.recargar(true);
       const respuesta = await fetch(`${API_BASE_URL}/auth/me`);
       if (respuesta.status === 401) return null;
       if (!respuesta.ok) return undefined;
@@ -190,6 +192,7 @@ class AuthService {
 
   async loginConOtp(telefono: string, codigo: string): Promise<SesionAuth> {
     if (USAR_BACKEND) {
+      await rolesPermisosService.recargar(true);
       const resp = await fetch(`${API_BASE_URL}/whatsapp/auth/verificar-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

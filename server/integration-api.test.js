@@ -694,3 +694,118 @@ describe('API de catalogo y cotizaciones', () => {
     expect(item.respuesta.status).toBe(200);
   });
 });
+
+describe('API de roles y permisos', () => {
+  let rolPersonalizadoId;
+
+  it('devuelve los roles del sistema con el catalogo completo del administrador', async () => {
+    const { respuesta, datos } = await solicitar('/api/roles', { token: tokenAdmin });
+    expect(respuesta.status).toBe(200);
+    expect(datos.total).toBeGreaterThanOrEqual(4);
+
+    const admin = datos.roles.find((rol) => rol.id === 'admin');
+    expect(admin.esSistema).toBe(true);
+    expect(admin.permisos).toContain('roles:administrar');
+    expect(admin.permisos).toContain('configuracion:editar');
+
+    const nombres = datos.roles.map((rol) => rol.id);
+    expect(nombres).toEqual(expect.arrayContaining(['admin', 'gerente', 'ejecutivo', 'auditor']));
+  });
+
+  it('crea, actualiza y elimina un rol personalizado', async () => {
+    const creado = await solicitar('/api/roles', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        id: 'rol-pruebas-comercial',
+        nombre: 'Coordinador Comercial',
+        descripcion: 'Rol creado por la suite de integracion.',
+        permisos: ['clientes:ver', 'pipeline:ver', 'permiso:inventado'],
+      },
+    });
+
+    expect(creado.respuesta.status).toBe(201);
+    expect(creado.datos.id).toBe('rol-pruebas-comercial');
+    expect(creado.datos.esSistema).toBe(false);
+    expect(creado.datos.permisos).toEqual(['clientes:ver', 'pipeline:ver']);
+    rolPersonalizadoId = creado.datos.id;
+
+    const duplicado = await solicitar('/api/roles', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: { id: rolPersonalizadoId, nombre: 'Duplicado' },
+    });
+    expect(duplicado.respuesta.status).toBe(409);
+
+    const actualizado = await solicitar(`/api/roles/${rolPersonalizadoId}`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { nombre: 'Coordinador Comercial Senior', permisos: ['clientes:ver', 'clientes:exportar'] },
+    });
+    expect(actualizado.respuesta.status).toBe(200);
+    expect(actualizado.datos.nombre).toBe('Coordinador Comercial Senior');
+    expect(actualizado.datos.permisos).toEqual(['clientes:ver', 'clientes:exportar']);
+    expect(actualizado.datos.esSistema).toBe(false);
+
+    const listado = await solicitar('/api/roles', { token: tokenAdmin });
+    expect(listado.datos.roles.some((rol) => rol.id === rolPersonalizadoId)).toBe(true);
+
+    const eliminado = await solicitar(`/api/roles/${rolPersonalizadoId}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(eliminado.respuesta.status).toBe(200);
+
+    const trasEliminar = await solicitar('/api/roles', { token: tokenAdmin });
+    expect(trasEliminar.datos.roles.some((rol) => rol.id === rolPersonalizadoId)).toBe(false);
+  });
+
+  it('protege los roles del sistema y el catalogo del administrador', async () => {
+    const eliminarAdmin = await solicitar('/api/roles/admin', {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(eliminarAdmin.respuesta.status).toBe(400);
+
+    const reducirAdmin = await solicitar('/api/roles/admin', {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { permisos: ['clientes:ver'] },
+    });
+    expect(reducirAdmin.respuesta.status).toBe(200);
+    expect(reducirAdmin.datos.permisos).toContain('roles:administrar');
+    expect(reducirAdmin.datos.permisos.length).toBeGreaterThan(1);
+    expect(reducirAdmin.datos.esSistema).toBe(true);
+  });
+
+  it('permite leer roles a cualquier usuario autenticado pero solo el admin escribe', async () => {
+    const { datos: creado } = await solicitar('/api/usuarios', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Auditor de Roles',
+        email: 'auditor.roles@crm.test',
+        contrasena: USUARIO_PASSWORD,
+        rol: 'auditor',
+      },
+    });
+    expect(creado.usuario.id).toBeTruthy();
+    const tokenAuditor = await iniciarSesion('auditor.roles@crm.test', USUARIO_PASSWORD);
+
+    const lectura = await solicitar('/api/roles', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+    expect(lectura.datos.total).toBeGreaterThanOrEqual(4);
+
+    const escritura = await solicitar('/api/roles', {
+      token: tokenAuditor,
+      method: 'POST',
+      body: { nombre: 'Rol no autorizado' },
+    });
+    expect(escritura.respuesta.status).toBe(403);
+  });
+
+  it('rechaza la consulta sin token', async () => {
+    const { respuesta } = await solicitar('/api/roles');
+    expect(respuesta.status).toBe(401);
+  });
+});

@@ -1,5 +1,7 @@
 import type { Action, Rule } from '@/core/permissions/ability';
 import type { Usuario } from '../types/auth.types';
+import { API_BASE_URL } from '@/core/api/api-config';
+import { toastService } from '@/core/notifications/toast.service';
 import { 
   type RolDefinicion, 
   CATALOGO_PERMISOS, 
@@ -8,8 +10,78 @@ import {
 
 const CLAVE_STORAGE_ROLES = 'crm_roles_definiciones';
 const IDS_PERMISOS_VALIDOS = new Set(CATALOGO_PERMISOS.map((permiso) => permiso.id));
+const USAR_BACKEND =
+  import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
 
 class RolesPermisosService {
+  private cacheBackend: RolDefinicion[] | null = null;
+  private hidratacionEnCurso: Promise<void> | null = null;
+
+  private rolesSistema(): RolDefinicion[] {
+    return ROLES_SISTEMA_INICIALES.map((rol) => this.normalizarRol(rol));
+  }
+
+  private async solicitar<T>(ruta: string, init?: RequestInit): Promise<T> {
+    const respuesta = await fetch(`${API_BASE_URL}/roles${ruta}`, init);
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+      throw new Error(
+        (data && typeof data.error === 'string' && data.error) ||
+          `No se pudo sincronizar los roles (${respuesta.status}).`
+      );
+    }
+
+    return data as T;
+  }
+
+  private opcionesJson(method: string, body?: unknown): RequestInit {
+    return {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+  }
+
+  /**
+   * Hidrata la cache de roles desde el backend para que los consumidores
+   * sincronicos (motor CASL, guards de ruta, badges) dispongan del catalogo real.
+   */
+  async recargar(forzar = false): Promise<void> {
+    if (!USAR_BACKEND) return;
+    if (this.hidratacionEnCurso && !forzar) return this.hidratacionEnCurso;
+
+    this.hidratacionEnCurso = (async () => {
+      try {
+        const data = await this.solicitar<{ ok: boolean; roles: RolDefinicion[] }>('');
+        if (Array.isArray(data.roles) && data.roles.length > 0) {
+          this.cacheBackend = data.roles.map((rol) => this.normalizarRol(rol));
+        }
+      } catch {
+        if (!this.cacheBackend) this.cacheBackend = this.rolesSistema();
+      } finally {
+        this.hidratacionEnCurso = null;
+      }
+    })();
+
+    return this.hidratacionEnCurso;
+  }
+
+  private sincronizarEscritura(
+    crearPeticion: () => Promise<RolDefinicion | void>,
+    alFallar?: () => void
+  ): void {
+    if (!USAR_BACKEND) return;
+
+    void crearPeticion().catch((error: unknown) => {
+      toastService.error(
+        error instanceof Error ? error.message : 'No se pudo sincronizar los roles.'
+      );
+      alFallar?.();
+      void this.recargar(true);
+    });
+  }
+
   private normalizarRol(rol: RolDefinicion): RolDefinicion {
     const permisosValidos = Array.isArray(rol.permisos)
       ? rol.permisos.filter((permiso) => IDS_PERMISOS_VALIDOS.has(permiso))
@@ -25,6 +97,11 @@ class RolesPermisosService {
   }
 
   private cargarRolesPersistidos(): RolDefinicion[] {
+    if (USAR_BACKEND) {
+      if (!this.cacheBackend) void this.recargar();
+      return this.cacheBackend ?? this.rolesSistema();
+    }
+
     try {
       const guardados = localStorage.getItem(CLAVE_STORAGE_ROLES);
       if (guardados) {
@@ -50,6 +127,11 @@ class RolesPermisosService {
   }
 
   private guardarRoles(roles: RolDefinicion[]): void {
+    if (USAR_BACKEND) {
+      this.cacheBackend = roles;
+      return;
+    }
+
     try {
       localStorage.setItem(CLAVE_STORAGE_ROLES, JSON.stringify(roles));
     } catch {
@@ -85,6 +167,9 @@ class RolesPermisosService {
 
     roles.push(nuevoRol);
     this.guardarRoles(roles);
+    this.sincronizarEscritura(() =>
+      this.solicitar<RolDefinicion>('', this.opcionesJson('POST', nuevoRol))
+    );
     return nuevoRol;
   }
 
@@ -108,6 +193,12 @@ class RolesPermisosService {
 
     roles[idx] = rolActualizado;
     this.guardarRoles(roles);
+    this.sincronizarEscritura(() =>
+      this.solicitar<RolDefinicion>(
+        `/${encodeURIComponent(id)}`,
+        this.opcionesJson('PATCH', rolActualizado)
+      )
+    );
     return rolActualizado;
   }
 
@@ -122,6 +213,9 @@ class RolesPermisosService {
 
     const filtrados = roles.filter((r) => r.id !== id);
     this.guardarRoles(filtrados);
+    this.sincronizarEscritura(() =>
+      this.solicitar(`/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    );
     return true;
   }
 
