@@ -52,6 +52,8 @@ import { crearAlmacenUsuariosDesdeEntorno } from './auth/user-store.js';
 import { crearRutasUsuarios } from './auth/user-routes.js';
 import { crearMiddlewareAuditoria, crearRutasAuditoria } from './audit/audit-routes.js';
 import { crearRegistroAuditoriaDesdeEntorno } from './audit/audit-log.js';
+import { crearRutasClientes } from './clientes/cliente-routes.js';
+import { crearAlmacenClientesDesdeEntorno } from './clientes/cliente-store.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -65,11 +67,13 @@ const ORIGENES_PERMITIDOS = (
 const AUTENTICACION = resolverConfiguracionAuth(process.env);
 const USUARIOS = crearAlmacenUsuariosDesdeEntorno(process.env);
 const AUDITORIA = crearRegistroAuditoriaDesdeEntorno(process.env);
+const CLIENTES = crearAlmacenClientesDesdeEntorno(process.env);
 const PERMITIR_HOSTS_PRIVADOS = process.env.EMAIL_ALLOW_PRIVATE_HOSTS === 'true';
 
 app.locals.autenticacion = AUTENTICACION;
 app.locals.usuarios = USUARIOS;
 app.locals.auditoria = AUDITORIA;
+app.locals.clientes = CLIENTES;
 
 const limitarLogin = crearMiddlewareRateLimit({
   maximo: 10,
@@ -223,6 +227,7 @@ app.get('/api/auth/me', (req, res) => {
 
 app.use('/api/usuarios', crearRutasUsuarios());
 app.use('/api/auditoria', crearRutasAuditoria());
+app.use('/api/clientes', crearRutasClientes());
 
 async function validarDestinosCorreo(req, res, next) {
   const hosts = extraerHostsCorreo(req.body);

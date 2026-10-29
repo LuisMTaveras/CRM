@@ -59,6 +59,7 @@ beforeAll(async () => {
   process.env.CRM_ADMIN_NOMBRE = 'Administrador de Pruebas';
   process.env.CRM_SESSION_SECRET = 'secreto-de-pruebas-con-longitud-suficiente-1234567890';
   process.env.CRM_REQUIRE_AUTH = 'true';
+  process.env.CRM_DB_DIR = path.join(directorioTemporal, 'db');
 
   const modulo = await import('./email-server.js');
   app = modulo.app;
@@ -267,5 +268,195 @@ describe('API de autenticacion y administracion', () => {
 
     const { datos: posterior } = await solicitar('/api/auditoria?page=1&pageSize=50', { token: tokenAdmin });
     expect(posterior.eventos.some((evento) => evento.accion === 'auditoria.limpiar')).toBe(true);
+  });
+});
+
+describe('API de clientes', () => {
+  let clienteId;
+
+  it('rechaza el acceso sin token', async () => {
+    const { respuesta } = await solicitar('/api/clientes');
+    expect(respuesta.status).toBe(401);
+  });
+
+  it('crea y consulta un cliente con contactos y oportunidades', async () => {
+    const { respuesta, datos } = await solicitar('/api/clientes', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        razon_social: 'Comercializadora Caribe SRL',
+        nombre_comercial: 'Caribe Foods',
+        identificacion_fiscal: '1-01-12345-6',
+        sector: 'Alimentos',
+        estado: 'prospecto',
+        prioridad: 'alta',
+        email: 'contacto@caribefoods.test',
+        telefono: '8095550101',
+        ciudad: 'Santiago',
+        valor_estimado: 250000,
+        responsable: 'Camila Morales',
+        contactos: [
+          { nombre: 'Ana Perez', cargo: 'Gerente', email: 'ana@caribefoods.test', telefono: '8095550102', es_principal: true },
+        ],
+      },
+    });
+
+    expect(respuesta.status).toBe(201);
+    expect(datos.id).toBeTruthy();
+    expect(datos.codigo).toBe('CLI-001');
+    expect(datos.contactos).toHaveLength(1);
+    expect(datos.contactos[0].es_principal).toBe(true);
+    clienteId = datos.id;
+
+    const creadaOportunidad = await solicitar(`/api/clientes/${clienteId}/oportunidades`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: { titulo: 'Suministro anual', monto: 500000, etapa: 'negociacion', probabilidad: 70 },
+    });
+    expect(creadaOportunidad.respuesta.status).toBe(201);
+
+    const detalle = await solicitar(`/api/clientes/${clienteId}`, { token: tokenAdmin });
+    expect(detalle.respuesta.status).toBe(200);
+    expect(detalle.datos.oportunidades).toHaveLength(1);
+    expect(detalle.datos.valor_estimado).toBe(500000);
+  });
+
+  it('lista con paginacion, busqueda y estadisticas reales', async () => {
+    const { respuesta, datos } = await solicitar(
+      '/api/clientes?pagina=1&tamanoPagina=5&busqueda=Caribe&estado=prospecto',
+      { token: tokenAdmin }
+    );
+    expect(respuesta.status).toBe(200);
+    expect(datos.total).toBe(1);
+    expect(datos.datos[0].nombre_comercial).toBe('Caribe Foods');
+    expect(datos.estadisticas.prospectos).toBe(1);
+    expect(datos.estadisticas.valorTotalPipeline).toBe(500000);
+  });
+
+  it('actualiza contacto principal y etapa de oportunidad', async () => {
+    const detalle = await solicitar(`/api/clientes/${clienteId}`, { token: tokenAdmin });
+    const contacto = detalle.datos.contactos[0];
+    const oportunidad = detalle.datos.oportunidades[0];
+
+    const segundo = await solicitar(`/api/clientes/${clienteId}/contactos`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: { nombre: 'Luis Gomez', cargo: 'Compras', email: 'luis@caribefoods.test', telefono: '8095550103' },
+    });
+    expect(segundo.respuesta.status).toBe(201);
+
+    const principal = await solicitar(`/api/clientes/${clienteId}/contactos/${segundo.datos.id}/principal`, {
+      token: tokenAdmin,
+      method: 'POST',
+    });
+    expect(principal.respuesta.status).toBe(200);
+
+    const trasPrincipal = await solicitar(`/api/clientes/${clienteId}`, { token: tokenAdmin });
+    expect(trasPrincipal.datos.contactos.filter((item) => item.es_principal)).toHaveLength(1);
+    expect(trasPrincipal.datos.contactos.find((item) => item.es_principal).id).toBe(segundo.datos.id);
+
+    const etapa = await solicitar(`/api/clientes/oportunidades/${oportunidad.id}/etapa`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { etapa: 'ganada' },
+    });
+    expect(etapa.respuesta.status).toBe(200);
+
+    const trasEtapa = await solicitar(`/api/clientes/${clienteId}`, { token: tokenAdmin });
+    expect(trasEtapa.datos.estado).toBe('activo');
+    expect(trasEtapa.datos.oportunidades[0].probabilidad).toBe(100);
+
+    expect(contacto.id).toBeTruthy();
+  });
+
+  it('registra actividades y exporta CSV seguro', async () => {
+    const actividad = await solicitar(`/api/clientes/${clienteId}/actividades`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: { tipo: 'llamada', descripcion: '=Seguimiento telefonico', realizado_por: 'Camila Morales' },
+    });
+    expect(actividad.respuesta.status).toBe(201);
+
+    const { respuesta, texto } = await solicitar('/api/clientes/exportar.csv', { token: tokenAdmin });
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.headers.get('content-type')).toContain('text/csv');
+    expect(texto).toContain('Comercializadora Caribe SRL');
+  });
+
+  it('importa clientes y omite duplicados por RNC', async () => {
+    const { respuesta, datos } = await solicitar('/api/clientes/importar', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        clientes: [
+          {
+            razon_social: 'Grupo del Norte SRL',
+            identificacion_fiscal: '1-31-99887-1',
+            sector: 'Servicios',
+            estado: 'activo',
+            prioridad: 'media',
+            responsable: 'Ignacio Silva',
+            valor_estimado: 100000,
+          },
+          {
+            razon_social: 'Comercializadora Caribe SRL',
+            identificacion_fiscal: '1-01-12345-6',
+            sector: 'Alimentos',
+            estado: 'activo',
+            prioridad: 'alta',
+            responsable: 'Camila Morales',
+          },
+        ],
+      },
+    });
+
+    expect(respuesta.status).toBe(201);
+    expect(datos.creados).toBe(1);
+    expect(datos.omitidos).toHaveLength(1);
+    expect(datos.total).toBe(2);
+  });
+
+  it('permite lectura a auditores pero bloquea escritura', async () => {
+    const { datos: creado } = await solicitar('/api/usuarios', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Auditor de Clientes',
+        email: 'auditor.clientes@crm.test',
+        contrasena: USUARIO_PASSWORD,
+        rol: 'auditor',
+      },
+    });
+    expect(creado.usuario.id).toBeTruthy();
+    const tokenAuditor = await iniciarSesion('auditor.clientes@crm.test', USUARIO_PASSWORD);
+
+    const lectura = await solicitar('/api/clientes', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+    expect(lectura.datos.total).toBe(2);
+
+    const escritura = await solicitar('/api/clientes', {
+      token: tokenAuditor,
+      method: 'POST',
+      body: {
+        razon_social: 'No Autorizado SRL',
+        identificacion_fiscal: '1-01-00000-0',
+        sector: 'Servicios',
+        estado: 'prospecto',
+        prioridad: 'baja',
+        responsable: 'Nadie',
+      },
+    });
+    expect(escritura.respuesta.status).toBe(403);
+  });
+
+  it('elimina clientes y devuelve 404 en el detalle', async () => {
+    const { respuesta } = await solicitar(`/api/clientes/${clienteId}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(respuesta.status).toBe(200);
+
+    const detalle = await solicitar(`/api/clientes/${clienteId}`, { token: tokenAdmin });
+    expect(detalle.respuesta.status).toBe(404);
   });
 });

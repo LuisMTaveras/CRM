@@ -13,11 +13,71 @@ import { CLIENTES_SEMILLA } from './cliente.mock-data';
 import { API_BASE_URL } from '@/core/api/api-config';
 
 const CLAVE_STORAGE_CLIENTES = 'crm_clientes_registrados';
+const USAR_BACKEND =
+  import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
 
 class ClienteService {
   private memoriaClientes: Cliente[] = this.cargarClientesIniciales();
+  private hidratacionEnCurso: Promise<void> | null = null;
+
+  private async solicitar<T>(ruta: string, init?: RequestInit): Promise<T> {
+    const respuesta = await fetch(`${API_BASE_URL}/clientes${ruta}`, init);
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+      throw new Error(
+        (data && typeof data.error === 'string' && data.error) ||
+          `Error en el servidor al consultar clientes: ${respuesta.statusText}`
+      );
+    }
+
+    return data as T;
+  }
+
+  private opcionesJson(method: string, body?: unknown): RequestInit {
+    return {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+  }
+
+  /**
+   * Mantiene una copia local del backend para los consumidores sincronos
+   * (buscador global, selectores y metricas instantaneas).
+   */
+  private asegurarHidratacion(): void {
+    if (!USAR_BACKEND) return;
+    void this.hidratarCache();
+  }
+
+  async hidratarCache(): Promise<void> {
+    if (!USAR_BACKEND) return;
+    if (this.hidratacionEnCurso) return this.hidratacionEnCurso;
+
+    this.hidratacionEnCurso = (async () => {
+      try {
+        const data = await this.solicitar<{ ok: boolean; clientes: Cliente[] }>('/todos');
+        this.memoriaClientes = Array.isArray(data.clientes) ? data.clientes : [];
+      } catch {
+        // Sin conexion: conservamos la ultima copia disponible.
+      } finally {
+        this.hidratacionEnCurso = null;
+      }
+    })();
+
+    return this.hidratacionEnCurso;
+  }
+
+  private actualizarMemoria(cliente: Cliente): void {
+    const indice = this.memoriaClientes.findIndex((item) => item.id === cliente.id);
+    if (indice === -1) this.memoriaClientes.unshift(cliente);
+    else this.memoriaClientes[indice] = cliente;
+  }
 
   private cargarClientesIniciales(): Cliente[] {
+    if (USAR_BACKEND) return [];
+
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE_CLIENTES);
       if (guardado !== null) {
@@ -69,9 +129,7 @@ class ClienteService {
    * o conecta al endpoint real si VITE_USE_MOCK es falso.
    */
   async obtenerClientes(params: ParametrosTabla): Promise<RespuestaClientesPaginada> {
-    const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
-
-    if (!useMock) {
+    if (USAR_BACKEND) {
       const queryParams = new URLSearchParams();
       if (params.pagina) queryParams.set('pagina', String(params.pagina));
       if (params.tamanoPagina) queryParams.set('tamanoPagina', String(params.tamanoPagina));
@@ -81,11 +139,11 @@ class ClienteService {
       if (params.estado) queryParams.set('estado', params.estado);
       if (params.sector) queryParams.set('sector', params.sector);
 
-      const resp = await fetch(`${API_BASE_URL}/clientes?${queryParams.toString()}`);
-      if (!resp.ok) {
-        throw new Error(`Error en el servidor al consultar clientes: ${resp.statusText}`);
+      const respuesta = await this.solicitar<RespuestaClientesPaginada>(`?${queryParams.toString()}`);
+      if (Array.isArray(respuesta.datos)) {
+        respuesta.datos.forEach((cliente) => this.actualizarMemoria(cliente));
       }
-      return await resp.json();
+      return respuesta;
     }
 
     // --- Adaptador Asíncrono PostgreSQL (Simulación con latencia de red) ---
@@ -98,6 +156,7 @@ class ClienteService {
    * Permite hidratar la tabla al instante (0ms) sin skeleton ni pantalla de espera.
    */
   obtenerClientesSincrono(params: ParametrosTabla): RespuestaClientesPaginada {
+    this.asegurarHidratacion();
     return this.filtrarYPaginarMemoria(params);
   }
 
@@ -177,12 +236,39 @@ class ClienteService {
   }
 
   async obtenerClientePorId(id: string): Promise<Cliente | null> {
+    if (USAR_BACKEND) {
+      try {
+        const cliente = await this.solicitar<Cliente>(`/${encodeURIComponent(id)}`);
+        if (cliente) this.actualizarMemoria(cliente);
+        return cliente || null;
+      } catch {
+        return null;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const encontrado = this.memoriaClientes.find((c) => c.id === id);
     return encontrado ? JSON.parse(JSON.stringify(encontrado)) : null;
   }
 
   async crearCliente(datos: NuevoClienteInput): Promise<Cliente> {
+    if (USAR_BACKEND) {
+      const contactos = datos.contacto_nombre && datos.contacto_nombre.trim() !== ''
+        ? [{
+            nombre: datos.contacto_nombre.trim(),
+            cargo: datos.contacto_cargo?.trim() || 'Contacto Principal',
+            email: datos.contacto_email?.trim() || datos.email || '',
+            telefono: datos.contacto_telefono?.trim() || datos.telefono || '',
+            es_principal: true,
+          }]
+        : [];
+
+      const creado = await this.solicitar<Cliente>('', this.opcionesJson('POST', { ...datos, contactos }));
+      this.actualizarMemoria(creado);
+      this.guardarEnStorage();
+      return creado;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 350));
     const nuevoCodigo = `CLI-00${this.memoriaClientes.length + 1}`;
     const nuevoId = crypto.randomUUID ? crypto.randomUUID() : `cli-${Date.now()}`;
@@ -227,6 +313,15 @@ class ClienteService {
   }
 
   async agregarContacto(clienteId: string, input: NuevoContactoInput): Promise<Contacto> {
+    if (USAR_BACKEND) {
+      const contacto = await this.solicitar<Contacto>(
+        `/${encodeURIComponent(clienteId)}/contactos`,
+        this.opcionesJson('POST', input)
+      );
+      await this.obtenerClientePorId(clienteId);
+      return contacto;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente) throw new Error('Cliente no encontrado');
@@ -258,6 +353,18 @@ class ClienteService {
   }
 
   async eliminarContacto(clienteId: string, contactoId: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(`/${encodeURIComponent(clienteId)}/contactos/${encodeURIComponent(contactoId)}`, {
+          method: 'DELETE',
+        });
+        await this.obtenerClientePorId(clienteId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente || !cliente.contactos) return false;
@@ -279,6 +386,19 @@ class ClienteService {
   }
 
   async marcarContactoPrincipal(clienteId: string, contactoId: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/${encodeURIComponent(clienteId)}/contactos/${encodeURIComponent(contactoId)}/principal`,
+          { method: 'POST' }
+        );
+        await this.obtenerClientePorId(clienteId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente || !cliente.contactos) return false;
@@ -293,6 +413,16 @@ class ClienteService {
   }
 
   async actualizarEstado(id: string, nuevoEstado: EstadoCliente): Promise<Cliente> {
+    if (USAR_BACKEND) {
+      const actualizado = await this.solicitar<Cliente>(
+        `/${encodeURIComponent(id)}`,
+        this.opcionesJson('PATCH', { estado: nuevoEstado })
+      );
+      this.actualizarMemoria(actualizado);
+      this.guardarEnStorage();
+      return actualizado;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const idx = this.memoriaClientes.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('Cliente no encontrado');
@@ -308,6 +438,16 @@ class ClienteService {
   }
 
   async actualizarCliente(id: string, datos: Partial<Cliente>): Promise<Cliente> {
+    if (USAR_BACKEND) {
+      const actualizado = await this.solicitar<Cliente>(
+        `/${encodeURIComponent(id)}`,
+        this.opcionesJson('PATCH', datos)
+      );
+      this.actualizarMemoria(actualizado);
+      this.guardarEnStorage();
+      return actualizado;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const idx = this.memoriaClientes.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('Cliente no encontrado');
@@ -326,6 +466,15 @@ class ClienteService {
     clienteId: string,
     input: Omit<Oportunidad, 'id' | 'cliente_id' | 'creado_en'>
   ): Promise<Oportunidad> {
+    if (USAR_BACKEND) {
+      const oportunidad = await this.solicitar<Oportunidad>(
+        `/${encodeURIComponent(clienteId)}/oportunidades`,
+        this.opcionesJson('POST', input)
+      );
+      await this.obtenerClientePorId(clienteId);
+      return oportunidad;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente) throw new Error('Cliente no encontrado');
@@ -358,6 +507,15 @@ class ClienteService {
     oportunidadId: string,
     datos: Partial<Oportunidad>
   ): Promise<Oportunidad> {
+    if (USAR_BACKEND) {
+      const actualizada = await this.solicitar<Oportunidad>(
+        `/${encodeURIComponent(clienteId)}/oportunidades/${encodeURIComponent(oportunidadId)}`,
+        this.opcionesJson('PATCH', datos)
+      );
+      await this.obtenerClientePorId(clienteId);
+      return actualizada;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente || !cliente.oportunidades) throw new Error('Oportunidad o cliente no encontrado');
@@ -377,6 +535,19 @@ class ClienteService {
   }
 
   async eliminarOportunidad(clienteId: string, oportunidadId: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/${encodeURIComponent(clienteId)}/oportunidades/${encodeURIComponent(oportunidadId)}`,
+          { method: 'DELETE' }
+        );
+        await this.obtenerClientePorId(clienteId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente || !cliente.oportunidades) return false;
@@ -395,6 +566,15 @@ class ClienteService {
     clienteId: string,
     input: Omit<Actividad, 'id' | 'cliente_id' | 'fecha'>
   ): Promise<Actividad> {
+    if (USAR_BACKEND) {
+      const actividad = await this.solicitar<Actividad>(
+        `/${encodeURIComponent(clienteId)}/actividades`,
+        this.opcionesJson('POST', input)
+      );
+      await this.obtenerClientePorId(clienteId);
+      return actividad;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente) throw new Error('Cliente no encontrado');
@@ -420,6 +600,19 @@ class ClienteService {
   }
 
   async eliminarActividad(clienteId: string, actividadId: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/${encodeURIComponent(clienteId)}/actividades/${encodeURIComponent(actividadId)}`,
+          { method: 'DELETE' }
+        );
+        await this.obtenerClientePorId(clienteId);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     const cliente = this.memoriaClientes.find((c) => c.id === clienteId);
     if (!cliente || !cliente.actividades) return false;
@@ -434,7 +627,9 @@ class ClienteService {
   }
 
   async obtenerTodosParaExportar(filtros?: Partial<ParametrosTabla>): Promise<Cliente[]> {
-    let resultado = [...this.memoriaClientes];
+    let resultado = USAR_BACKEND
+      ? await this.obtenerTodosLosClientes()
+      : [...this.memoriaClientes];
     if (filtros?.estado) {
       resultado = resultado.filter((c) => c.estado === filtros.estado);
     }
@@ -462,6 +657,17 @@ class ClienteService {
       }
     >
   > {
+    if (USAR_BACKEND) {
+      const data = await this.solicitar<{
+        oportunidades: Array<Oportunidad & {
+          cliente_nombre: string;
+          cliente_sector: string;
+          responsable: string;
+        }>;
+      }>('/oportunidades/todas');
+      return Array.isArray(data.oportunidades) ? data.oportunidades : [];
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 200));
     const oportunidadesPlanificadas: Array<
       Oportunidad & {
@@ -488,6 +694,19 @@ class ClienteService {
   }
 
   async moverEtapaOportunidad(oportunidadId: string, nuevaEtapa: Oportunidad['etapa']): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(
+          `/oportunidades/${encodeURIComponent(oportunidadId)}/etapa`,
+          this.opcionesJson('PATCH', { etapa: nuevaEtapa })
+        );
+        await this.hidratarCache();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 150));
     for (const cliente of this.memoriaClientes) {
       if (cliente.oportunidades) {
@@ -518,17 +737,54 @@ class ClienteService {
   }
 
   async obtenerTodosLosClientes(): Promise<Cliente[]> {
+    if (USAR_BACKEND) {
+      const data = await this.solicitar<{ ok: boolean; clientes: Cliente[] }>('/todos');
+      this.memoriaClientes = Array.isArray(data.clientes) ? data.clientes : [];
+      return JSON.parse(JSON.stringify(this.memoriaClientes));
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 50));
     return JSON.parse(JSON.stringify(this.memoriaClientes));
   }
 
   async eliminarCliente(id: string): Promise<boolean> {
+    if (USAR_BACKEND) {
+      try {
+        await this.solicitar(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        this.memoriaClientes = this.memoriaClientes.filter((cliente) => cliente.id !== id);
+        this.guardarEnStorage();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 250));
     const idx = this.memoriaClientes.findIndex((c) => c.id === id);
     if (idx === -1) return false;
     this.memoriaClientes.splice(idx, 1);
     this.guardarEnStorage();
     return true;
+  }
+
+  async importarClientes(
+    contenido: { clientes?: Partial<Cliente>[]; csv?: string },
+    reemplazar = false
+  ): Promise<{ creados: number; omitidos: Array<{ fila: number; motivo: string }>; errores: Array<{ fila: number; motivo: string }>; total: number }> {
+    if (!USAR_BACKEND) {
+      throw new Error('La importacion masiva requiere el servidor backend.');
+    }
+
+    const resultado = await this.solicitar<{
+      ok: boolean;
+      creados: number;
+      omitidos: Array<{ fila: number; motivo: string }>;
+      errores: Array<{ fila: number; motivo: string }>;
+      total: number;
+    }>('/importar', this.opcionesJson('POST', { ...contenido, reemplazar }));
+
+    await this.hidratarCache();
+    return resultado;
   }
 }
 
