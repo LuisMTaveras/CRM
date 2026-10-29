@@ -3,6 +3,7 @@ import { centroNotificacionesService } from '@/core/notifications/centro-notific
 import { notificacionesNativasService } from '@/core/notifications/notificaciones-nativas.service';
 import { toastService } from '@/core/notifications/toast.service';
 import { formatDate } from '@/core/formatters/formatters';
+import { API_BASE_URL } from '@/core/api/api-config';
 import type {
   ActividadSeguimiento,
   NuevaActividadInput,
@@ -13,6 +14,8 @@ import type {
 } from '../types/actividad.types';
 
 const CLAVE_STORAGE = 'crm_agenda_actividades_v1';
+const USAR_BACKEND =
+  import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
 
 // Semillas realistas adaptadas al tejido empresarial B2B dominicano
 const ACTIVIDADES_SEMILLA: ActividadSeguimiento[] = [
@@ -102,15 +105,69 @@ export class ActividadesService {
   private alertasDisparadas = new Set<string>();
 
   constructor() {
-    if (this.items.value.length === 0 && localStorage.getItem(CLAVE_STORAGE) === null) {
-      this.items.value = [...ACTIVIDADES_SEMILLA];
-      this.guardarEnStorage();
+    if (USAR_BACKEND) {
+      void this.recargar();
+    } else {
+      if (this.items.value.length === 0 && localStorage.getItem(CLAVE_STORAGE) === null) {
+        this.items.value = [...ACTIVIDADES_SEMILLA];
+        this.guardarEnStorage();
+      }
+      // Sincronizar alertas iniciales
+      this.sincronizarConCentroNotificaciones();
     }
-    // Sincronizar alertas iniciales
-    this.sincronizarConCentroNotificaciones();
+  }
+
+  private async solicitar<T>(ruta: string, init?: RequestInit): Promise<T> {
+    const respuesta = await fetch(`${API_BASE_URL}/actividades${ruta}`, init);
+    const data = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+      throw new Error(
+        (data && typeof data.error === 'string' && data.error) ||
+          `No se pudo sincronizar la agenda (${respuesta.status}).`
+      );
+    }
+
+    return data as T;
+  }
+
+  private opcionesJson(method: string, body?: unknown): RequestInit {
+    return {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+  }
+
+  /**
+   * Recarga las actividades desde el backend y refresca las alertas.
+   */
+  async recargar(): Promise<void> {
+    if (!USAR_BACKEND) return;
+
+    try {
+      const data = await this.solicitar<{ ok: boolean; datos: ActividadSeguimiento[] }>('?paginar=false');
+      this.items.value = Array.isArray(data.datos) ? data.datos : [];
+      this.guardarEnStorage();
+      this.sincronizarConCentroNotificaciones();
+    } catch {
+      // Sin conexion: se conserva la ultima copia en memoria.
+    }
+  }
+
+  private sincronizarEscritura(crearPeticion: () => Promise<unknown>, alFallar?: () => void): void {
+    if (!USAR_BACKEND) return;
+
+    void crearPeticion().catch((error: unknown) => {
+      toastService.error(error instanceof Error ? error.message : 'No se pudo sincronizar la agenda.');
+      alFallar?.();
+      void this.recargar();
+    });
   }
 
   private cargarDeStorage(): ActividadSeguimiento[] {
+    if (USAR_BACKEND) return [];
+
     try {
       const guardado = localStorage.getItem(CLAVE_STORAGE);
       if (guardado !== null) {
@@ -128,6 +185,7 @@ export class ActividadesService {
   vaciarActividades(): void {
     this.items.value = [];
     this.guardarEnStorage();
+    this.sincronizarEscritura(() => this.solicitar('', { method: 'DELETE' }));
     this.sincronizarConCentroNotificaciones();
   }
 
@@ -245,6 +303,13 @@ export class ActividadesService {
     this.items.value.unshift(nueva);
     this.guardarEnStorage();
 
+    this.sincronizarEscritura(
+      () => this.solicitar('', this.opcionesJson('POST', nueva)),
+      () => {
+        this.items.value = this.items.value.filter((actividad) => actividad.id !== nueva.id);
+      }
+    );
+
     // Sincronizar inmediatamente alerta si corresponde
     this.sincronizarConCentroNotificaciones();
 
@@ -269,6 +334,9 @@ export class ActividadesService {
 
     this.items.value[idx] = actualizada;
     this.guardarEnStorage();
+    this.sincronizarEscritura(() =>
+      this.solicitar(`/${encodeURIComponent(id)}`, this.opcionesJson('PATCH', input))
+    );
     this.sincronizarConCentroNotificaciones();
     return actualizada;
   }
@@ -293,6 +361,16 @@ export class ActividadesService {
 
     this.items.value[idx] = completada;
     this.guardarEnStorage();
+    this.sincronizarEscritura(() =>
+      this.solicitar(
+        `/${encodeURIComponent(id)}`,
+        this.opcionesJson('PATCH', {
+          estado: 'completada',
+          resultadoNotas: completada.resultadoNotas,
+          completadoEn: completada.completadoEn,
+        })
+      )
+    );
 
     // Emitir confirmación en centro de notificaciones
     centroNotificacionesService.agregarNotificacion({
@@ -316,6 +394,9 @@ export class ActividadesService {
     const eliminada = this.items.value.length < longitudPrevia;
     if (eliminada) {
       this.guardarEnStorage();
+      this.sincronizarEscritura(() =>
+        this.solicitar(`/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      );
     }
     return eliminada;
   }
@@ -557,6 +638,10 @@ export class ActividadesService {
    * Restablece las actividades a las semillas originales de demostración
    */
   restablecerSemillas(): void {
+    if (USAR_BACKEND) {
+      void this.recargar();
+      return;
+    }
     this.items.value = [...ACTIVIDADES_SEMILLA];
     this.guardarEnStorage();
     this.sincronizarConCentroNotificaciones();

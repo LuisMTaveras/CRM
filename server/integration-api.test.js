@@ -460,3 +460,95 @@ describe('API de clientes', () => {
     expect(detalle.respuesta.status).toBe(404);
   });
 });
+
+describe('API de agenda y actividades', () => {
+  let actividadId;
+
+  it('crea una actividad y la lista con metricas', async () => {
+    const { respuesta, datos } = await solicitar('/api/actividades', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        id: 'act-prueba-001',
+        clienteId: 'cli-demo',
+        clienteNombre: 'Comercializadora Caribe SRL',
+        titulo: 'Llamada de seguimiento',
+        descripcion: 'Validar propuesta enviada.',
+        tipo: 'llamada',
+        prioridad: 'alta',
+        fechaLimite: new Date().toISOString(),
+        responsable: 'Camila Morales',
+      },
+    });
+
+    expect(respuesta.status).toBe(201);
+    expect(datos.id).toBe('act-prueba-001');
+    actividadId = datos.id;
+
+    const listado = await solicitar('/api/actividades?paginar=false', { token: tokenAdmin });
+    expect(listado.respuesta.status).toBe(200);
+    expect(listado.datos.total).toBe(1);
+    expect(listado.datos.datos[0].titulo).toBe('Llamada de seguimiento');
+    expect(listado.datos.metricas.pendientesHoy).toBe(1);
+  });
+
+  it('filtra por busqueda y actualiza el estado', async () => {
+    const filtrado = await solicitar('/api/actividades?busqueda=seguimiento', { token: tokenAdmin });
+    expect(filtrado.datos.total).toBe(1);
+
+    const sinResultados = await solicitar('/api/actividades?busqueda=inexistente', { token: tokenAdmin });
+    expect(sinResultados.datos.total).toBe(0);
+
+    const actualizada = await solicitar(`/api/actividades/${actividadId}`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { estado: 'completada', resultadoNotas: 'Cliente confirmo la reunion.' },
+    });
+    expect(actualizada.respuesta.status).toBe(200);
+    expect(actualizada.datos.estado).toBe('completada');
+    expect(actualizada.datos.completadoEn).toBeTruthy();
+  });
+
+  it('bloquea la escritura a auditores', async () => {
+    const { datos: creado } = await solicitar('/api/usuarios', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Auditor de Agenda',
+        email: 'auditor.agenda@crm.test',
+        contrasena: USUARIO_PASSWORD,
+        rol: 'auditor',
+      },
+    });
+    expect(creado.usuario.id).toBeTruthy();
+    const tokenAuditor = await iniciarSesion('auditor.agenda@crm.test', USUARIO_PASSWORD);
+
+    const lectura = await solicitar('/api/actividades', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+
+    const escritura = await solicitar('/api/actividades', {
+      token: tokenAuditor,
+      method: 'POST',
+      body: {
+        clienteNombre: 'Cliente',
+        titulo: 'No autorizada',
+        tipo: 'tarea',
+        prioridad: 'baja',
+        fechaLimite: new Date().toISOString(),
+        responsable: 'Auditor',
+      },
+    });
+    expect(escritura.respuesta.status).toBe(403);
+  });
+
+  it('elimina la actividad', async () => {
+    const eliminada = await solicitar(`/api/actividades/${actividadId}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(eliminada.respuesta.status).toBe(200);
+
+    const listado = await solicitar('/api/actividades', { token: tokenAdmin });
+    expect(listado.datos.total).toBe(0);
+  });
+});

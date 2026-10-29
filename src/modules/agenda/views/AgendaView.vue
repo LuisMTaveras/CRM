@@ -97,6 +97,7 @@ onMounted(() => {
   }
   // Sincronizar alertas con el centro de notificaciones
   actividadesService.sincronizarConCentroNotificaciones();
+  void actividadesService.recargar();
 });
 
 // Mapeo de iconos y etiquetas por tipo
