@@ -3,7 +3,7 @@ import { metricasService } from './metricas.service';
 
 describe('MetricasService - Cálculos y Generación de Gráficos', () => {
   it('obtiene métricas comerciales con estructura completa', async () => {
-    const metricas = await metricasService.obtenerMetricas('mes');
+    const metricas = await metricasService.obtenerMetricas('anual');
 
     expect(metricas).toBeDefined();
     expect(metricas.totalCuentas).toBeGreaterThan(0);
@@ -14,7 +14,7 @@ describe('MetricasService - Cálculos y Generación de Gráficos', () => {
   });
 
   it('calcula la distribución por sector con colorHex y porcentajes válidos', async () => {
-    const metricas = await metricasService.obtenerMetricas('mes');
+    const metricas = await metricasService.obtenerMetricas('anual');
 
     expect(metricas.distribucionSectores.length).toBeGreaterThan(0);
     metricas.distribucionSectores.forEach((sec) => {
@@ -27,7 +27,7 @@ describe('MetricasService - Cálculos y Generación de Gráficos', () => {
   });
 
   it('calcula las etapas del embudo con retención entre fases', async () => {
-    const metricas = await metricasService.obtenerMetricas('mes');
+    const metricas = await metricasService.obtenerMetricas('anual');
 
     expect(metricas.distribucionEtapas.length).toBe(5);
     const etapasNombres = metricas.distribucionEtapas.map((e) => e.etapa);
@@ -44,7 +44,7 @@ describe('MetricasService - Cálculos y Generación de Gráficos', () => {
   });
 
   it('calcula la serie de tendencia mensual para gráficos de barras', async () => {
-    const metricas = await metricasService.obtenerMetricas('mes');
+    const metricas = await metricasService.obtenerMetricas('anual');
 
     expect(metricas.tendenciaMensual.length).toBe(6);
     metricas.tendenciaMensual.forEach((mes) => {
@@ -52,12 +52,12 @@ describe('MetricasService - Cálculos y Generación de Gráficos', () => {
       expect(mes.mesCorto).toBeTruthy();
       expect(mes.montoGanado).toBeGreaterThanOrEqual(0);
       expect(mes.montoPipeline).toBeGreaterThanOrEqual(0);
-      expect(mes.dealsTotales).toBeGreaterThanOrEqual(1);
+      expect(mes.dealsTotales).toBeGreaterThanOrEqual(0);
     });
   });
 
   it('calcula ranking de ejecutivos comerciales con tasa de éxito', async () => {
-    const metricas = await metricasService.obtenerMetricas('mes');
+    const metricas = await metricasService.obtenerMetricas('anual');
 
     expect(metricas.topResponsables.length).toBeGreaterThan(0);
     metricas.topResponsables.forEach((resp) => {

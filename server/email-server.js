@@ -63,6 +63,7 @@ import { crearRutasRoles } from './roles/rol-routes.js';
 import { crearAlmacenRolesDesdeEntorno } from './roles/rol-store.js';
 import { crearRutasPipelines } from './pipeline/pipeline-routes.js';
 import { crearAlmacenPipelinesDesdeEntorno } from './pipeline/pipeline-store.js';
+import { crearRutasMetricas } from './metricas/metricas-routes.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -258,6 +259,7 @@ app.use('/api/catalogo', crearRutasCatalogo());
 app.use('/api/cotizaciones', crearRutasCotizaciones());
 app.use('/api/roles', crearRutasRoles());
 app.use('/api/pipelines', crearRutasPipelines());
+app.use('/api/metricas', crearRutasMetricas());
 
 async function validarDestinosCorreo(req, res, next) {
   const hosts = extraerHostsCorreo(req.body);

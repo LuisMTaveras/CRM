@@ -22,6 +22,7 @@ export interface Oportunidad {
   etapa: 'calificacion' | 'propuesta' | 'negociacion' | 'ganada' | 'perdida';
   probabilidad: number;
   fecha_cierre_estimada: string;
+  fecha_cierre?: string;
   creado_en: string;
 }
 

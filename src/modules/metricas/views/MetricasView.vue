@@ -37,7 +37,7 @@ const metricas = ref<MetricasComerciales>({
   totalGanado: 0,
   totalEnNegociacion: 0,
   totalPipelineActivo: 0,
-  tiempoPromedioCierreDias: 28,
+  tiempoPromedioCierreDias: 0,
   distribucionSectores: [],
   distribucionEtapas: [],
   topResponsables: [],

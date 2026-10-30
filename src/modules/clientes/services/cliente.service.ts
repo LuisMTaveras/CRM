@@ -16,6 +16,9 @@ const CLAVE_STORAGE_CLIENTES = 'crm_clientes_registrados';
 const USAR_BACKEND =
   import.meta.env.MODE === 'production' || import.meta.env.VITE_USE_MOCK === 'false';
 
+const esEtapaCerrada = (etapa: Oportunidad['etapa']): boolean =>
+  etapa === 'ganada' || etapa === 'perdida';
+
 class ClienteService {
   private memoriaClientes: Cliente[] = this.cargarClientesIniciales();
   private hidratacionEnCurso: Promise<void> | null = null;
@@ -491,6 +494,7 @@ class ClienteService {
       etapa: input.etapa,
       probabilidad: Number(input.probabilidad) || 50,
       fecha_cierre_estimada: input.fecha_cierre_estimada || new Date().toISOString().slice(0, 10),
+      fecha_cierre: esEtapaCerrada(input.etapa) ? new Date().toISOString() : undefined,
       creado_en: new Date().toISOString(),
     };
 
@@ -527,6 +531,13 @@ class ClienteService {
       ...cliente.oportunidades[idx],
       ...datos,
     };
+
+    if (datos.etapa !== undefined) {
+      actualizada.fecha_cierre = esEtapaCerrada(datos.etapa)
+        ? cliente.oportunidades[idx].fecha_cierre || new Date().toISOString()
+        : undefined;
+    }
+
     cliente.oportunidades[idx] = actualizada;
     cliente.valor_estimado = cliente.oportunidades.reduce((acc, o) => acc + (o.monto || 0), 0);
     cliente.actualizado_en = new Date().toISOString();
@@ -713,6 +724,9 @@ class ClienteService {
         const deal = cliente.oportunidades.find((o) => o.id === oportunidadId);
         if (deal) {
           deal.etapa = nuevaEtapa;
+          deal.fecha_cierre = esEtapaCerrada(nuevaEtapa)
+            ? deal.fecha_cierre || new Date().toISOString()
+            : undefined;
           // Actualizar probabilidad según etapa
           if (nuevaEtapa === 'calificacion') deal.probabilidad = 40;
           else if (nuevaEtapa === 'propuesta') deal.probabilidad = 65;

@@ -13,6 +13,7 @@ let server;
 let baseUrl;
 let directorioTemporal;
 let tokenAdmin;
+let tokenAuditor;
 
 function crearUrl(ruta) {
   return `${baseUrl}${ruta}`;
@@ -365,6 +366,7 @@ describe('API de clientes', () => {
     const trasEtapa = await solicitar(`/api/clientes/${clienteId}`, { token: tokenAdmin });
     expect(trasEtapa.datos.estado).toBe('activo');
     expect(trasEtapa.datos.oportunidades[0].probabilidad).toBe(100);
+    expect(trasEtapa.datos.oportunidades[0].fecha_cierre).toBeTruthy();
 
     expect(contacto.id).toBeTruthy();
   });
@@ -428,7 +430,7 @@ describe('API de clientes', () => {
       },
     });
     expect(creado.usuario.id).toBeTruthy();
-    const tokenAuditor = await iniciarSesion('auditor.clientes@crm.test', USUARIO_PASSWORD);
+    tokenAuditor = await iniciarSesion('auditor.clientes@crm.test', USUARIO_PASSWORD);
 
     const lectura = await solicitar('/api/clientes', { token: tokenAuditor });
     expect(lectura.respuesta.status).toBe(200);
@@ -1007,19 +1009,6 @@ describe('API de pipeline y tableros', () => {
   });
 
   it('permite lectura al auditor pero bloquea la escritura', async () => {
-    const creado = await solicitar('/api/usuarios', {
-      token: tokenAdmin,
-      method: 'POST',
-      body: {
-        nombre: 'Auditor de Pipeline',
-        email: 'auditor.pipeline@crm.test',
-        contrasena: USUARIO_PASSWORD,
-        rol: 'auditor',
-      },
-    });
-    expect(creado.respuesta.status).toBe(201);
-    const tokenAuditor = await iniciarSesion('auditor.pipeline@crm.test', USUARIO_PASSWORD);
-
     const lectura = await solicitar('/api/pipelines?pagina=1&tamanoPagina=5', { token: tokenAuditor });
     expect(lectura.respuesta.status).toBe(200);
 
@@ -1034,5 +1023,100 @@ describe('API de pipeline y tableros', () => {
   it('rechaza la consulta sin token', async () => {
     const { respuesta } = await solicitar('/api/pipelines');
     expect(respuesta.status).toBe(401);
+  });
+});
+
+describe('API de metricas comerciales', () => {
+  let clienteMetricasId;
+
+  it('calcula indicadores reales sobre las oportunidades persistidas', async () => {
+    const cliente = await solicitar('/api/clientes', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        razon_social: 'Distribuidora del Este SRL',
+        nombre_comercial: 'Distribuidora del Este',
+        identificacion_fiscal: '1-32-55443-2',
+        sector: 'Distribucion',
+        estado: 'prospecto',
+        prioridad: 'alta',
+        responsable: 'Camila Morales',
+      },
+    });
+    expect(cliente.respuesta.status).toBe(201);
+    clienteMetricasId = cliente.datos.id;
+
+    const oportunidad = await solicitar(`/api/clientes/${clienteMetricasId}/oportunidades`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        titulo: 'Contrato anual de distribucion',
+        monto: 750000,
+        etapa: 'negociacion',
+        probabilidad: 80,
+        fecha_cierre_estimada: '2026-12-31',
+      },
+    });
+    expect(oportunidad.respuesta.status).toBe(201);
+
+    const cierre = await solicitar(`/api/clientes/oportunidades/${oportunidad.datos.id}/etapa`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { etapa: 'ganada' },
+    });
+    expect(cierre.respuesta.status).toBe(200);
+
+    const { respuesta, datos } = await solicitar('/api/metricas?periodo=mes', { token: tokenAdmin });
+    expect(respuesta.status).toBe(200);
+    expect(datos.periodo).toBe('mes');
+
+    const metricas = datos.metricas;
+    expect(metricas.totalCuentas).toBeGreaterThanOrEqual(2);
+    expect(metricas.totalOportunidades).toBeGreaterThanOrEqual(1);
+    expect(metricas.totalGanado).toBeGreaterThanOrEqual(750000);
+    expect(metricas.tasaConversion).toBeGreaterThan(0);
+    expect(metricas.tasaConversion).toBeLessThanOrEqual(100);
+    expect(metricas.tiempoPromedioCierreDias).toBeGreaterThanOrEqual(0);
+
+    const sumaEtapas = metricas.distribucionEtapas.reduce((total, etapa) => total + etapa.cantidad, 0);
+    expect(metricas.distribucionEtapas).toHaveLength(5);
+    expect(sumaEtapas).toBe(metricas.totalOportunidades);
+
+    const sumaSectores = metricas.distribucionSectores.reduce(
+      (total, sector) => total + sector.montoTotal,
+      0
+    );
+    expect(sumaSectores).toBeGreaterThanOrEqual(
+      metricas.totalGanado + metricas.totalEnNegociacion + metricas.totalPipelineActivo
+    );
+
+    expect(metricas.tendenciaMensual).toHaveLength(6);
+    metricas.tendenciaMensual.forEach((mes) => {
+      expect(mes.mes).toBeTruthy();
+      expect(mes.montoGanado).toBeGreaterThanOrEqual(0);
+      expect(mes.montoPipeline).toBeGreaterThanOrEqual(0);
+      expect(mes.dealsTotales).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  it('ajusta el alcance segun el periodo y valida el parametro', async () => {
+    const anual = await solicitar('/api/metricas?periodo=anual', { token: tokenAdmin });
+    expect(anual.respuesta.status).toBe(200);
+    expect(anual.datos.periodo).toBe('anual');
+    expect(anual.datos.metricas.totalOportunidades).toBeGreaterThanOrEqual(
+      (await solicitar('/api/metricas?periodo=mes', { token: tokenAdmin })).datos.metricas.totalOportunidades
+    );
+
+    const invalido = await solicitar('/api/metricas?periodo=decadas', { token: tokenAdmin });
+    expect(invalido.respuesta.status).toBe(200);
+    expect(invalido.datos.periodo).toBe('mes');
+  });
+
+  it('permite lectura al auditor y rechaza la consulta sin token', async () => {
+    const lectura = await solicitar('/api/metricas?periodo=anual', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+
+    const sinToken = await solicitar('/api/metricas');
+    expect(sinToken.respuesta.status).toBe(401);
   });
 });

@@ -42,6 +42,12 @@ function fechaCorta(valor) {
   return fecha.toISOString().slice(0, 10);
 }
 
+function fechaOpcional(valor) {
+  if (!valor) return undefined;
+  const fecha = new Date(valor);
+  return Number.isNaN(fecha.getTime()) ? undefined : fecha.toISOString();
+}
+
 function limpiarId(valor) {
   return texto(valor, 80);
 }
@@ -61,6 +67,7 @@ function normalizarContacto(datos, clienteId) {
 
 function normalizarOportunidad(datos, clienteId) {
   const etapa = ETAPAS_OPORTUNIDAD.includes(datos?.etapa) ? datos.etapa : 'calificacion';
+  const cerrada = etapa === 'ganada' || etapa === 'perdida';
   return {
     id: limpiarId(datos?.id) || `op-${crypto.randomUUID()}`,
     cliente_id: clienteId,
@@ -69,6 +76,7 @@ function normalizarOportunidad(datos, clienteId) {
     etapa,
     probabilidad: Math.min(100, Math.max(0, numero(datos?.probabilidad ?? 50))),
     fecha_cierre_estimada: fechaCorta(datos?.fecha_cierre_estimada),
+    fecha_cierre: cerrada ? fechaOpcional(datos?.fecha_cierre) || new Date().toISOString() : undefined,
     creado_en: fechaIso(datos?.creado_en),
   };
 }
@@ -464,10 +472,14 @@ export function crearAlmacenClientes(coleccion) {
         if (indice === -1) continue;
 
         const actualizadas = [...oportunidades];
+        const cerrada = nuevaEtapa === 'ganada' || nuevaEtapa === 'perdida';
         actualizadas[indice] = {
           ...actualizadas[indice],
           etapa: nuevaEtapa,
           probabilidad: probabilidades[nuevaEtapa],
+          fecha_cierre: cerrada
+            ? actualizadas[indice].fecha_cierre || new Date().toISOString()
+            : undefined,
         };
 
         const cambios = {
