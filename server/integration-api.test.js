@@ -809,3 +809,230 @@ describe('API de roles y permisos', () => {
     expect(respuesta.status).toBe(401);
   });
 });
+
+describe('API de pipeline y tableros', () => {
+  let pipelineId;
+  let clientePipelineId;
+  let tarjetaPrincipalId;
+
+  it('crea un cliente base para las tarjetas del tablero', async () => {
+    const { respuesta, datos } = await solicitar('/api/clientes', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        razon_social: 'Servicios Integrales del Norte SA',
+        nombre_comercial: 'Servicios del Norte',
+        identificacion_fiscal: '1-31-98765-4',
+        sector: 'Servicios',
+        estado: 'prospecto',
+        prioridad: 'media',
+        email: 'contacto@serviciosnorte.test',
+        telefono: '8095550199',
+        responsable: 'Equipo Comercial',
+      },
+    });
+    expect(respuesta.status).toBe(201);
+    clientePipelineId = datos.id;
+  });
+
+  it('lista tableros paginados con resumen real de tarjetas', async () => {
+    const { respuesta, datos } = await solicitar('/api/pipelines?pagina=1&tamanoPagina=2', {
+      token: tokenAdmin,
+    });
+    expect(respuesta.status).toBe(200);
+    expect(datos.total).toBeGreaterThanOrEqual(2);
+    expect(datos.pipelines.length).toBeLessThanOrEqual(2);
+    expect(Array.isArray(datos.resumen)).toBe(true);
+    expect(datos.resumen.some((item) => item.id === 'pipeline-comercial')).toBe(true);
+    expect(datos.resumen.some((item) => item.id === 'pipeline-visitas')).toBe(true);
+  });
+
+  it('crea, actualiza y elimina un tablero con sus etapas', async () => {
+    const creado = await solicitar('/api/pipelines', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Pipeline de Pruebas Integracion',
+        descripcion: 'Tablero temporal de la suite.',
+        tipo: 'personalizado',
+        columnas: [
+          { titulo: 'Entrada', color: 'border-sky-500/40 text-sky-400', bgBadge: 'bg-sky-500/10 border-sky-500/20' },
+          { titulo: 'Cierre', color: 'border-emerald-500/40 text-emerald-400', bgBadge: 'bg-emerald-500/10 border-emerald-500/20' },
+        ],
+      },
+    });
+    expect(creado.respuesta.status).toBe(201);
+    expect(creado.datos.id).toMatch(/^pipeline-/);
+    expect(creado.datos.columnas).toHaveLength(2);
+    expect(creado.datos.columnas[1].es_completado).toBe(true);
+    pipelineId = creado.datos.id;
+
+    const columna = await solicitar(`/api/pipelines/${pipelineId}/columnas`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: { titulo: 'Etapa Intermedia' },
+    });
+    expect(columna.respuesta.status).toBe(201);
+
+    const detalle = await solicitar(`/api/pipelines/${pipelineId}`, { token: tokenAdmin });
+    expect(detalle.datos.columnas).toHaveLength(3);
+    expect(detalle.datos.columnas[2].es_completado).toBe(true);
+    expect(detalle.datos.columnas[1].titulo).toBe('Etapa Intermedia');
+
+    const renombrada = await solicitar(
+      `/api/pipelines/${pipelineId}/columnas/${detalle.datos.columnas[1].id}`,
+      { token: tokenAdmin, method: 'PATCH', body: { titulo: 'Etapa Renombrada' } }
+    );
+    expect(renombrada.respuesta.status).toBe(200);
+    expect(renombrada.datos.titulo).toBe('Etapa Renombrada');
+  });
+
+  it('crea tarjetas con id externo, las mueve y las elimina', async () => {
+    const detalle = await solicitar(`/api/pipelines/${pipelineId}`, { token: tokenAdmin });
+    const [origen, destino] = detalle.datos.columnas;
+
+    const creada = await solicitar(`/api/pipelines/${pipelineId}/tarjetas`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        id: 'tarjeta-integracion-1',
+        columna_id: origen.id,
+        cliente_id: clientePipelineId,
+        cliente_nombre: 'Servicios del Norte',
+        cliente_sector: 'Servicios',
+        responsable: 'Equipo Comercial',
+        titulo: 'Suministro trimestral',
+        monto: 350000,
+        fecha_objetivo: '2026-12-31',
+        probabilidad: 60,
+        prioridad: 'alta',
+      },
+    });
+    expect(creada.respuesta.status).toBe(201);
+    expect(creada.datos.id).toBe('tarjeta-integracion-1');
+    expect(creada.datos.cliente_id).toBe(clientePipelineId);
+    tarjetaPrincipalId = creada.datos.id;
+
+    const duplicada = await solicitar(`/api/pipelines/${pipelineId}/tarjetas`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        id: tarjetaPrincipalId,
+        columna_id: origen.id,
+        cliente_id: clientePipelineId,
+        titulo: 'Duplicada',
+      },
+    });
+    expect(duplicada.respuesta.status).toBe(409);
+
+    const segunda = await solicitar(`/api/pipelines/${pipelineId}/tarjetas`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        id: 'tarjeta-integracion-2',
+        columna_id: destino.id,
+        cliente_id: clientePipelineId,
+        cliente_nombre: 'Servicios del Norte',
+        titulo: 'Renovacion anual',
+        monto: 120000,
+        fecha_objetivo: '2027-01-15',
+      },
+    });
+    expect(segunda.respuesta.status).toBe(201);
+
+    const listado = await solicitar(`/api/pipelines/${pipelineId}/tarjetas?paginar=false`, {
+      token: tokenAdmin,
+    });
+    expect(listado.respuesta.status).toBe(200);
+    expect(listado.datos.total).toBe(2);
+
+    const actualizada = await solicitar(
+      `/api/pipelines/${pipelineId}/tarjetas/${tarjetaPrincipalId}`,
+      { token: tokenAdmin, method: 'PATCH', body: { monto: 400000, prioridad: 'media' } }
+    );
+    expect(actualizada.respuesta.status).toBe(200);
+    expect(actualizada.datos.monto).toBe(400000);
+    expect(actualizada.datos.prioridad).toBe('media');
+
+    const movida = await solicitar(
+      `/api/pipelines/${pipelineId}/tarjetas/${tarjetaPrincipalId}/mover`,
+      { token: tokenAdmin, method: 'POST', body: { columna_id: destino.id, indice: 0 } }
+    );
+    expect(movida.respuesta.status).toBe(200);
+
+    const trasMover = await solicitar(`/api/pipelines/${pipelineId}/tarjetas?paginar=false`, {
+      token: tokenAdmin,
+    });
+    const movidaEnTablero = trasMover.datos.datos.find((t) => t.id === tarjetaPrincipalId);
+    expect(movidaEnTablero.columna_id).toBe(destino.id);
+    expect(movidaEnTablero.orden).toBe(1);
+
+    const posicion = await solicitar(
+      `/api/pipelines/${pipelineId}/tarjetas/${tarjetaPrincipalId}/posicion`,
+      { token: tokenAdmin, method: 'POST', body: { direccion: 'abajo' } }
+    );
+    expect(posicion.respuesta.status).toBe(200);
+
+    const metricas = await solicitar(`/api/pipelines/${pipelineId}/metricas`, { token: tokenAdmin });
+    expect(metricas.respuesta.status).toBe(200);
+    expect(metricas.datos.metricas.total).toBe(2);
+
+    const eliminada = await solicitar(
+      `/api/pipelines/${pipelineId}/tarjetas/${tarjetaPrincipalId}`,
+      { token: tokenAdmin, method: 'DELETE' }
+    );
+    expect(eliminada.respuesta.status).toBe(200);
+
+    const trasEliminar = await solicitar(`/api/pipelines/${pipelineId}/tarjetas?paginar=false`, {
+      token: tokenAdmin,
+    });
+    expect(trasEliminar.datos.total).toBe(1);
+  });
+
+  it('protege el tablero predeterminado y elimina tableros temporales', async () => {
+    const predeterminado = await solicitar('/api/pipelines/pipeline-comercial', {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(predeterminado.respuesta.status).toBe(400);
+
+    const eliminado = await solicitar(`/api/pipelines/${pipelineId}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(eliminado.respuesta.status).toBe(200);
+
+    const detalle = await solicitar(`/api/pipelines/${pipelineId}`, { token: tokenAdmin });
+    expect(detalle.respuesta.status).toBe(404);
+  });
+
+  it('permite lectura al auditor pero bloquea la escritura', async () => {
+    const creado = await solicitar('/api/usuarios', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Auditor de Pipeline',
+        email: 'auditor.pipeline@crm.test',
+        contrasena: USUARIO_PASSWORD,
+        rol: 'auditor',
+      },
+    });
+    expect(creado.respuesta.status).toBe(201);
+    const tokenAuditor = await iniciarSesion('auditor.pipeline@crm.test', USUARIO_PASSWORD);
+
+    const lectura = await solicitar('/api/pipelines?pagina=1&tamanoPagina=5', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+
+    const escritura = await solicitar('/api/pipelines', {
+      token: tokenAuditor,
+      method: 'POST',
+      body: { nombre: 'Tablero no autorizado', columnas: [{ titulo: 'Entrada' }] },
+    });
+    expect(escritura.respuesta.status).toBe(403);
+  });
+
+  it('rechaza la consulta sin token', async () => {
+    const { respuesta } = await solicitar('/api/pipelines');
+    expect(respuesta.status).toBe(401);
+  });
+});
