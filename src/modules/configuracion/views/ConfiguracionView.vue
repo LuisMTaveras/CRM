@@ -21,7 +21,8 @@ import {
   Check,
   UploadCloud,
   Image as ImageIcon,
-  Smartphone
+  Smartphone,
+  Zap
 } from 'lucide-vue-next';
 import { empresaService } from '../services/empresa.service';
 import type { DatosEmpresa } from '../types/empresa.types';
@@ -38,6 +39,7 @@ import {
 } from '@/modules/clientes/types/sector.types';
 import { useRoute } from 'vue-router';
 import ConfiguracionCorreoSection from '../components/ConfiguracionCorreoSection.vue';
+import ConfiguracionAutomatizacionesSection from '../components/ConfiguracionAutomatizacionesSection.vue';
 import ModalConexionWhatsApp from '@/modules/comunicaciones/components/ModalConexionWhatsApp.vue';
 import { whatsAppService } from '@/modules/comunicaciones/services/whatsapp.service';
 import { API_ORIGIN } from '@/core/api/api-config';
@@ -46,7 +48,7 @@ import { useAuthStore } from '@/modules/auth/stores/auth.store';
 const route = useRoute();
 const authStore = useAuthStore();
 const puedeEditar = computed(() => authStore.tienePermiso('configuracion:editar'));
-const pestanaActiva = ref<'empresa' | 'correo' | 'sectores' | 'sistema'>('empresa');
+const pestanaActiva = ref<'empresa' | 'correo' | 'sectores' | 'automatizaciones' | 'sistema'>('empresa');
 const esModoDemo = import.meta.env.VITE_USE_MOCK !== 'false';
 const origenApi = API_ORIGIN;
 const modalWhatsAppAbierto = ref(false);
@@ -293,6 +295,8 @@ onMounted(() => {
     pestanaActiva.value = 'correo';
   } else if (route.query.tab === 'sectores') {
     pestanaActiva.value = 'sectores';
+  } else if (route.query.tab === 'automatizaciones') {
+    pestanaActiva.value = 'automatizaciones';
   } else if (route.query.tab === 'sistema') {
     pestanaActiva.value = 'sistema';
   }
@@ -371,6 +375,19 @@ onMounted(() => {
         >
           <Layers class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
           <span class="hidden sm:inline">Sectores Económicos</span>
+        </button>
+        <button
+          type="button"
+          @click="pestanaActiva = 'automatizaciones'"
+          :class="[
+            'px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5',
+            pestanaActiva === 'automatizaciones'
+              ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-white/[0.08]'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+          ]"
+        >
+          <Zap class="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+          <span class="hidden sm:inline">Automatizaciones</span>
         </button>
       </div>
     </Teleport>
@@ -1027,6 +1044,10 @@ onMounted(() => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div v-else-if="pestanaActiva === 'automatizaciones'" class="space-y-6">
+        <ConfiguracionAutomatizacionesSection />
       </div>
     </FlickerlessSurface>
 

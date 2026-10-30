@@ -30,6 +30,49 @@ function contextoAuditoria(req, accion, entidadId, detalle) {
   req.auditoria = { accion, entidad: 'clientes', entidadId, detalle };
 }
 
+function construirContextoCliente(cliente) {
+  return {
+    clienteId: cliente.id,
+    clienteNombre: cliente.nombre_comercial || cliente.razon_social,
+    sector: cliente.sector || '',
+    prioridad: cliente.prioridad || '',
+    responsable: cliente.responsable || '',
+  };
+}
+
+function buscarOportunidad(clientes, oportunidadId) {
+  for (const cliente of clientes.todos()) {
+    const oportunidad = (cliente.oportunidades || []).find(
+      (item) => item.id === oportunidadId
+    );
+    if (oportunidad) {
+      return {
+        ...construirContextoCliente(cliente),
+        oportunidadId: oportunidad.id,
+        tituloOportunidad: oportunidad.titulo,
+        etapa: oportunidad.etapa,
+        pipelineId: 'pipeline-comercial',
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Dispara las reglas de automatización activas. Cualquier fallo de la regla se
+ * absorbe dentro del motor para no romper la operación comercial principal.
+ */
+function ejecutarAutomatizaciones(req, evento, contexto) {
+  const automatizaciones = req.app.locals.automatizaciones;
+  const actividades = req.app.locals.actividades;
+  if (!automatizaciones || !actividades || !contexto) return;
+
+  automatizaciones.ejecutar(evento, contexto, {
+    crearTarea: (datos) => actividades.crear(datos),
+    registrarNota: (datos) => actividades.crear(datos),
+  });
+}
+
 const MAPA_CSV = {
   Codigo: 'codigo',
   'Razon Social': 'razon_social',
@@ -202,12 +245,19 @@ export function crearRutasClientes() {
       return res.status(503).json({ ok: false, error: 'El almacen de clientes no esta disponible.' });
     }
 
+    const contextoPrevio = buscarOportunidad(clientes, req.params.oportunidadId);
     const actualizado = clientes.moverEtapaOportunidad(
       req.params.oportunidadId,
       String(req.body?.etapa || '')
     );
     if (!actualizado) {
       return res.status(404).json({ ok: false, error: 'Oportunidad no encontrada o etapa invalida.' });
+    }
+
+    const contexto = buscarOportunidad(clientes, req.params.oportunidadId);
+    if (contexto) {
+      contexto.etapaAnterior = contextoPrevio?.etapa || '';
+      ejecutarAutomatizaciones(req, 'etapa_cambiada', contexto);
     }
 
     contextoAuditoria(req, 'clientes.oportunidad.mover', req.params.oportunidadId, `Etapa: ${req.body?.etapa}`);
@@ -241,6 +291,7 @@ export function crearRutasClientes() {
     try {
       const cliente = clientes.crear(req.body || {}, req.auth?.nombre || '');
       contextoAuditoria(req, 'clientes.crear', cliente.id, `Cliente: ${cliente.razon_social}`);
+      ejecutarAutomatizaciones(req, 'cliente_creado', construirContextoCliente(cliente));
       return res.status(201).json(cliente);
     } catch (error) {
       return responderError(res, error);
@@ -346,6 +397,18 @@ export function crearRutasClientes() {
     const oportunidad = clientes.agregarOportunidad(req.params.id, req.body || {});
     if (!oportunidad) {
       return res.status(404).json({ ok: false, error: 'Cliente no encontrado.' });
+    }
+
+    const cliente = clientes.obtener(req.params.id);
+    if (cliente) {
+      ejecutarAutomatizaciones(req, 'oportunidad_creada', {
+        ...construirContextoCliente(cliente),
+        oportunidadId: oportunidad.id,
+        tituloOportunidad: oportunidad.titulo,
+        etapa: oportunidad.etapa,
+        etapaAnterior: '',
+        pipelineId: 'pipeline-comercial',
+      });
     }
 
     contextoAuditoria(req, 'clientes.oportunidad.crear', req.params.id, `Oportunidad: ${oportunidad.titulo}`);

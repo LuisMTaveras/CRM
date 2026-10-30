@@ -812,6 +812,170 @@ describe('API de roles y permisos', () => {
   });
 });
 
+describe('API de automatizaciones comerciales', () => {
+  let reglaId;
+  let clienteAutoId;
+
+  it('lista las reglas sembradas con paginacion', async () => {
+    const { respuesta, datos } = await solicitar('/api/automatizaciones?pagina=1&tamanoPagina=1', {
+      token: tokenAdmin,
+    });
+    expect(respuesta.status).toBe(200);
+    expect(datos.total).toBeGreaterThanOrEqual(2);
+    expect(datos.datos).toHaveLength(1);
+    expect(datos.totalPaginas).toBeGreaterThanOrEqual(2);
+    expect(datos.datos[0].evento).toBeTruthy();
+    expect(datos.datos[0].accion.titulo).toBeTruthy();
+  });
+
+  it('crea, actualiza, alterna y elimina una regla', async () => {
+    const creada = await solicitar('/api/automatizaciones', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        nombre: 'Regla de integracion',
+        descripcion: 'Regla temporal para la suite.',
+        evento: 'cliente_creado',
+        activa: true,
+        condiciones: { prioridad: 'alta' },
+        accion: {
+          tipo: 'registrar_nota',
+          titulo: 'Alta prioridad: {{cliente}}',
+          descripcion: 'Revisar personalmente la cuenta {{cliente}}.',
+          prioridad: 'alta',
+          dias_vencimiento: 1,
+        },
+      },
+    });
+    expect(creada.respuesta.status).toBe(201);
+    expect(creada.datos.id).toMatch(/^auto-/);
+    expect(creada.datos.condiciones.prioridad).toBe('alta');
+    reglaId = creada.datos.id;
+
+    const invalida = await solicitar('/api/automatizaciones', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: { nombre: '', evento: 'cliente_creado', accion: { tipo: 'crear_tarea', titulo: '' } },
+    });
+    expect(invalida.respuesta.status).toBe(400);
+
+    const actualizada = await solicitar(`/api/automatizaciones/${reglaId}`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { nombre: 'Regla de integracion editada' },
+    });
+    expect(actualizada.respuesta.status).toBe(200);
+    expect(actualizada.datos.nombre).toBe('Regla de integracion editada');
+
+    const desactivada = await solicitar(`/api/automatizaciones/${reglaId}`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { activa: false },
+    });
+    expect(desactivada.respuesta.status).toBe(200);
+    expect(desactivada.datos.activa).toBe(false);
+
+    const filtradas = await solicitar('/api/automatizaciones?activa=true&evento=cliente_creado', {
+      token: tokenAdmin,
+    });
+    expect(filtradas.datos.datos.some((regla) => regla.id === reglaId)).toBe(false);
+
+    const eliminada = await solicitar(`/api/automatizaciones/${reglaId}`, {
+      token: tokenAdmin,
+      method: 'DELETE',
+    });
+    expect(eliminada.respuesta.status).toBe(200);
+
+    const detalle = await solicitar(`/api/automatizaciones/${reglaId}`, { token: tokenAdmin });
+    expect(detalle.respuesta.status).toBe(404);
+  });
+
+  it('ejecuta las reglas al mover la etapa y registra tareas y notas', async () => {
+    const cliente = await solicitar('/api/clientes', {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        razon_social: 'Automatizaciones del Caribe SRL',
+        identificacion_fiscal: '1-33-77788-9',
+        sector: 'Tecnologia',
+        estado: 'prospecto',
+        prioridad: 'alta',
+        responsable: 'Camila Morales',
+      },
+    });
+    expect(cliente.respuesta.status).toBe(201);
+    clienteAutoId = cliente.datos.id;
+
+    const oportunidad = await solicitar(`/api/clientes/${clienteAutoId}/oportunidades`, {
+      token: tokenAdmin,
+      method: 'POST',
+      body: {
+        titulo: 'Licenciamiento anual',
+        monto: 320000,
+        etapa: 'calificacion',
+        probabilidad: 40,
+        fecha_cierre_estimada: '2026-12-31',
+      },
+    });
+    expect(oportunidad.respuesta.status).toBe(201);
+
+    const propuesta = await solicitar(`/api/clientes/oportunidades/${oportunidad.datos.id}/etapa`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { etapa: 'propuesta' },
+    });
+    expect(propuesta.respuesta.status).toBe(200);
+
+    const tareas = await solicitar(`/api/actividades?clienteId=${clienteAutoId}`, {
+      token: tokenAdmin,
+    });
+    expect(tareas.respuesta.status).toBe(200);
+    const tareaGenerada = tareas.datos.datos.find((actividad) =>
+      actividad.titulo.includes('Seguimiento de propuesta')
+    );
+    expect(tareaGenerada).toBeTruthy();
+    expect(tareaGenerada.estado).toBe('pendiente');
+    expect(tareaGenerada.descripcion).toContain('Automatizaciones del Caribe');
+
+    const ganada = await solicitar(`/api/clientes/oportunidades/${oportunidad.datos.id}/etapa`, {
+      token: tokenAdmin,
+      method: 'PATCH',
+      body: { etapa: 'ganada' },
+    });
+    expect(ganada.respuesta.status).toBe(200);
+
+    const notas = await solicitar(`/api/actividades?clienteId=${clienteAutoId}`, {
+      token: tokenAdmin,
+    });
+    const notaGenerada = notas.datos.datos.find((actividad) =>
+      actividad.titulo.includes('Trato ganado')
+    );
+    expect(notaGenerada).toBeTruthy();
+    expect(notaGenerada.estado).toBe('completada');
+  });
+
+  it('permite lectura al auditor pero bloquea la escritura', async () => {
+    const lectura = await solicitar('/api/automatizaciones', { token: tokenAuditor });
+    expect(lectura.respuesta.status).toBe(200);
+
+    const escritura = await solicitar('/api/automatizaciones', {
+      token: tokenAuditor,
+      method: 'POST',
+      body: {
+        nombre: 'No autorizada',
+        evento: 'cliente_creado',
+        accion: { tipo: 'crear_tarea', titulo: 'Bloqueada' },
+      },
+    });
+    expect(escritura.respuesta.status).toBe(403);
+  });
+
+  it('rechaza la consulta sin token', async () => {
+    const { respuesta } = await solicitar('/api/automatizaciones');
+    expect(respuesta.status).toBe(401);
+  });
+});
+
 describe('API de pipeline y tableros', () => {
   let pipelineId;
   let clientePipelineId;

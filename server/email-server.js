@@ -64,6 +64,8 @@ import { crearAlmacenRolesDesdeEntorno } from './roles/rol-store.js';
 import { crearRutasPipelines } from './pipeline/pipeline-routes.js';
 import { crearAlmacenPipelinesDesdeEntorno } from './pipeline/pipeline-store.js';
 import { crearRutasMetricas } from './metricas/metricas-routes.js';
+import { crearRutasAutomatizaciones } from './automatizaciones/automatizacion-routes.js';
+import { crearAlmacenAutomatizacionesDesdeEntorno } from './automatizaciones/automatizacion-store.js';
 
 const app = express();
 const PORT = process.env.EMAIL_PORT || process.env.PORT || 3002;
@@ -83,6 +85,7 @@ const CATALOGO = crearAlmacenCatalogoDesdeEntorno(process.env);
 const COTIZACIONES = crearAlmacenCotizacionesDesdeEntorno(process.env);
 const ROLES = crearAlmacenRolesDesdeEntorno(process.env);
 const PIPELINES = crearAlmacenPipelinesDesdeEntorno(process.env);
+const AUTOMATIZACIONES = crearAlmacenAutomatizacionesDesdeEntorno(process.env);
 const PERMITIR_HOSTS_PRIVADOS = process.env.EMAIL_ALLOW_PRIVATE_HOSTS === 'true';
 
 app.locals.autenticacion = AUTENTICACION;
@@ -94,6 +97,7 @@ app.locals.catalogo = CATALOGO;
 app.locals.cotizaciones = COTIZACIONES;
 app.locals.roles = ROLES;
 app.locals.pipelines = PIPELINES;
+app.locals.automatizaciones = AUTOMATIZACIONES;
 
 const limitarLogin = crearMiddlewareRateLimit({
   maximo: 10,
@@ -260,6 +264,7 @@ app.use('/api/cotizaciones', crearRutasCotizaciones());
 app.use('/api/roles', crearRutasRoles());
 app.use('/api/pipelines', crearRutasPipelines());
 app.use('/api/metricas', crearRutasMetricas());
+app.use('/api/automatizaciones', crearRutasAutomatizaciones());
 
 async function validarDestinosCorreo(req, res, next) {
   const hosts = extraerHostsCorreo(req.body);
